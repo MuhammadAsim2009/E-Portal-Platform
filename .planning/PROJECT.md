@@ -39,7 +39,7 @@ Providing a unified, secure, and automated portal for all academic and administr
 
 - **Tech Stack**: React 18, Node.js (Express), PostgreSQL, Redis, AWS. — Explicitly specified in README.md.
 - **Language**: JavaScript (ES6 Modules) - No TypeScript. — Project requirement.
-- **Timeline**: 12 Weeks (Phase 1-6). — Defined in roadmap.
+- **Timeline**: 6 days (Phase 1-6). — Defined in roadmap.
 
 ## Key Decisions
 
