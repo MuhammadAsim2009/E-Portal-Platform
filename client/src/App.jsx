@@ -5,6 +5,9 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+import DashboardLayout from './components/DashboardLayout';
+import StudentDashboard from './pages/student/StudentDashboard';
+import CourseEnrollment from './pages/student/CourseEnrollment';
 
 function App() {
   const initAuth = useAuthStore((state) => state.initAuth);
@@ -20,18 +23,22 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Protected Routes */}
+        {/* Student Module Protected Routes */}
         <Route
-          path="/dashboard"
+          path="/student"
           element={
-            <ProtectedRoute>
-              <Dashboard />
+            <ProtectedRoute allowedRoles={['student']}>
+              <DashboardLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route path="dashboard" element={<StudentDashboard />} />
+          <Route path="courses" element={<CourseEnrollment />} />
+          <Route index element={<Navigate to="dashboard" replace />} />
+        </Route>
 
         {/* Redirects */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Navigate to="/student/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>

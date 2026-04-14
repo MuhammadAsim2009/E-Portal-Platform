@@ -1,9 +1,9 @@
--- E-Portal Platform Database Schema
+-- E-Portal Platform Database Schema v2 (aligned with db_schema.md)
 -- Last Updated: 2026-04-14
 
--- Users table (all roles)
+-- Core Tables
 CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(100) NOT NULL,
   email VARCHAR(150) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
@@ -13,69 +13,116 @@ CREATE TABLE users (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Courses
+CREATE TABLE students (
+  student_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+  cnic VARCHAR(20),
+  date_of_birth DATE,
+  gender VARCHAR(10),
+  contact_number VARCHAR(20),
+  program VARCHAR(100),
+  semester VARCHAR(20),
+  batch VARCHAR(20),
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'withdrawn', 'alumni')),
+  gpa DECIMAL(3,2)
+);
+
+CREATE TABLE faculty (
+  faculty_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+  department VARCHAR(100),
+  designation VARCHAR(100),
+  contact_number VARCHAR(20),
+  qualifications TEXT
+);
+
 CREATE TABLE courses (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  code VARCHAR(20) UNIQUE NOT NULL,
+  course_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_code VARCHAR(20) UNIQUE NOT NULL,
   title VARCHAR(150) NOT NULL,
   credit_hours INT NOT NULL,
-  faculty_id UUID REFERENCES users(id),
-  semester VARCHAR(20),
-  max_seats INT DEFAULT 40,
+  description TEXT,
+  syllabus_url TEXT,
+  department VARCHAR(100),
+  semester_offered VARCHAR(20),
+  is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Enrollments (Student ↔ Course)
-CREATE TABLE enrollments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  student_id UUID REFERENCES users(id),
-  course_id UUID REFERENCES courses(id),
-  enrolled_at TIMESTAMP DEFAULT NOW(),
-  status VARCHAR(20) DEFAULT 'active',
-  UNIQUE(student_id, course_id)
+CREATE TABLE course_sections (
+  section_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_id UUID REFERENCES courses(course_id) ON DELETE CASCADE,
+  faculty_id UUID REFERENCES faculty(faculty_id),
+  section_name VARCHAR(50) NOT NULL,
+  room VARCHAR(50),
+  schedule_time VARCHAR(100),
+  max_seats INT DEFAULT 40,
+  current_seats INT DEFAULT 0
 );
 
--- Assignments
+CREATE TABLE enrollments (
+  enrollment_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID REFERENCES students(student_id) ON DELETE CASCADE,
+  section_id UUID REFERENCES course_sections(section_id) ON DELETE CASCADE,
+  enrollment_date TIMESTAMP DEFAULT NOW(),
+  status VARCHAR(20) DEFAULT 'enrolled' CHECK (status IN ('enrolled', 'dropped')),
+  grade VARCHAR(5),
+  UNIQUE(student_id, section_id)
+);
+
 CREATE TABLE assignments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  course_id UUID REFERENCES courses(id),
+  assignment_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  section_id UUID REFERENCES course_sections(section_id) ON DELETE CASCADE,
   title VARCHAR(200) NOT NULL,
   description TEXT,
   deadline TIMESTAMP NOT NULL,
   max_marks INT DEFAULT 100,
+  submission_type VARCHAR(50),
+  created_by UUID REFERENCES faculty(faculty_id),
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Submissions
 CREATE TABLE submissions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  assignment_id UUID REFERENCES assignments(id),
-  student_id UUID REFERENCES users(id),
+  submission_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  assignment_id UUID REFERENCES assignments(assignment_id) ON DELETE CASCADE,
+  student_id UUID REFERENCES students(student_id) ON DELETE CASCADE,
   file_url TEXT,
   submitted_at TIMESTAMP DEFAULT NOW(),
-  marks INT,
+  is_late BOOLEAN DEFAULT false,
+  marks_obtained INT,
   feedback TEXT,
-  is_late BOOLEAN DEFAULT false
+  graded_by UUID REFERENCES faculty(faculty_id),
+  graded_at TIMESTAMP
 );
 
--- Attendance
 CREATE TABLE attendance (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  course_id UUID REFERENCES courses(id),
-  student_id UUID REFERENCES users(id),
+  attendance_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  section_id UUID REFERENCES course_sections(section_id) ON DELETE CASCADE,
+  student_id UUID REFERENCES students(student_id) ON DELETE CASCADE,
   date DATE NOT NULL,
   status VARCHAR(10) CHECK (status IN ('present','absent','late','excused')),
-  marked_by UUID REFERENCES users(id)
+  marked_by UUID REFERENCES faculty(faculty_id)
 );
 
--- Fees
 CREATE TABLE fees (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  student_id UUID REFERENCES users(id),
+  fee_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID REFERENCES students(student_id) ON DELETE CASCADE,
   semester VARCHAR(20) NOT NULL,
+  fee_type VARCHAR(50),
   amount DECIMAL(10,2) NOT NULL,
-  paid BOOLEAN DEFAULT false,
-  paid_at TIMESTAMP,
-  receipt_url TEXT,
-  due_date DATE
+  due_date DATE,
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('paid', 'pending', 'waived')),
+  discount_amount DECIMAL(10,2) DEFAULT 0,
+  notes TEXT
+);
+
+CREATE TABLE payments (
+  payment_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID REFERENCES students(student_id) ON DELETE CASCADE,
+  fee_id UUID REFERENCES fees(fee_id) ON DELETE CASCADE,
+  amount_paid DECIMAL(10,2) NOT NULL,
+  payment_date TIMESTAMP DEFAULT NOW(),
+  transaction_id VARCHAR(100),
+  payment_method VARCHAR(50),
+  receipt_url TEXT
 );

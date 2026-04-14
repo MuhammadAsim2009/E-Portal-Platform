@@ -20,7 +20,7 @@ export const register = async (req, res) => {
 
     res.status(201).json({
       message: 'Registration successful!',
-      user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role }
+      user: { id: newUser.user_id, name: newUser.name, email: newUser.email, role: newUser.role }
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -51,7 +51,7 @@ export const login = async (req, res) => {
     if (user.mfa_enabled) {
       return res.status(200).json({ 
         message: 'MFA REQUIRED', 
-        userId: user.id 
+        userId: user.user_id 
       });
     }
 
@@ -75,7 +75,7 @@ export const login = async (req, res) => {
 
     res.status(200).json({
       message: 'Login successful!',
-      user: { id: user.id, name: user.name, email: user.email, role: user.role }
+      user: { id: user.user_id, name: user.name, email: user.email, role: user.role }
     });
   } catch (error) {
     console.error('Login error:', error);

@@ -28,7 +28,7 @@ export const comparePassword = async (password, hash) => {
  * Generates both access and refresh tokens
  */
 export const generateTokens = (user) => {
-  const payload = { id: user.id, role: user.role };
+  const payload = { id: user.user_id, role: user.role };
   
   const accessToken = jwt.sign(payload, ACCESS_TOKEN_SECRET, {
     expiresIn: ACCESS_EXPIRY,

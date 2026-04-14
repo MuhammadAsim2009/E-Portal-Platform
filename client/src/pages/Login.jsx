@@ -9,23 +9,28 @@ const Login = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const login = useAuthStore((state) => state.login);
   const navigate = useNavigate();
+  const location = useLocation();
+  const login = useAuthStore((state) => state.login);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    const result = await login(email, password);
-    
-    if (result.success) {
-      navigate('/dashboard');
-    } else {
-      setError(result.message);
+    try {
+      await login(email, password);
+      navigate(location.state?.from || '/student/dashboard', { replace: true });
+    } catch (err) {
+      if (err.message === 'MFA REQUIRED') {
+        const mfaId = err.response?.data?.userId;
+        navigate(`/mfa/verify?userId=${mfaId}`);
+      } else {
+        setError(err.message || 'Failed to login');
+      }
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (

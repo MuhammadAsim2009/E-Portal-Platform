@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.routes.js';
+import studentRoutes from './routes/student.routes.js';
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use(cookieParser());
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/student', studentRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'E-Portal API is running' });
