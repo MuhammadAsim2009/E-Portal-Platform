@@ -8,7 +8,7 @@ import {
   X,
   User
 } from 'lucide-react';
-import useAuthStore from '../store/useAuthStore';
+import useAuthStore from '../store/authStore';
 
 const DashboardLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);

@@ -26,7 +26,7 @@ const useAuthStore = create((set) => ({
     try {
       const response = await api.post('/auth/login', { email, password });
       set({ user: response.data.user, isAuthenticated: true });
-      return { success: true, message: response.data.message };
+      return { success: true, user: response.data.user, message: response.data.message };
     } catch (error) {
       return { 
         success: false, 

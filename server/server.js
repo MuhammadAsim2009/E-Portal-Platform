@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.routes.js';
 import studentRoutes from './routes/student.routes.js';
+import adminRoutes from './routes/admin.routes.js';
+import pool from './config/db.js';
 
 dotenv.config();
 
@@ -21,11 +23,18 @@ app.use(cookieParser());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/student', studentRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'E-Portal API is running' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+  try {
+    // Ping DB to trigger connection log explicitly on boot
+    await pool.query('SELECT NOW()');
+  } catch (err) {
+    console.error('Failed to establish database connection on startup:', err.message);
+  }
 });
