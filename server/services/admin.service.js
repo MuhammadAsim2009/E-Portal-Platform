@@ -86,12 +86,51 @@ export const toggleUserStatus = async (userId) => {
   }
 };
 
+export const getPendingUsers = async () => {
+  try {
+    const res = await db.query(
+      `SELECT user_id, name, email, role, created_at 
+       FROM users 
+       WHERE registration_status = 'pending' 
+       ORDER BY created_at DESC`
+    );
+    return res.rows;
+  } catch {
+    return [];
+  }
+};
+
+export const approveUser = async (userId) => {
+  const res = await db.query(
+    `UPDATE users SET registration_status = 'approved', is_active = true WHERE user_id = $1 RETURNING user_id`,
+    [userId]
+  );
+  return res.rows[0];
+};
+
+export const rejectUser = async (userId) => {
+  const res = await db.query(
+    `UPDATE users SET registration_status = 'rejected', is_active = false WHERE user_id = $1 RETURNING user_id`,
+    [userId]
+  );
+  return res.rows[0];
+};
+
+export const updateUser = async (userId, data) => {
+  const { email, role, name } = data;
+  const res = await db.query(
+    `UPDATE users SET email = $1, role = $2, name = $3 WHERE user_id = $4 RETURNING *`,
+    [email, role, name, userId]
+  );
+  return res.rows[0];
+};
+
 // ─────────────────────── COURSE MANAGEMENT ───────────────────────
 
 export const getAllCourses = async () => {
   try {
     const res = await db.query(
-      `SELECT c.course_id, c.course_code, c.title, c.credit_hours, c.department, c.is_active,
+      `SELECT c.course_id, c.course_code, c.title, c.credit_hours, c.department, c.is_active, c.max_seats,
               COUNT(DISTINCT cs.section_id) as total_sections,
               COALESCE(SUM(cs.current_seats), 0) as total_enrolled
        FROM courses c
@@ -109,12 +148,12 @@ export const getAllCourses = async () => {
   }
 };
 
-export const createCourse = async ({ course_code, title, credit_hours, department, description }) => {
+export const createCourse = async ({ course_code, title, credit_hours, department, description, max_seats }) => {
   try {
     const res = await db.query(
-      `INSERT INTO courses (course_code, title, credit_hours, department, description)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [course_code, title, credit_hours, department, description]
+      `INSERT INTO courses (course_code, title, credit_hours, department, description, max_seats)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [course_code, title, credit_hours, department, description, max_seats || 40]
     );
     return res.rows[0];
   } catch (err) {
@@ -122,7 +161,168 @@ export const createCourse = async ({ course_code, title, credit_hours, departmen
   }
 };
 
-// ─────────────────────── ANNOUNCEMENTS ───────────────────────
+export const updateCourse = async (courseId, data) => {
+  const { course_code, title, credit_hours, department, description, max_seats, is_active } = data;
+  const res = await db.query(
+    `UPDATE courses 
+     SET course_code = $1, title = $2, credit_hours = $3, department = $4, description = $5, max_seats = $6, is_active = $7
+     WHERE course_id = $8 RETURNING *`,
+    [course_code, title, credit_hours, department, description, max_seats, is_active, courseId]
+  );
+  return res.rows[0];
+};
+
+export const deleteCourse = async (courseId) => {
+  const res = await db.query(`DELETE FROM courses WHERE course_id = $1 RETURNING course_id`, [courseId]);
+  return res.rows[0];
+};
+
+// ─────────────────────── TIMETABLE & SECTIONS ───────────────────────
+
+export const getAllSections = async () => {
+  try {
+    const res = await db.query(`
+      SELECT s.*, c.title as course_title, c.course_code, f.faculty_id, u.name as faculty_name
+      FROM course_sections s
+      JOIN courses c ON s.course_id = c.course_id
+      LEFT JOIN faculty f ON s.faculty_id = f.faculty_id
+      LEFT JOIN users u ON f.user_id = u.user_id
+      ORDER BY c.course_code, s.section_name
+    `);
+    return res.rows;
+  } catch (err) {
+    console.error('Get Sections Error:', err);
+    return [];
+  }
+};
+
+export const getAllFaculty = async () => {
+  try {
+    const res = await db.query(`
+      SELECT f.faculty_id, u.name, u.email, f.department
+      FROM faculty f
+      JOIN users u ON f.user_id = u.user_id
+      WHERE u.is_active = true
+    `);
+    return res.rows;
+  } catch (err) {
+    console.error('Get Faculty Error:', err);
+    return [];
+  }
+};
+
+export const checkScheduleConflict = async (sectionId, facultyId, roomId, day, startTime, endTime) => {
+  // Check Faculty Conflict
+  const facultyRes = await db.query(`
+    SELECT * FROM course_sections 
+    WHERE faculty_id = $1 AND day_of_week = $2 AND section_id != $3
+    AND (
+      (start_time, end_time) OVERLAPS ($4::TIME, $5::TIME)
+    )
+  `, [facultyId, day, sectionId, startTime, endTime]);
+
+  if (facultyRes.rows.length > 0) return { conflict: true, type: 'Faculty already assigned to another section at this time.' };
+
+  // Check Room Conflict
+  const roomRes = await db.query(`
+    SELECT * FROM course_sections 
+    WHERE room = $1 AND day_of_week = $2 AND section_id != $3
+    AND (
+      (start_time, end_time) OVERLAPS ($4::TIME, $5::TIME)
+    )
+  `, [roomId, day, sectionId, startTime, endTime]);
+
+  if (roomRes.rows.length > 0) return { conflict: true, type: 'Room is already occupied at this time.' };
+
+  return { conflict: false };
+};
+
+export const updateSectionSchedule = async (sectionId, data) => {
+  const { faculty_id, room, day_of_week, start_time, end_time } = data;
+  
+  // Validate conflict
+  const conflict = await checkScheduleConflict(sectionId, faculty_id, room, day_of_week, start_time, end_time);
+  if (conflict.conflict) {
+    throw new Error(conflict.type);
+  }
+
+  const res = await db.query(`
+    UPDATE course_sections 
+    SET faculty_id = $1, room = $2, day_of_week = $3, start_time = $4, end_time = $5
+    WHERE section_id = $6
+    RETURNING *
+  `, [faculty_id, room, day_of_week, start_time, end_time, sectionId]);
+  
+  return res.rows[0];
+};
+
+export const createSection = async (data) => {
+  const { course_id, section_name, faculty_id, room, day_of_week, start_time, end_time, max_seats } = data;
+  
+  // Optional conflict check if faculty/room provided
+  if (faculty_id && room && day_of_week && start_time && end_time) {
+    const conflict = await checkScheduleConflict(null, faculty_id, room, day_of_week, start_time, end_time);
+    if (conflict.conflict) {
+      throw new Error(conflict.type);
+    }
+  }
+
+  const res = await db.query(`
+    INSERT INTO course_sections (course_id, section_name, faculty_id, room, day_of_week, start_time, end_time, max_seats)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    RETURNING *
+  `, [course_id, section_name, faculty_id, room, day_of_week, start_time, end_time, max_seats]);
+  
+  return res.rows[0];
+};
+
+// ─────────────────────── FINANCIAL ANALYTICS ───────────────────────
+
+export const getFinancialStats = async () => {
+  try {
+    const [totalRevenue, collectionRate, pendingFees] = await Promise.all([
+      db.query(`SELECT SUM(amount_paid) FROM payments`),
+      db.query(`
+        SELECT 
+          (SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) / NULLIF(SUM(amount), 0)) * 100 as rate 
+        FROM fees
+      `),
+      db.query(`SELECT SUM(amount) FROM fees WHERE status = 'pending'`),
+    ]);
+
+    return {
+      totalRevenue: parseFloat(totalRevenue.rows[0].sum || 0),
+      collectionRate: Math.round(parseFloat(collectionRate.rows[0].rate || 0)),
+      pendingAmount: parseFloat(pendingFees.rows[0].sum || 0),
+    };
+  } catch (err) {
+    console.error('Financial Stats Error:', err);
+    return { totalRevenue: 0, collectionRate: 0, pendingAmount: 0 };
+  }
+};
+
+export const getIncomePerCourse = async () => {
+  try {
+    const res = await db.query(`
+      SELECT 
+        c.course_code, 
+        c.title, 
+        COUNT(DISTINCT e.student_id) as enrolled_students,
+        COALESCE(SUM(p.amount_paid), 0) as total_income
+      FROM courses c
+      LEFT JOIN course_sections cs ON c.course_id = cs.course_id
+      LEFT JOIN enrollments e ON cs.section_id = e.section_id
+      LEFT JOIN students s ON e.student_id = s.student_id
+      LEFT JOIN payments p ON s.student_id = p.student_id
+      GROUP BY c.course_id, c.course_code, c.title
+      ORDER BY total_income DESC
+    `);
+    return res.rows;
+  } catch (err) {
+    console.error('Income Per Course Error:', err);
+    return [];
+  }
+};
 
 export const getAnnouncements = async () => {
   try {

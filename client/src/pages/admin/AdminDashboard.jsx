@@ -2,38 +2,46 @@ import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import {
   Users, BookOpen, GraduationCap, TrendingUp,
-  AlertCircle, Megaphone, UserCheck
+  Megaphone, UserCheck, ArrowUpRight, ArrowDownRight, Activity,
+  Clock, Calendar, Filter, Shield
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, BarChart, Bar
+  Tooltip, ResponsiveContainer, BarChart, Bar, Cell
 } from 'recharts';
 
 const enrollmentTrend = [
-  { month: 'Sep', count: 42 }, { month: 'Oct', count: 68 },
-  { month: 'Nov', count: 75 }, { month: 'Dec', count: 55 },
-  { month: 'Jan', count: 88 }, { month: 'Feb', count: 95 },
-  { month: 'Mar', count: 102 }, { month: 'Apr', count: 87 },
+  { month: 'Sep', active: 42, new: 12 }, { month: 'Oct', active: 68, new: 26 },
+  { month: 'Nov', active: 75, new: 15 }, { month: 'Dec', active: 55, new: 8 },
+  { month: 'Jan', active: 88, new: 33 }, { month: 'Feb', active: 95, new: 22 },
+  { month: 'Mar', active: 102, new: 18 }, { month: 'Apr', active: 87, new: 10 },
 ];
 
 const deptData = [
-  { dept: 'CS', students: 48 }, { dept: 'Math', students: 30 },
-  { dept: 'English', students: 22 }, { dept: 'Physics', students: 18 },
-  { dept: 'Business', students: 35 },
+  { dept: 'CS', students: 48, color: '#6366f1' }, 
+  { dept: 'Math', students: 30, color: '#8b5cf6' },
+  { dept: 'English', students: 22, color: '#ec4899' }, 
+  { dept: 'Physics', students: 18, color: '#f43f5e' },
+  { dept: 'Business', students: 35, color: '#f59e0b' },
 ];
 
-const StatCard = ({ icon: Icon, label, value, color, subtext }) => (
-  <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+const StatCard = ({ icon: Icon, label, value, trend, isPositive, color }) => (
+  <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-300 group">
     <div className="flex items-start justify-between mb-4">
-      <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${color}`}>
-        <Icon size={20} className="text-white" />
+      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color.replace('bg-', 'bg-opacity-10 text-').replace('500', '600').replace('600', '600')} ${color.replace(' text-', ' bg-')} shadow-sm transition-transform duration-500`}>
+        <Icon size={20} />
       </div>
-      <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-        {subtext}
-      </span>
+      <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${isPositive ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'}`}>
+        {isPositive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+        {trend}
+      </div>
     </div>
-    <p className="text-3xl font-bold text-slate-900 mb-1">{value?.toLocaleString() ?? '—'}</p>
-    <p className="text-sm font-medium text-slate-500">{label}</p>
+    <div>
+      <h3 className="text-2xl font-bold text-slate-900 tracking-tight mb-0.5">
+        {value?.toLocaleString() ?? '—'}
+      </h3>
+      <p className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">{label}</p>
+    </div>
   </div>
 );
 
@@ -41,6 +49,14 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const activities = [
+    { id: 1, user: 'Sarah Connor', action: 'New Student Registration', time: '12m ago', status: 'Verified', color: 'bg-emerald-500' },
+    { id: 2, user: 'Dr. Alan Smith', action: 'Course Content Update', time: '45m ago', status: 'Published', color: 'bg-indigo-500' },
+    { id: 3, user: 'System Bot', action: 'Database Backup Completed', time: '2h ago', status: 'Success', color: 'bg-slate-500' },
+    { id: 4, user: 'Dr. Ellie Sattler', action: 'Faculty Assignment', time: '5h ago', status: 'Pending', color: 'bg-amber-500' },
+    { id: 5, user: 'John Doe', action: 'Profile Information Updated', time: '8h ago', status: 'Verified', color: 'bg-emerald-500' },
+  ];
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -50,12 +66,13 @@ const AdminDashboard = () => {
           api.get('/admin/announcements'),
         ]);
         setStats(statsRes.data);
-        setAnnouncements(annRes.data.slice(0, 3));
+        setAnnouncements(annRes.data.slice(0, 4));
       } catch {
         setStats({ totalUsers: 142, totalStudents: 120, totalFaculty: 18, activeCourses: 34, activeEnrollments: 287 });
         setAnnouncements([
-          { announcement_id: '1', title: 'Mid-term Schedule Released', category: 'Academic', is_pinned: true },
-          { announcement_id: '2', title: 'Library Extended Hours', category: 'General', is_pinned: false },
+          { announcement_id: '1', title: 'Mid-term Schedule Released', category: 'Academic', is_pinned: true, created_at: new Date().toISOString() },
+          { announcement_id: '2', title: 'Library Extended Hours', category: 'General', is_pinned: false, created_at: new Date().toISOString() },
+          { announcement_id: '3', title: 'New Faculty Orientation', category: 'General', is_pinned: false, created_at: new Date().toISOString() },
         ]);
       } finally {
         setLoading(false);
@@ -66,98 +83,182 @@ const AdminDashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="relative">
+          <div className="w-12 h-12 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Shield size={16} className="text-indigo-600 animate-pulse" />
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Admin Dashboard</h1>
-        <p className="text-slate-500 mt-1 font-medium">Platform overview and key metrics at a glance.</p>
+    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+      {/* Welcome Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Overview</h1>
+          <p className="text-slate-500 mt-1 font-medium flex items-center gap-2 text-sm">
+            <Activity size={16} className="text-indigo-500" />
+            Insights and performance metrics for <span className="text-slate-900 font-semibold">E-Portal</span>.
+          </p>
+        </div>
       </div>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-        <StatCard icon={Users} label="Total Users" value={stats?.totalUsers} color="bg-slate-800" subtext="All roles" />
-        <StatCard icon={GraduationCap} label="Students" value={stats?.totalStudents} color="bg-primary-600" subtext="Active" />
-        <StatCard icon={UserCheck} label="Faculty" value={stats?.totalFaculty} color="bg-violet-600" subtext="Active" />
-        <StatCard icon={BookOpen} label="Active Courses" value={stats?.activeCourses} color="bg-emerald-600" subtext="This semester" />
+      {/* Primary Stat Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+        <StatCard icon={Users} label="Total Platform Users" value={stats?.totalUsers} trend="12.5%" isPositive={true} color="bg-indigo-600 text-indigo-600" />
+        <StatCard icon={GraduationCap} label="Enrolled Students" value={stats?.totalStudents} trend="8.2%" isPositive={true} color="bg-purple-600 text-purple-600" />
+        <StatCard icon={UserCheck} label="Active Faculty" value={stats?.totalFaculty} trend="2.1%" isPositive={false} color="bg-rose-500 text-rose-600" />
+        <StatCard icon={BookOpen} label="Published Courses" value={stats?.activeCourses} trend="14.8%" isPositive={true} color="bg-emerald-500 text-emerald-600" />
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Enrollment Trend */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
+      {/* Main Insights Layer */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Trend Area Chart */}
+        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-3xl p-8 overflow-hidden relative group shadow-sm">
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="font-semibold text-slate-800">Enrollment Trend</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Monthly active enrollments this year</p>
+              <h2 className="text-lg font-bold text-slate-900">Learning Trajectory</h2>
+              <p className="text-xs text-slate-400 font-medium tracking-wide">Monthly enrollment & engagement velocity</p>
             </div>
-            <TrendingUp size={18} className="text-primary-500" />
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-purple-300" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">New</span>
+              </div>
+            </div>
           </div>
-          <div className="h-52">
+          
+          <div className="h-72 w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={enrollmentTrend}>
                 <defs>
-                  <linearGradient id="enrollGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
+                  <linearGradient id="activeGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', fontSize: 13 }} />
-                <Area type="monotone" dataKey="count" stroke="#0ea5e9" strokeWidth={2.5} fill="url(#enrollGrad)" dot={false} activeDot={{ r: 5 }} />
+                <CartesianGrid strokeDasharray="5 5" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="month" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} 
+                  dy={15}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} 
+                />
+                <Tooltip 
+                  cursor={{ stroke: '#6366f1', strokeWidth: 1, strokeDasharray: '5 5' }}
+                  contentStyle={{ 
+                    borderRadius: '24px', 
+                    border: 'none', 
+                    boxShadow: '0 10px 40px -10px rgba(0,0,0,0.1)',
+                    padding: '16px'
+                  }} 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="active" 
+                  stroke="#6366f1" 
+                  strokeWidth={4} 
+                  fill="url(#activeGrad)" 
+                  activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 3 }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="new" 
+                  stroke="#c084fc" 
+                  strokeWidth={2} 
+                  fill="transparent" 
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Dept Breakdown */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <div className="mb-6">
-            <h2 className="font-semibold text-slate-800">By Department</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Student distribution</p>
-          </div>
-          <div className="h-52">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={deptData} layout="vertical">
-                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                <YAxis dataKey="dept" type="category" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} width={48} />
-                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', fontSize: 13 }} />
-                <Bar dataKey="students" fill="#0ea5e9" radius={[0, 6, 6, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+        {/* Small Data Panel */}
+        <div className="flex flex-col gap-6">
+          <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/50 blur-3xl rounded-full" />
+            <div className="relative z-10">
+              <h2 className="text-sm font-bold uppercase tracking-[0.15em] text-slate-400 mb-6">Department Distribution</h2>
+              <div className="space-y-5">
+                {deptData.slice(0, 4).map((d) => (
+                  <div key={d.dept} className="space-y-2">
+                    <div className="flex justify-between text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                      <span>{d.dept}</span>
+                      <span className="text-slate-900">{d.students}%</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+                      <div 
+                        className="h-full rounded-full bg-indigo-600 transition-all duration-1000 shadow-[0_0_8px_rgba(79,102,241,0.2)]"
+                        style={{ width: `${d.students}%` }} 
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Announcements Preview */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="font-semibold text-slate-800 flex items-center gap-2">
-            <Megaphone size={16} className="text-primary-500" />
-            Recent Announcements
-          </h2>
+      {/* Announcements Feed Dashboard Layer */}
+      <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Recent Activity</h2>
+            <p className="text-xs text-slate-400 font-medium uppercase tracking-widest mt-1">Live platform intelligence feed</p>
+          </div>
+          <button className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-[11px] font-bold uppercase tracking-widest hover:bg-slate-100 transition-all">
+            <Filter size={14} /> Full Audit Log
+          </button>
         </div>
-        <div className="space-y-3">
-          {announcements.length === 0 && (
-            <p className="text-sm text-slate-400">No announcements yet.</p>
-          )}
-          {announcements.map((a) => (
-            <div key={a.announcement_id} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
-              <div className="flex items-center gap-3">
-                {a.is_pinned && <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />}
-                <p className="text-sm font-medium text-slate-700">{a.title}</p>
-              </div>
-              <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">{a.category}</span>
-            </div>
-          ))}
+        
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="text-left border-b border-slate-100">
+                <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-4">User Identity</th>
+                <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Action Performed</th>
+                <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Temporal Log</th>
+                <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest pr-4 text-right">Verification</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {activities.map((act) => (
+                <tr key={act.id} className="group hover:bg-slate-50/50 transition-colors">
+                  <td className="py-4 pl-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 text-[10px] font-bold">
+                        {act.user.charAt(0)}
+                      </div>
+                      <span className="text-[13px] font-bold text-slate-900">{act.user}</span>
+                    </div>
+                  </td>
+                  <td className="py-4 text-[13px] font-medium text-slate-600">{act.action}</td>
+                  <td className="py-4 text-[12px] font-bold text-slate-400">{act.time}</td>
+                  <td className="py-4 pr-4 text-right">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                      <span className={`w-1.5 h-1.5 rounded-full ${act.color}`} />
+                      {act.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

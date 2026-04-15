@@ -25,7 +25,7 @@ faculty (extends users)
 courses
     course_id (PK)
     course_code (unique), title, credit_hours, description, syllabus_url
-    department, semester_offered
+    department, semester_offered, max_seats
     is_active
 
 course_sections (for multiple sections of same course)

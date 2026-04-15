@@ -4,15 +4,16 @@ const mockUsers = []; // In-memory fallback
 const mockStudents = []; // In-memory fallback
 const mockFaculty = []; // In-memory fallback
 
-export const createUser = async ({ name, email, passwordHash, role }) => {
+export const createUser = async ({ name, email, passwordHash, role, ...reqBody }) => {
   try {
     // 1. Insert into base users table
     const sql = `
-      INSERT INTO users (name, email, password_hash, role)
-      VALUES ($1, $2, $3, $4)
-      RETURNING user_id, name, email, role, created_at;
+      INSERT INTO users (name, email, password_hash, role, registration_status)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING user_id, name, email, role, registration_status, created_at;
     `;
-    const values = [name, email, passwordHash, role];
+    const status = (reqBody && reqBody.is_admin_created) ? 'approved' : 'pending';
+    const values = [name, email, passwordHash, role, status];
     const { rows } = await query(sql, values);
     const user = rows[0];
 

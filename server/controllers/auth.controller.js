@@ -47,6 +47,14 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
+    // Check Registration Status
+    if (user.registration_status !== 'approved') {
+      const msg = user.registration_status === 'pending' 
+        ? 'Your account is pending admin approval. Please check back later.'
+        : 'Your registration has been rejected. Please contact support.';
+      return res.status(403).json({ message: msg });
+    }
+
     // Check MFA status (Placeholder for next iteration)
     if (user.mfa_enabled) {
       return res.status(200).json({ 
