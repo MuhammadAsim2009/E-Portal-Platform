@@ -6,6 +6,7 @@ import useAuthStore from './store/authStore';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 import AdminLayout from './components/AdminLayout';
+import FacultyLayout from './components/FacultyLayout';
 
 // Auth pages
 import Login from './pages/Login';
@@ -20,6 +21,12 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import UserManagement from './pages/admin/UserManagement';
 import CourseManagement from './pages/admin/CourseManagement';
 import Announcements from './pages/admin/Announcements';
+
+// Faculty pages
+import FacultyDashboard from './pages/faculty/FacultyDashboard';
+import MyCourses from './pages/faculty/MyCourses';
+import GradeBook from './pages/faculty/GradeBook';
+import AttendancePage from './pages/faculty/AttendancePage';
 
 function App() {
   const initAuth = useAuthStore((state) => state.initAuth);
@@ -62,6 +69,22 @@ function App() {
           <Route path="users" element={<UserManagement />} />
           <Route path="courses" element={<CourseManagement />} />
           <Route path="announcements" element={<Announcements />} />
+          <Route index element={<Navigate to="dashboard" replace />} />
+        </Route>
+
+        {/* ── Faculty Module ── */}
+        <Route
+          path="/faculty"
+          element={
+            <ProtectedRoute allowedRoles={['faculty']}>
+              <FacultyLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="dashboard" element={<FacultyDashboard />} />
+          <Route path="courses" element={<MyCourses />} />
+          <Route path="gradebook" element={<GradeBook />} />
+          <Route path="attendance" element={<AttendancePage />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 
