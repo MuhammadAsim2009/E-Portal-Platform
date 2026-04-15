@@ -17,9 +17,13 @@ import {
   getFacultyList,
   updateSectionSchedule,
   createSection,
+  deleteSection,
+  getSectionStudents,
+  enrollStudent,
   getFinancialAnalytics,
   updateCourse,
   deleteCourse,
+  getEligibleStudents
 } from '../controllers/admin.controller.js';
 
 const router = Router();
@@ -44,6 +48,10 @@ router.get('/sections', getSections);
 router.post('/sections', createSection);
 router.get('/faculty', getFacultyList);
 router.patch('/sections/:id', updateSectionSchedule);
+router.delete('/sections/:id', deleteSection);
+router.get('/sections/:id/students', getSectionStudents);
+router.get('/sections/:id/eligible-students', getEligibleStudents);
+router.post('/sections/:id/enroll', enrollStudent);
 
 // Financials
 router.get('/analytics', getFinancialAnalytics);

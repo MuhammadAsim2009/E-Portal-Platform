@@ -215,7 +215,8 @@ export const checkScheduleConflict = async (sectionId, facultyId, roomId, day, s
   // Check Faculty Conflict
   const facultyRes = await db.query(`
     SELECT * FROM course_sections 
-    WHERE faculty_id = $1 AND day_of_week = $2 AND section_id != $3
+    WHERE faculty_id = $1 AND section_id != $3
+    AND string_to_array(day_of_week, ', ') && string_to_array($2, ', ')
     AND (
       (start_time, end_time) OVERLAPS ($4::TIME, $5::TIME)
     )
@@ -226,7 +227,8 @@ export const checkScheduleConflict = async (sectionId, facultyId, roomId, day, s
   // Check Room Conflict
   const roomRes = await db.query(`
     SELECT * FROM course_sections 
-    WHERE room = $1 AND day_of_week = $2 AND section_id != $3
+    WHERE room = $1 AND section_id != $3
+    AND string_to_array(day_of_week, ', ') && string_to_array($2, ', ')
     AND (
       (start_time, end_time) OVERLAPS ($4::TIME, $5::TIME)
     )
@@ -349,4 +351,50 @@ export const createAnnouncement = async ({ title, body, category, target_role, e
   } catch (err) {
     throw new Error(err.message);
   }
+};
+
+export const deleteSection = async (id) => {
+  await db.query('DELETE FROM course_sections WHERE section_id = $1', [id]);
+  return { success: true };
+};
+
+export const getSectionStudents = async (sectionId) => {
+  const res = await db.query(`
+    SELECT e.*, u.name as full_name, u.email as admission_id 
+    FROM enrollments e
+    JOIN students s ON e.student_id = s.student_id
+    JOIN users u ON s.user_id = u.user_id
+    WHERE e.section_id = $1
+  `, [sectionId]);
+  return res.rows;
+};
+
+export const enrollStudentInSection = async (sectionId, studentId) => {
+  const studentRes = await db.query('SELECT student_id FROM students WHERE student_id = $1', [studentId]);
+  if (studentRes.rows.length === 0) throw new Error('Student not found with this ID');
+  
+  const checkRes = await db.query('SELECT 1 FROM enrollments WHERE student_id = $1 AND section_id = $2', [studentId, sectionId]);
+  if (checkRes.rows.length > 0) throw new Error('Student already enrolled in this section');
+
+  const res = await db.query(`
+    INSERT INTO enrollments (student_id, section_id)
+    VALUES ($1, $2) RETURNING *
+  `, [studentId, sectionId]);
+  
+  await db.query('UPDATE course_sections SET current_seats = current_seats + 1 WHERE section_id = $1', [sectionId]);
+  
+  return res.rows[0];
+};
+
+export const getEligibleStudentsForSection = async (sectionId) => {
+  const res = await db.query(`
+    SELECT s.student_id, u.name as full_name, u.email as admission_id
+    FROM students s
+    JOIN users u ON s.user_id = u.user_id
+    WHERE s.student_id NOT IN (
+      SELECT student_id FROM enrollments WHERE section_id = $1
+    )
+    ORDER BY u.name ASC
+  `, [sectionId]);
+  return res.rows;
 };

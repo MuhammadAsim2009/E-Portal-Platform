@@ -178,6 +178,48 @@ export const createSection = async (req, res) => {
   }
 };
 
+export const deleteSection = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await adminService.deleteSection(id);
+    res.json({ message: 'Section deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const getSectionStudents = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const students = await adminService.getSectionStudents(id);
+    res.json(students);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const enrollStudent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { student_id } = req.body;
+    const result = await adminService.enrollStudentInSection(id, student_id);
+    res.status(201).json(result);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+export const getEligibleStudents = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const students = await adminService.getEligibleStudentsForSection(id);
+    res.json(students);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
 export const getFinancialAnalytics = async (req, res) => {
   try {
     const stats = await adminService.getFinancialStats();

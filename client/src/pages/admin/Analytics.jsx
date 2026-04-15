@@ -167,12 +167,11 @@ const Analytics = () => {
     { name: 'Week 4', revenue: 34200 },
   ];
 
-  const distributionData = [
-    { name: 'Computer Science', value: 1080, color: '#6366f1' },
-    { name: 'Engineering', value: 600, color: '#c084fc' },
-    { name: 'Mathematics', value: 360, color: '#2dd4bf' },
-    { name: 'Business', value: 360, color: '#f59e0b' },
-  ];
+  const distributionData = data.incomePerCourse.slice(0, 5).map((item, idx) => ({
+    name: item.title,
+    value: parseInt(item.enrolled_students),
+    color: ['#6366f1', '#c084fc', '#2dd4bf', '#f59e0b', '#fb7185'][idx % 5]
+  }));
 
   const filteredData = data.incomePerCourse.filter(item => 
     item.title.toLowerCase().includes(search.toLowerCase()) || 
@@ -341,8 +340,10 @@ const Analytics = () => {
                 />
               </PieChart>
             </ResponsiveContainer>
-            <div className="absolute top-[57%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-              <div className="text-3xl font-black text-slate-900">2.4k</div>
+            <div className="absolute top-[57%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+              <div className="text-3xl font-black text-slate-900 tracking-tighter">
+                {data.incomePerCourse.reduce((acc, curr) => acc + parseInt(curr.enrolled_students), 0)}
+              </div>
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Students</div>
             </div>
           </div>
