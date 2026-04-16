@@ -27,7 +27,9 @@ import {
   deleteCourse,
   getEligibleStudents,
   removeStudent,
-  getAuditLogs
+  getAuditLogs,
+  getPayments,
+  updatePaymentStatus
 } from '../controllers/admin.controller.js';
 
 const router = Router();
@@ -63,6 +65,8 @@ router.delete('/sections/:id/enroll/:studentId', removeStudent);
 // Financials
 router.get('/analytics', getFinancialAnalytics);
 router.get('/audit-logs', getAuditLogs);
+router.get('/payments', getPayments);
+router.patch('/payments/:id/status', updatePaymentStatus);
 
 // Course Management
 router.get('/courses', getAllCourses);

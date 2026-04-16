@@ -78,9 +78,9 @@ const Analytics = () => {
           startY: 60,
           head: [['METRIC TYPE', 'QUANTITATIVE VALUE', 'STATUS']],
           body: [
-            ['Total Platform Revenue', `$${data.stats.totalRevenue?.toLocaleString()}`, 'OPTIMAL'],
+            ['Total Platform Revenue', `Rs ${data.stats.totalRevenue?.toLocaleString()}`, 'OPTIMAL'],
             ['Fee Collection Velocity', `${data.stats.collectionRate}%`, 'ON TRACK'],
-            ['Total Outstanding Receivables', `$${data.stats.pendingAmount?.toLocaleString()}`, 'ATTENTION'],
+            ['Total Outstanding Receivables', `Rs ${data.stats.pendingAmount?.toLocaleString()}`, 'ATTENTION'],
           ],
           theme: 'grid',
           headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' },
@@ -95,7 +95,7 @@ const Analytics = () => {
           item.course_code,
           item.title,
           item.enrolled_students,
-          `$${parseFloat(item.total_income).toLocaleString()}`
+          `Rs ${parseFloat(item.total_income).toLocaleString()}`
         ]);
         
         autoTable(doc, {
@@ -207,7 +207,7 @@ const Analytics = () => {
           <button 
             onClick={handleExportPDF}
             disabled={isExporting}
-            className={`group flex items-center gap-3 px-6 py-3.5 ${isExporting ? 'bg-slate-200 cursor-not-allowed' : 'bg-slate-900 hover:bg-slate-800'} text-white rounded-2xl text-[13px] font-bold transition-all shadow-xl shadow-slate-200 hover:shadow-indigo-200 active:scale-95`}
+            className={`group flex items-center gap-3 px-6 py-3.5 ${isExporting ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'} text-white rounded-2xl text-[13px] font-bold transition-all shadow-lg shadow-indigo-600/20 active:scale-95`}
           >
             {isExporting ? (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -222,9 +222,9 @@ const Analytics = () => {
       {/* Primary KPI Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {[
-          { label: 'Platform Revenue', value: `$${data.stats.totalRevenue?.toLocaleString()}`, icon: DollarSign, color: 'text-indigo-600', bg: 'bg-indigo-50', trend: '+12.5%', isPos: true },
+          { label: 'Platform Revenue', value: `Rs ${data.stats.totalRevenue?.toLocaleString()}`, icon: CreditCard, color: 'text-indigo-600', bg: 'bg-indigo-50', trend: '+12.5%', isPos: true },
           { label: 'Collection Rate', value: `${data.stats.collectionRate}%`, icon: CreditCard, color: 'text-emerald-600', bg: 'bg-emerald-50', trend: 'Optimal', isPos: true },
-          { label: 'Receivables', value: `$${data.stats.pendingAmount?.toLocaleString()}`, icon: FileText, color: 'text-rose-600', bg: 'bg-rose-50', trend: 'High Priority', isPos: false },
+          { label: 'Receivables', value: `Rs ${data.stats.pendingAmount?.toLocaleString()}`, icon: FileText, color: 'text-rose-600', bg: 'bg-rose-50', trend: 'High Priority', isPos: false },
         ].map((kpi, i) => (
           <div key={i} className="bg-white border border-slate-200 p-8 rounded-[2rem] shadow-sm relative overflow-hidden group hover:border-indigo-200 transition-all duration-500">
             <div className={`absolute right-4 top-4 w-12 h-12 ${kpi.bg} rounded-2xl flex items-center justify-center ${kpi.color} group-hover:scale-110 transition-transform duration-500`}>
@@ -292,7 +292,7 @@ const Analytics = () => {
                   <RechartsTooltip 
                     cursor={{ fill: '#f8fafc' }}
                     contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 50px -12px rgba(0,0,0,0.1)' }}
-                    formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']}
+                    formatter={(value) => [`Rs ${value.toLocaleString()}`, 'Revenue']}
                   />
                   <Bar 
                     dataKey="revenue" 
@@ -418,7 +418,7 @@ const Analytics = () => {
                       </span>
                     </td>
                     <td className="px-10 py-8 text-right">
-                      <div className="text-sm font-black text-slate-900">${parseFloat(item.total_income || 0).toLocaleString()}</div>
+                      <div className="text-sm font-black text-slate-900">Rs {parseFloat(item.total_income || 0).toLocaleString()}</div>
                       <div className="text-[9px] font-black text-emerald-500 flex items-center justify-end gap-1 mt-1.5 uppercase tracking-widest">
                         Confirmed <CheckCircle2 size={10} />
                       </div>

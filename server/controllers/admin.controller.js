@@ -347,3 +347,33 @@ export const getAuditLogs = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const getPayments = async (req, res) => {
+  try {
+    const payments = await adminService.getAllPayments();
+    res.json(payments);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const updatePaymentStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const payment = await adminService.updatePaymentStatus(id, status);
+    
+    await adminService.logAction({
+      userId: req.user.user_id,
+      action: 'UPDATE_PAYMENT_STATUS',
+      target: id,
+      details: `Payment status updated to ${status} for transaction ${payment.transaction_id}`,
+      severity: status === 'rejected' ? 'warning' : 'info',
+      ipAddress: req.ip
+    });
+
+    res.json(payment);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};

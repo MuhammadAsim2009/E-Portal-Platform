@@ -24,6 +24,7 @@ import FacultyManagement from './pages/admin/FacultyManagement';
 import CourseManagement from './pages/admin/CourseManagement';
 import Announcements from './pages/admin/Announcements';
 import TimetableManagement from './pages/admin/TimetableManagement';
+import PaymentManagement from './pages/admin/PaymentManagement';
 import Analytics from './pages/admin/Analytics';
 
 // Faculty pages
@@ -76,6 +77,7 @@ function App() {
           <Route path="courses" element={<CourseManagement />} />
           <Route path="announcements" element={<Announcements />} />
           <Route path="timetable" element={<TimetableManagement />} />
+          <Route path="payments" element={<PaymentManagement />} />
           <Route path="analytics" element={<Analytics />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>

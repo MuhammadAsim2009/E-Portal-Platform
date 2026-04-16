@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, BookOpen, Megaphone, Calendar, BarChart3,
   LogOut, Menu, X, ChevronRight, Shield, Bell, Search, Settings,
-  GraduationCap, Briefcase, User as UserIcon
+  GraduationCap, Briefcase, User as UserIcon, CreditCard
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
@@ -23,6 +23,7 @@ const navGroups = [
       { to: '/admin/faculty', icon: Briefcase, label: 'Faculty' },
       { to: '/admin/courses', icon: BookOpen, label: 'Courses' },
       { to: '/admin/timetable', icon: Calendar, label: 'Timetable' },
+      { to: '/admin/payments', icon: CreditCard, label: 'Payments' },
     ]
   },
   {

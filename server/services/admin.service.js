@@ -566,3 +566,39 @@ export const removeStudentFromSection = async (sectionId, studentId) => {
   return { success: true };
 };
 
+export const getAllPayments = async () => {
+  const res = await db.query(`
+    SELECT 
+      p.*, 
+      u.name as student_name, 
+      u.email as student_email,
+      f.fee_type,
+      f.semester
+    FROM payments p
+    JOIN students s ON p.student_id = s.student_id
+    JOIN users u ON s.user_id = u.user_id
+    LEFT JOIN fees f ON p.fee_id = f.fee_id
+    ORDER BY p.payment_date DESC
+  `);
+  return res.rows;
+};
+
+export const updatePaymentStatus = async (paymentId, status) => {
+  const res = await db.query(
+    `UPDATE payments SET status = $1 WHERE payment_id = $2 RETURNING *`,
+    [status, paymentId]
+  );
+  
+  if (res.rowCount === 0) throw new Error('Payment not found');
+  
+  // If accepted, update associated fee to paid
+  if (status === 'accepted') {
+    await db.query(
+      `UPDATE fees SET status = 'paid' 
+       WHERE fee_id = (SELECT fee_id FROM payments WHERE payment_id = $1)`,
+      [paymentId]
+    );
+  }
+  
+  return res.rows[0];
+};
