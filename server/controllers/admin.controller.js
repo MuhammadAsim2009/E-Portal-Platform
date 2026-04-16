@@ -67,6 +67,14 @@ export const rejectUser = async (req, res) => {
   try {
     const { id } = req.params;
     const result = await adminService.rejectUser(id);
+    await adminService.logAction({
+      userId: req.user.user_id,
+      action: 'REJECT_USER',
+      target: id,
+      details: `Rejected registration for user ID: ${id}`,
+      severity: 'warning',
+      ipAddress: req.ip
+    });
     res.json({ message: 'User rejected successfully', user_id: result.user_id });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -87,6 +95,14 @@ export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
     await adminService.deleteUser(id);
+    await adminService.logAction({
+      userId: req.user.user_id,
+      action: 'DELETE_USER',
+      target: id,
+      details: `Permanently deleted user account ${id}`,
+      severity: 'warning',
+      ipAddress: req.ip
+    });
     res.json({ message: 'User deleted successfully' });
   } catch (err) {
     if (err.code === 'ENROLLED') {
@@ -183,6 +199,14 @@ export const getAllCourses = async (req, res) => {
 export const createCourse = async (req, res) => {
   try {
     const course = await adminService.createCourse(req.body);
+    await adminService.logAction({
+      userId: req.user.user_id,
+      action: 'CREATE_COURSE',
+      target: course.course_id,
+      details: `Registered new course: ${course.title} (${course.course_code})`,
+      severity: 'info',
+      ipAddress: req.ip
+    });
     res.status(201).json(course);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -193,6 +217,14 @@ export const updateCourse = async (req, res) => {
   try {
     const { id } = req.params;
     const course = await adminService.updateCourse(id, req.body);
+    await adminService.logAction({
+      userId: req.user.user_id,
+      action: 'UPDATE_COURSE',
+      target: id,
+      details: `Modified curriculum details for course: ${course.title}`,
+      severity: 'info',
+      ipAddress: req.ip
+    });
     res.json(course);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -203,6 +235,14 @@ export const deleteCourse = async (req, res) => {
   try {
     const { id } = req.params;
     await adminService.deleteCourse(id);
+    await adminService.logAction({
+      userId: req.user.user_id,
+      action: 'DELETE_COURSE',
+      target: id,
+      details: `Withdrew course from catalog (ID: ${id})`,
+      severity: 'warning',
+      ipAddress: req.ip
+    });
     res.json({ message: 'Course deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -232,6 +272,40 @@ export const createAnnouncement = async (req, res) => {
       ipAddress: req.ip
     });
     res.status(201).json(announcement);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+export const updateAnnouncement = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const announcement = await adminService.updateAnnouncement(id, req.body);
+    await adminService.logAction({
+      userId: req.user.user_id,
+      action: 'UPDATE_ANNOUNCEMENT',
+      target: id,
+      details: `Updated announcement: ${announcement.title}`,
+      ipAddress: req.ip
+    });
+    res.json(announcement);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const deleteAnnouncement = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await adminService.deleteAnnouncement(id);
+    await adminService.logAction({
+      userId: req.user.user_id,
+      action: 'DELETE_ANNOUNCEMENT',
+      target: id,
+      details: `Deleted announcement ID: ${id}`,
+      severity: 'warning',
+      ipAddress: req.ip
+    });
+    res.json({ message: 'Announcement deleted successfully', id: result.announcement_id });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -375,5 +449,37 @@ export const updatePaymentStatus = async (req, res) => {
     res.json(payment);
   } catch (err) {
     res.status(400).json({ message: err.message });
+  }
+};
+
+export const getNotifications = async (req, res) => {
+  try {
+    const { isRead, limit = 50 } = req.query;
+    const notifications = await adminService.getNotifications({ 
+      isRead: isRead === undefined ? null : isRead === 'true',
+      limit: parseInt(limit)
+    });
+    res.json(notifications);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const markNotificationAsRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await adminService.markNotificationRead(id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const getUnreadCount = async (req, res) => {
+  try {
+    const count = await adminService.getUnreadNotificationCount();
+    res.json({ count });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };

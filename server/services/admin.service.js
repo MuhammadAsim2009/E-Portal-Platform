@@ -114,6 +114,49 @@ export const getAuditLogs = async ({ page = 1, limit = 50 } = {}) => {
   };
 };
 
+export const createNotification = async ({ userId, title, message, type, priority = 'medium', relatedId = null }) => {
+  try {
+    const res = await db.query(
+      `INSERT INTO notifications (user_id, title, message, type, priority, related_id)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [userId, title, message, type, priority, relatedId]
+    );
+    return res.rows[0];
+  } catch (err) {
+    console.error('Notification Creation Error:', err);
+  }
+};
+
+export const getNotifications = async ({ isRead = null, limit = 50 } = {}) => {
+  let query = `
+    SELECT n.*, u.name as user_name, u.role as user_role
+    FROM notifications n
+    LEFT JOIN users u ON n.user_id = u.user_id
+  `;
+  const params = [];
+
+  if (isRead !== null) {
+    query += ` WHERE n.is_read = $1`;
+    params.push(isRead);
+  }
+
+  query += ` ORDER BY n.created_at DESC LIMIT $${params.length + 1}`;
+  params.push(limit);
+
+  const res = await db.query(query, params);
+  return res.rows;
+};
+
+export const markNotificationRead = async (id) => {
+  await db.query(`UPDATE notifications SET is_read = true WHERE notification_id = $1`, [id]);
+  return { success: true };
+};
+
+export const getUnreadNotificationCount = async () => {
+  const res = await db.query(`SELECT COUNT(*) as count FROM notifications WHERE is_read = false`);
+  return parseInt(res.rows[0].count);
+};
+
 // ─────────────────────── USER MANAGEMENT ───────────────────────
 
 export const getAllUsers = async ({ role, page = 1, limit = 15 }) => {
@@ -500,12 +543,32 @@ export const createAnnouncement = async ({ title, body, category, target_role, e
     const res = await db.query(
       `INSERT INTO announcements (title, body, category, target_role, expiry_date, is_pinned, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [title, body, category, target_role, expiry_date, is_pinned, adminId]
+      [title, body, category, target_role, expiry_date || null, is_pinned, adminId]
     );
     return res.rows[0];
   } catch (err) {
     throw new Error(err.message);
   }
+};
+export const updateAnnouncement = async (id, { title, body, category, target_role, expiry_date, is_pinned }) => {
+  try {
+    const res = await db.query(
+      `UPDATE announcements 
+       SET title = $1, body = $2, category = $3, target_role = $4, expiry_date = $5, is_pinned = $6
+       WHERE announcement_id = $7 RETURNING *`,
+      [title, body, category, target_role, expiry_date || null, is_pinned, id]
+    );
+    if (res.rowCount === 0) throw new Error('Announcement not found');
+    return res.rows[0];
+  } catch (err) {
+    throw new Error(err.message);
+  }
+};
+
+export const deleteAnnouncement = async (id) => {
+  const res = await db.query('DELETE FROM announcements WHERE announcement_id = $1 RETURNING announcement_id', [id]);
+  if (res.rowCount === 0) throw new Error('Announcement not found');
+  return res.rows[0];
 };
 
 export const deleteSection = async (id) => {

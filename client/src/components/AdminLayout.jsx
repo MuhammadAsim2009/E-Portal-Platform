@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, BookOpen, Megaphone, Calendar, BarChart3,
   LogOut, Menu, X, ChevronRight, Shield, Bell, Search, Settings,
   GraduationCap, Briefcase, User as UserIcon, CreditCard
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
+import api from '../services/api';
 
 const navGroups = [
   {
@@ -30,6 +31,7 @@ const navGroups = [
     title: 'Communication',
     links: [
       { to: '/admin/announcements', icon: Megaphone, label: 'Announcements' },
+      { to: '/admin/notifications', icon: Bell, label: 'Notifications' },
     ]
   },
   {
@@ -42,8 +44,27 @@ const navGroups = [
 
 const AdminLayout = () => {
   const [open, setOpen] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    fetchUnreadCount();
+    // Poll every 30 seconds for new notifications
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [location.pathname]); // Also refresh count when navigating
+
+  const fetchUnreadCount = async () => {
+    try {
+      const res = await api.get('/admin/notifications/unread-count');
+      setUnreadCount(res.data.count);
+    } catch (err) {
+      console.error("Failed to fetch unread count:", err);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -153,13 +174,49 @@ const AdminLayout = () => {
           </div>
 
           <div className="ml-auto flex items-center gap-4">
-            <button className="relative w-10 h-10 flex items-center justify-center rounded-2xl text-slate-500 hover:bg-slate-100 transition-all">
-              <Bell size={20} />
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 border-2 border-white rounded-full"></span>
+            <button 
+              onClick={() => navigate('/admin/notifications')}
+              className="relative w-10 h-10 flex items-center justify-center rounded-2xl text-slate-500 hover:bg-slate-100 transition-all group"
+            >
+              <Bell size={20} className="group-hover:rotate-12 transition-transform" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1 bg-rose-500 border-2 border-white rounded-full text-white text-[10px] font-black flex items-center justify-center animate-in zoom-in duration-300 shadow-sm shadow-rose-200">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-2xl text-slate-500 hover:bg-slate-100 transition-all">
-              <UserIcon size={20} />
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                className={`w-10 h-10 flex items-center justify-center rounded-2xl transition-all ${showProfileDropdown ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-100'}`}
+              >
+                <UserIcon size={20} />
+              </button>
+              
+              {showProfileDropdown && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowProfileDropdown(false)}></div>
+                  <div className="absolute right-0 mt-3 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl z-20 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="px-4 py-3 border-b border-slate-50">
+                      <p className="text-[13px] font-black text-slate-900 truncate">{user?.name}</p>
+                      <p className="text-[11px] font-bold text-slate-400 truncate">{user?.email}</p>
+                    </div>
+                    <button 
+                      onClick={() => { navigate('/admin/settings'); setShowProfileDropdown(false); }}
+                      className="w-full text-left px-4 py-3 text-[12px] font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-3"
+                    >
+                      <Settings size={16} /> Dashboard Settings
+                    </button>
+                    <button 
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-3 text-[12px] font-black text-rose-600 hover:bg-rose-50 flex items-center gap-3"
+                    >
+                      <LogOut size={16} /> Sign Out
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </header>
 

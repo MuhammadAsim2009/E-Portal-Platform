@@ -8,6 +8,8 @@ import {
   createCourse,
   getAnnouncements,
   createAnnouncement,
+  updateAnnouncement,
+  deleteAnnouncement,
   getPendingUsers,
   approveUser,
   rejectUser,
@@ -28,6 +30,9 @@ import {
   getEligibleStudents,
   removeStudent,
   getAuditLogs,
+  getNotifications,
+  getUnreadCount,
+  markNotificationAsRead,
   getPayments,
   updatePaymentStatus
 } from '../controllers/admin.controller.js';
@@ -65,6 +70,9 @@ router.delete('/sections/:id/enroll/:studentId', removeStudent);
 // Financials
 router.get('/analytics', getFinancialAnalytics);
 router.get('/audit-logs', getAuditLogs);
+router.get('/notifications', getNotifications);
+router.get('/notifications/unread-count', getUnreadCount);
+router.patch('/notifications/:id/read', markNotificationAsRead);
 router.get('/payments', getPayments);
 router.patch('/payments/:id/status', updatePaymentStatus);
 
@@ -77,5 +85,7 @@ router.delete('/courses/:id', deleteCourse);
 // Announcements
 router.get('/announcements', getAnnouncements);
 router.post('/announcements', createAnnouncement);
+router.patch('/announcements/:id', updateAnnouncement);
+router.delete('/announcements/:id', deleteAnnouncement);
 
 export default router;

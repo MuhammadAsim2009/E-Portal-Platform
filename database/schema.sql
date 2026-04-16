@@ -137,3 +137,27 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   ip_address VARCHAR(45),
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS announcements (
+  announcement_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title VARCHAR(255) NOT NULL,
+  body TEXT NOT NULL,
+  category VARCHAR(50) NOT NULL,
+  target_role VARCHAR(20) NOT NULL,
+  expiry_date DATE,
+  is_pinned BOOLEAN DEFAULT false,
+  created_by UUID REFERENCES users(user_id) ON DELETE SET NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  notification_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  type VARCHAR(50) NOT NULL, -- 'registration', 'payment', 'enrollment', 'system', 'message'
+  priority VARCHAR(20) DEFAULT 'medium', -- 'low', 'medium', 'high', 'urgent'
+  is_read BOOLEAN DEFAULT false,
+  related_id VARCHAR(255), -- ID of the related resource (user_id, payment_id, etc.)
+  created_at TIMESTAMP DEFAULT NOW()
+);

@@ -10,5 +10,6 @@ router.use(authorizeRoles(['student']));
 router.get('/dashboard', studentCtrl.getDashboard);
 router.get('/courses/available', studentCtrl.getAvailableCourses);
 router.post('/enroll', studentCtrl.enrollModule);
+router.post('/payments', studentCtrl.submitPayment);
 
 export default router;

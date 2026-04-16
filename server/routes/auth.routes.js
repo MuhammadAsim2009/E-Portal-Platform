@@ -11,6 +11,8 @@ router.post('/logout', authController.logout);
 router.post('/refresh', authController.refreshAccessToken);
 
 // Protected routes
-router.get('/me', authenticateJWT, authController.getMe);
+router.use(authenticateJWT);
+router.get('/me', authController.getMe);
+router.post('/contact-admin', authController.contactAdmin);
 
 export default router;

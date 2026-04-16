@@ -1,6 +1,6 @@
 import * as userService from '../services/user.service.js';
 import * as authService from '../services/auth.service.js';
-import { logAction } from '../services/admin.service.js';
+import { logAction, createNotification } from '../services/admin.service.js';
 
 /**
  * Register a new user
@@ -33,6 +33,15 @@ export const register = async (req, res) => {
       action: 'USER_REGISTER',
       details: `New ${role} registration: ${email}`,
       ipAddress: req.ip
+    });
+
+    await createNotification({
+      userId: newUser.user_id,
+      title: 'New Registration',
+      message: `${name} (${role}) has registered and is waiting for approval.`,
+      type: 'registration',
+      priority: 'high',
+      relatedId: newUser.user_id
     });
 
     res.status(201).json({
@@ -181,5 +190,34 @@ export const refreshAccessToken = async (req, res) => {
   } catch (error) {
     console.error('Token refresh error:', error);
     res.status(500).json({ message: 'Internal server error during token refresh.' });
+  }
+};
+
+/**
+ * Send a notification/message to Admin
+ */
+export const contactAdmin = async (req, res) => {
+  try {
+    const { title, message, priority = 'medium' } = req.body;
+    
+    await logAction({
+      userId: req.user.user_id,
+      action: 'CONTACT_ADMIN',
+      details: `User sent a message to Admin: ${title}`,
+      ipAddress: req.ip
+    });
+
+    await createNotification({
+      userId: req.user.user_id,
+      title: `User Message: ${title}`,
+      message: message,
+      type: 'message',
+      priority: priority
+    });
+
+    res.status(200).json({ message: 'Message sent to Admin successfully.' });
+  } catch (error) {
+    console.error('Contact Admin error:', error);
+    res.status(500).json({ message: 'Error sending message to Admin.' });
   }
 };
