@@ -16,7 +16,8 @@ import {
   User,
   Plus,
   X,
-  Edit2
+  Edit2,
+  UserMinus
 } from 'lucide-react';
 
 const TimetableManagement = () => {
@@ -36,6 +37,7 @@ const TimetableManagement = () => {
   const [sectionStudents, setSectionStudents] = useState([]);
   const [eligibleStudents, setEligibleStudents] = useState([]);
   const [enrollLoading, setEnrollLoading] = useState(false);
+  const [studentToRemove, setStudentToRemove] = useState(null);
 
   const showToast = (type, msg) => {
     setToast({ show: true, type, msg });
@@ -183,6 +185,20 @@ const TimetableManagement = () => {
       showToast('error', err.response?.data?.message || 'Enrollment failed');
     } finally {
       setEnrollLoading(false);
+    }
+  };
+
+  const handleRemoveStudent = async () => {
+    if (!studentToRemove) return;
+    try {
+      await api.delete(`/admin/sections/${selectedSection.section_id}/enroll/${studentToRemove.student_id}`);
+      showToast('success', 'Student removed successfully');
+      fetchStudents(selectedSection.section_id);
+      fetchSections(); // refresh seat count
+      setStudentToRemove(null);
+    } catch (err) {
+      showToast('error', err.response?.data?.message || 'Failed to remove student');
+      setStudentToRemove(null);
     }
   };
 
@@ -693,7 +709,16 @@ const TimetableManagement = () => {
                             <div className="text-[11px] font-medium text-slate-500">ID: {s.admission_id}</div>
                           </div>
                         </div>
-                        <div className="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-2 py-1 rounded-md uppercase tracking-wider">Active</div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-2 py-1 rounded-md uppercase tracking-wider">Active</div>
+                          <button
+                            onClick={() => setStudentToRemove(s)}
+                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors group"
+                            title="Remove Student"
+                          >
+                            <UserMinus size={16} className="group-hover:scale-110 transition-transform" />
+                          </button>
+                        </div>
                       </div>
                     ))
                   ) : (
@@ -734,6 +759,38 @@ const TimetableManagement = () => {
                 className="flex-[2] px-6 py-4 bg-rose-600 text-white rounded-2xl font-bold text-[14px] hover:bg-rose-700 transition-all shadow-lg shadow-rose-100"
               >
                 Yes, Delete it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Student Confirmation Modal */}
+      {studentToRemove && selectedSection && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-xl p-8 border border-slate-200 text-center">
+            <div className="w-20 h-20 bg-rose-50 text-rose-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-rose-100">
+              <UserMinus size={40} />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 mb-2">Remove Student?</h2>
+            <p className="text-slate-500 font-medium text-sm mb-8 leading-relaxed">
+              Are you sure you want to drop <span className="text-slate-900 font-bold">{studentToRemove.full_name}</span> from <span className="text-slate-900 font-bold">Section {selectedSection.section_name}</span>? 
+              They will lose access to this schedule immediately.
+            </p>
+            <div className="flex gap-4">
+              <button 
+                type="button"
+                onClick={() => setStudentToRemove(null)}
+                className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-[14px] hover:bg-slate-200 transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button"
+                onClick={handleRemoveStudent}
+                className="flex-[2] px-6 py-4 bg-rose-600 text-white rounded-2xl font-bold text-[14px] hover:bg-rose-700 transition-all shadow-lg shadow-rose-100"
+              >
+                Yes, Remove
               </button>
             </div>
           </div>

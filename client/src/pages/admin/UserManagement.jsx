@@ -3,7 +3,8 @@ import api from '../../services/api';
 import { 
   Users, Search, ToggleLeft, ToggleRight, 
   ChevronLeft, ChevronRight, Filter, MoreVertical,
-  Mail, Calendar, Shield, UserX, UserCheck, Download
+  Mail, Calendar, Shield, UserX, UserCheck, Download,
+  Ban, Edit2, Trash2, Eye, EyeOff, ShieldAlert
 } from 'lucide-react';
 
 const ROLES = ['all', 'student', 'faculty', 'admin'];
@@ -21,73 +22,65 @@ const UserManagement = () => {
   const [page, setPage] = useState(1);
   const [role, setRole] = useState('all');
   const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState('all');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all'); // 'all', 'pending'
   const [togglingId, setTogglingId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [errorModal, setErrorModal] = useState(null); // { title, message }
   const limit = 10;
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
       if (activeTab === 'all') {
-        // As requested: real data for 'all', dummy data for specific roles
-        if (role === 'all') {
-          const res = await api.get(`/admin/users?role=${role}&page=${page}&limit=${limit}`);
-          setUsers(res.data.users);
-          setTotal(res.data.total);
-        } else {
-          // Dummy data for specific roles
-          const dummyUsers = role === 'student' ? [
-            { user_id: 's1', name: 'John Doe', email: 'john@student.edu', role: 'student', is_active: true, created_at: new Date().toISOString() },
-            { user_id: 's2', name: 'Jane Smith', email: 'jane@student.edu', role: 'student', is_active: true, created_at: new Date().toISOString() },
-          ] : role === 'faculty' ? [
-            { user_id: 'f1', name: 'Dr. Alan Turing', email: 'alan@faculty.edu', role: 'faculty', is_active: true, created_at: new Date().toISOString() },
-          ] : [
-            { user_id: 'a1', name: 'Admin One', email: 'admin1@uni.edu', role: 'admin', is_active: true, created_at: new Date().toISOString() },
-          ];
-          setUsers(dummyUsers);
-          setTotal(dummyUsers.length);
-        }
+        const res = await api.get(`/admin/users?role=${role}&page=${page}&limit=${limit}`);
+        setUsers(res.data.users || []);
+        setTotal(res.data.total || 0);
       } else {
         const res = await api.get('/admin/users/pending');
-        setPendingUsers(res.data);
+        setPendingUsers(res.data || []);
       }
-    } catch {
-      // Fallback dummy data
+    } catch (err) {
+      console.error(err);
       if (activeTab === 'all') {
-        setUsers([
-          { user_id: '1', name: 'Alice Smith', email: 'alice@uni.edu', role: 'student', is_active: true, registration_status: 'approved', created_at: new Date().toISOString() },
-          { user_id: '2', name: 'Dr. Robert Hayes', email: 'robert@uni.edu', role: 'faculty', is_active: true, registration_status: 'approved', created_at: new Date().toISOString() },
-        ]);
-        setTotal(2);
+        setUsers([]);
+        setTotal(0);
       } else {
-        setPendingUsers([
-          { user_id: '101', name: 'James Wilson', email: 'james@uni.edu', role: 'student', created_at: new Date().toISOString() },
-        ]);
+        setPendingUsers([]);
       }
     } finally {
-      setTimeout(() => setLoading(false), 500);
+      setLoading(false);
     }
   };
+
+  // Always fetch pending count for badge
+  useEffect(() => {
+    api.get('/admin/users/pending').then(res => {
+      setPendingUsers(res.data || []);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => { fetchUsers(); }, [role, page, activeTab]);
 
   const handleApprove = async (id) => {
     try {
       await api.patch(`/admin/users/${id}/approve`);
-      setPendingUsers(prev => prev.filter(u => u.user_id !== id));
+      const updated = pendingUsers.filter(u => u.user_id !== id);
+      setPendingUsers(updated);
       fetchUsers();
-    } catch (err) { alert('Failed to approve user'); }
+    } catch (err) { console.error('Failed to approve user', err); }
   };
 
   const handleReject = async (id) => {
     try {
       await api.patch(`/admin/users/${id}/reject`);
-      setPendingUsers(prev => prev.filter(u => u.user_id !== id));
-    } catch (err) { alert('Failed to reject user'); }
+      const updated = pendingUsers.filter(u => u.user_id !== id);
+      setPendingUsers(updated);
+    } catch (err) { console.error('Failed to reject user', err); }
   };
 
   const handleToggle = async (userId) => {
@@ -106,9 +99,26 @@ const UserManagement = () => {
     e.preventDefault();
     try {
       const res = await api.patch(`/admin/users/${selectedUser.user_id}`, selectedUser);
-      setUsers(users.map(u => u.user_id === selectedUser.user_id ? res.data : u));
+      setUsers(users.map(u => u.user_id === selectedUser.user_id ? { ...u, ...res.data } : u));
       setShowEditModal(false);
+      fetchUsers(); // Refresh to be completely safe
     } catch { alert('Update failed'); }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    try {
+      await api.delete(`/admin/users/${userToDelete.user_id}`);
+      setUserToDelete(null);
+      fetchUsers();
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to delete user. Please try again.';
+      setUserToDelete(null);
+      setErrorModal({
+        title: err.response?.status === 409 ? 'Cannot Delete Enrolled Student' : 'Deletion Failed',
+        message: msg,
+      });
+    }
   };
 
   const handleAddUser = async (e) => {
@@ -146,7 +156,7 @@ const UserManagement = () => {
                 onClick={() => setActiveTab('pending')}
                 className={`px-6 py-2.5 rounded-xl text-[13px] font-bold transition-all relative ${activeTab === 'pending' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
               >
-                Pending
+                Pending Approvals
                 {pendingUsers.length > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white border-2 border-white rounded-full text-[10px] flex items-center justify-center">
                     {pendingUsers.length}
@@ -275,7 +285,7 @@ const UserManagement = () => {
                         </div>
                       </td>
                       <td className="px-8 py-6 text-right">
-                        <div className="flex items-center justify-end gap-3">
+                        <div className="flex items-center justify-end gap-2">
                           {activeTab === 'pending' ? (
                             <>
                               <button
@@ -283,14 +293,14 @@ const UserManagement = () => {
                                 className="w-10 h-10 rounded-2xl flex items-center justify-center text-emerald-600 bg-emerald-50 hover:bg-emerald-100 transition-all"
                                 title="Approve User"
                               >
-                                <UserCheck size={20} />
+                                <UserCheck size={18} />
                               </button>
                               <button
                                 onClick={() => handleReject(u.user_id)}
                                 className="w-10 h-10 rounded-2xl flex items-center justify-center text-rose-600 bg-rose-50 hover:bg-rose-100 transition-all"
                                 title="Reject User"
                               >
-                                <UserX size={20} />
+                                <UserX size={18} />
                               </button>
                             </>
                           ) : (
@@ -300,7 +310,7 @@ const UserManagement = () => {
                                 disabled={togglingId === u.user_id}
                                 className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${
                                   u.is_active
-                                    ? 'text-rose-600 bg-rose-50 hover:bg-rose-100'
+                                    ? 'text-amber-600 bg-amber-50 hover:bg-amber-100'
                                     : 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
                                 }`}
                                 title={u.is_active ? 'Suspend Account' : 'Activate Account'}
@@ -308,16 +318,26 @@ const UserManagement = () => {
                                 {togglingId === u.user_id ? (
                                   <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                                 ) : u.is_active ? (
-                                  <UserX size={20} />
+                                  <UserX size={18} />
                                 ) : (
-                                  <UserCheck size={20} />
+                                  <UserCheck size={18} />
                                 )}
                               </button>
+                              
                               <button 
                                 onClick={() => { setSelectedUser(u); setShowEditModal(true); }}
-                                className="w-10 h-10 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-900 transition-all"
+                                className="w-10 h-10 rounded-2xl flex items-center justify-center text-indigo-500 bg-indigo-50 hover:bg-indigo-100 transition-all"
+                                title="Edit User"
                               >
-                                <MoreVertical size={20} />
+                                <Edit2 size={18} />
+                              </button>
+                              
+                              <button 
+                                onClick={() => setUserToDelete(u)}
+                                className="w-10 h-10 rounded-2xl flex items-center justify-center text-rose-500 bg-rose-50 hover:bg-rose-100 transition-all"
+                                title="Delete User"
+                              >
+                                <Trash2 size={18} />
                               </button>
                             </>
                           )}
@@ -372,7 +392,8 @@ const UserManagement = () => {
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-xl p-8 animate-in zoom-in-95 duration-300 border border-slate-200">
-            <h2 className="text-xl font-bold text-slate-900 mb-2 tracking-tight">Add User</h2>
+            <h2 className="text-xl font-bold text-slate-900 mb-2 tracking-tight">Add New User</h2>
+            <p className="text-slate-400 text-[13px] font-medium mb-6">Provision a new account into the academic ecosystem.</p>
             <form onSubmit={handleAddUser} className="space-y-6">
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -386,7 +407,22 @@ const UserManagement = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Password</label>
-                    <input name="password" type="password" required className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px]" />
+                    <div className="relative">
+                      <input 
+                        name="password" 
+                        type={showPassword ? 'text' : 'password'} 
+                        required 
+                        className="w-full px-5 py-3 pr-12 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px]" 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(v => !v)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors p-1"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -400,7 +436,11 @@ const UserManagement = () => {
               </div>
               
               <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-semibold text-[13px] hover:bg-slate-200 transition-all">Cancel</button>
+                <button 
+                  type="button" 
+                  onClick={() => { setShowAddModal(false); setShowPassword(false); }} 
+                  className="flex-1 px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-semibold text-[13px] hover:bg-slate-200 transition-all"
+                >Cancel</button>
                 <button type="submit" className="flex-[2] px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold text-[13px] hover:bg-slate-800 transition-all shadow-sm">Add User</button>
               </div>
             </form>
@@ -452,6 +492,61 @@ const UserManagement = () => {
                 <button type="submit" className="flex-[2] px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold text-[13px] hover:bg-slate-800 transition-all shadow-sm">Save Changes</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Delete Confirmation Modal */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-xl p-8 border border-slate-200 text-center relative overflow-hidden">
+            <div className="absolute inset-x-0 -top-10 h-40 bg-gradient-to-b from-rose-50 to-transparent pointer-events-none" />
+            <div className="w-20 h-20 bg-white text-rose-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-rose-100 relative z-10 border-4 border-rose-50">
+              <Trash2 size={32} />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 mb-2 brand-font">Erase Identity?</h2>
+            <p className="text-slate-500 font-medium text-sm mb-8 leading-relaxed max-w-[280px] mx-auto">
+              You are about to permanently delete <span className="text-slate-900 font-bold">{userToDelete.name}</span>'s record from the academic ecosystem. This action is irreversible.
+            </p>
+            <div className="flex gap-4">
+              <button 
+                type="button"
+                onClick={() => setUserToDelete(null)}
+                className="flex-1 px-6 py-4 bg-slate-50 text-slate-600 rounded-2xl font-bold text-[14px] hover:bg-slate-100 transition-all border border-slate-200"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button"
+                onClick={handleDeleteUser}
+                className="flex-[2] px-6 py-4 bg-rose-600 text-white rounded-2xl font-bold text-[14px] hover:bg-rose-700 hover:shadow-lg hover:shadow-rose-600/20 active:scale-[0.98] transition-all"
+              >
+                Yes, Erase
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error / Blocked-Action Modal */}
+      {errorModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-xl p-8 border border-slate-200 text-center relative overflow-hidden">
+            <div className="absolute inset-x-0 -top-10 h-40 bg-gradient-to-b from-amber-50 to-transparent pointer-events-none" />
+            <div className="w-20 h-20 bg-white text-amber-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-amber-100 relative z-10 border-4 border-amber-50">
+              <ShieldAlert size={32} />
+            </div>
+            <h2 className="text-xl font-black text-slate-900 mb-2">{errorModal.title}</h2>
+            <p className="text-slate-500 font-medium text-sm mb-8 leading-relaxed max-w-[300px] mx-auto">
+              {errorModal.message}
+            </p>
+            <button
+              type="button"
+              onClick={() => setErrorModal(null)}
+              className="w-full px-6 py-4 bg-slate-900 text-white rounded-2xl font-bold text-[14px] hover:bg-slate-800 transition-all"
+            >
+              Got it
+            </button>
           </div>
         </div>
       )}

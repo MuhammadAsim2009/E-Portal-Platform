@@ -35,25 +35,30 @@ export const getDashboardStats = async () => {
 export const getAllUsers = async ({ role, page = 1, limit = 15 }) => {
   try {
     const offset = (page - 1) * limit;
-    let whereClause = '';
+    let mainWhereClause = "WHERE registration_status != 'pending'";
+    let countWhereClause = "WHERE registration_status != 'pending'";
     const params = [limit, offset];
+    const countParams = [];
 
     if (role && role !== 'all') {
-      whereClause = 'WHERE role = $3';
+      mainWhereClause += ' AND role = $3';
       params.push(role);
+      
+      countWhereClause += ' AND role = $1';
+      countParams.push(role);
     }
 
     const res = await db.query(
-      `SELECT user_id, name, email, role, is_active, created_at
-       FROM users ${whereClause}
+      `SELECT user_id, name, email, role, is_active, created_at, registration_status
+       FROM users ${mainWhereClause}
        ORDER BY created_at DESC
        LIMIT $1 OFFSET $2`,
       params
     );
 
     const countRes = await db.query(
-      `SELECT COUNT(*) FROM users ${whereClause}`,
-      role && role !== 'all' ? [role] : []
+      `SELECT COUNT(*) FROM users ${countWhereClause}`,
+      countParams
     );
 
     return {
@@ -62,15 +67,8 @@ export const getAllUsers = async ({ role, page = 1, limit = 15 }) => {
       page,
       limit,
     };
-  } catch {
-    return {
-      users: [
-        { user_id: '1', name: 'Alice Smith', email: 'alice@uni.edu', role: 'student', is_active: true, created_at: new Date() },
-        { user_id: '2', name: 'Dr. Robert Hayes', email: 'robert@uni.edu', role: 'faculty', is_active: true, created_at: new Date() },
-        { user_id: '3', name: 'Bob Johnson', email: 'bob@uni.edu', role: 'student', is_active: false, created_at: new Date() },
-      ],
-      total: 3, page, limit,
-    };
+  } catch (err) {
+    throw err;
   }
 };
 
@@ -123,6 +121,28 @@ export const updateUser = async (userId, data) => {
     [email, role, name, userId]
   );
   return res.rows[0];
+};
+
+export const deleteUser = async (userId) => {
+  // Check if this user is a student enrolled in any section
+  const enrollmentCheck = await db.query(
+    `SELECT e.enrollment_id
+     FROM enrollments e
+     JOIN students s ON s.student_id = e.student_id
+     WHERE s.user_id = $1
+     LIMIT 1`,
+    [userId]
+  );
+
+  if (enrollmentCheck.rowCount > 0) {
+    const err = new Error('This student is enrolled in one or more courses. Unenroll them before deleting their account.');
+    err.code = 'ENROLLED';
+    throw err;
+  }
+
+  const res = await db.query('DELETE FROM users WHERE user_id = $1 RETURNING user_id', [userId]);
+  if (res.rowCount === 0) throw new Error('User not found');
+  return { success: true };
 };
 
 // ─────────────────────── COURSE MANAGEMENT ───────────────────────
@@ -398,3 +418,16 @@ export const getEligibleStudentsForSection = async (sectionId) => {
   `, [sectionId]);
   return res.rows;
 };
+
+export const removeStudentFromSection = async (sectionId, studentId) => {
+  const checkRes = await db.query('SELECT 1 FROM enrollments WHERE student_id = $1 AND section_id = $2', [studentId, sectionId]);
+  if (checkRes.rows.length === 0) throw new Error('Student is not enrolled in this section');
+
+  await db.query('DELETE FROM enrollments WHERE student_id = $1 AND section_id = $2', [studentId, sectionId]);
+  
+  // Decrease current_seats (make sure it doesn't drop below 0 if somehow out of sync)
+  await db.query('UPDATE course_sections SET current_seats = GREATEST(0, current_seats - 1) WHERE section_id = $1', [sectionId]);
+  
+  return { success: true };
+};
+

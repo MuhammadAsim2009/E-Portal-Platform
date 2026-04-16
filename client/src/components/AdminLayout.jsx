@@ -57,17 +57,17 @@ const AdminLayout = () => {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 w-72 glass-sidebar text-white flex flex-col z-30 transform transition-all duration-300 ease-out shadow-2xl ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 w-72 bg-slate-950 border-r border-slate-800 text-slate-300 flex flex-col z-30 transform transition-all duration-300 ease-out shadow-2xl ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         {/* Brand */}
-        <div className="flex items-center gap-3 px-8 py-8 border-b border-white/5">
-          <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/10">
-            <Shield size={20} className="text-white" />
+        <div className="flex items-center gap-3 px-8 py-8 border-b border-slate-800/60">
+          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/20">
+            <Shield size={20} className="text-white drop-shadow-md" />
           </div>
           <div className="flex flex-col">
             <span className="font-bold text-lg tracking-tight text-white leading-none">E-Portal</span>
-            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-1.5 opacity-80">Operational Intelligence</span>
+            <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-[0.2em] mt-1.5 opacity-80">Operational Intelligence</span>
           </div>
-          <button onClick={() => setOpen(false)} className="ml-auto lg:hidden text-slate-400 hover:text-white transition-colors">
+          <button onClick={() => setOpen(false)} className="ml-auto lg:hidden text-slate-500 hover:text-white transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -86,16 +86,20 @@ const AdminLayout = () => {
                     to={to}
                     onClick={() => setOpen(false)}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 group relative ${
+                      `flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-medium transition-all duration-200 group relative ${
                         isActive
-                          ? 'bg-indigo-600/10 text-indigo-400'
-                          : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.03]'
+                          ? 'bg-gradient-to-r from-indigo-500/10 to-transparent text-indigo-400 border border-indigo-500/20 shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                       }`
                     }
                   >
-                    <Icon size={18} className="transition-transform group-hover:scale-110" />
-                    <span className="flex-1">{label}</span>
-                    <ChevronRight size={14} className="opacity-0 group-hover:opacity-40 transition-all group-hover:translate-x-1" />
+                    {({ isActive }) => (
+                      <>
+                        <Icon size={18} className={`transition-transform group-hover:scale-110 ${isActive ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                        <span className="flex-1">{label}</span>
+                        <ChevronRight size={14} className="opacity-0 group-hover:opacity-60 transition-all group-hover:translate-x-1" />
+                      </>
+                    )}
                   </NavLink>
                 ))}
               </div>
@@ -104,13 +108,13 @@ const AdminLayout = () => {
         </nav>
 
         {/* User Profile */}
-        <div className="p-6 border-t border-white/5 bg-white/[0.02]">
+        <div className="p-6 border-t border-slate-800/60 bg-slate-900/40">
           <div className="flex items-center gap-3 mb-4 px-2">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ring-2 ring-white/10 shadow-lg">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ring-2 ring-white/5 shadow-lg">
               {user?.name?.[0]?.toUpperCase() || 'A'}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-white truncate tracking-tight">{user?.name || 'Administrator'}</p>
+              <p className="text-sm font-semibold text-slate-200 truncate tracking-tight">{user?.name || 'Administrator'}</p>
               <p className="text-[11px] text-slate-500 truncate font-medium">{user?.email}</p>
             </div>
           </div>

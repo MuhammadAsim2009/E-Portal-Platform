@@ -68,6 +68,19 @@ export const updateUser = async (req, res) => {
   }
 };
 
+export const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await adminService.deleteUser(id);
+    res.json({ message: 'User deleted successfully' });
+  } catch (err) {
+    if (err.code === 'ENROLLED') {
+      return res.status(409).json({ message: err.message });
+    }
+    res.status(500).json({ message: err.message });
+  }
+};
+
 export const createAdminUser = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
@@ -219,6 +232,15 @@ export const getEligibleStudents = async (req, res) => {
   }
 };
 
+export const removeStudent = async (req, res) => {
+  try {
+    const { id, studentId } = req.params;
+    const result = await adminService.removeStudentFromSection(id, studentId);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
 
 export const getFinancialAnalytics = async (req, res) => {
   try {

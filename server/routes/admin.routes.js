@@ -12,6 +12,7 @@ import {
   approveUser,
   rejectUser,
   updateUser,
+  deleteUser,
   createAdminUser,
   getSections,
   getFacultyList,
@@ -23,7 +24,8 @@ import {
   getFinancialAnalytics,
   updateCourse,
   deleteCourse,
-  getEligibleStudents
+  getEligibleStudents,
+  removeStudent
 } from '../controllers/admin.controller.js';
 
 const router = Router();
@@ -39,6 +41,7 @@ router.get('/users', getAllUsers);
 router.get('/users/pending', getPendingUsers);
 router.post('/users', createAdminUser);
 router.patch('/users/:id', updateUser);
+router.delete('/users/:id', deleteUser);
 router.patch('/users/:id/toggle-status', toggleUserStatus);
 router.patch('/users/:id/approve', approveUser);
 router.patch('/users/:id/reject', rejectUser);
@@ -52,6 +55,7 @@ router.delete('/sections/:id', deleteSection);
 router.get('/sections/:id/students', getSectionStudents);
 router.get('/sections/:id/eligible-students', getEligibleStudents);
 router.post('/sections/:id/enroll', enrollStudent);
+router.delete('/sections/:id/enroll/:studentId', removeStudent);
 
 // Financials
 router.get('/analytics', getFinancialAnalytics);

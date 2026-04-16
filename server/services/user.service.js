@@ -50,12 +50,13 @@ export const createUser = async ({ name, email, passwordHash, role, ...reqBody }
 
 export const findUserByEmail = async (email) => {
   try {
-    const sql = 'SELECT * FROM users WHERE email = $1 AND is_active = true;';
+    // Fetch regardless of is_active so we can return a specific suspension message
+    const sql = 'SELECT * FROM users WHERE email = $1;';
     const { rows } = await query(sql, [email]);
     return rows[0];
   } catch (err) {
     if (err.code === 'ECONNREFUSED') {
-      return mockUsers.find(u => u.email === email && u.is_active);
+      return mockUsers.find(u => u.email === email);
     }
     throw err;
   }

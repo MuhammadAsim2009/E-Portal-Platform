@@ -47,6 +47,13 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
+    // Check if account is suspended
+    if (!user.is_active) {
+      return res.status(403).json({ 
+        message: 'Your account has been suspended by Admin. Please contact the admin or your teacher.' 
+      });
+    }
+
     // Check Registration Status
     if (user.registration_status !== 'approved') {
       const msg = user.registration_status === 'pending' 
