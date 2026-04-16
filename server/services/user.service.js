@@ -4,9 +4,8 @@ const mockUsers = []; // In-memory fallback
 const mockStudents = []; // In-memory fallback
 const mockFaculty = []; // In-memory fallback
 
-export const createUser = async ({ name, email, passwordHash, role, ...reqBody }) => {
+export const createUser = async ({ name, email, passwordHash, role, date_of_birth, gender, contact_number, ...reqBody }) => {
   try {
-    // 1. Insert into base users table
     const sql = `
       INSERT INTO users (name, email, password_hash, role, registration_status)
       VALUES ($1, $2, $3, $4, $5)
@@ -17,10 +16,9 @@ export const createUser = async ({ name, email, passwordHash, role, ...reqBody }
     const { rows } = await query(sql, values);
     const user = rows[0];
 
-    // 2. Insert into role-specific tables
     if (role === 'student') {
-      const studSql = `INSERT INTO students (user_id) VALUES ($1) RETURNING student_id`;
-      const studRes = await query(studSql, [user.user_id]);
+      const studSql = `INSERT INTO students (user_id, date_of_birth, gender, contact_number) VALUES ($1, $2, $3, $4) RETURNING student_id`;
+      const studRes = await query(studSql, [user.user_id, date_of_birth || null, gender || null, contact_number || null]);
       user.student_id = studRes.rows[0].student_id;
     } else if (role === 'faculty') {
       const facSql = `INSERT INTO faculty (user_id) VALUES ($1) RETURNING faculty_id`;

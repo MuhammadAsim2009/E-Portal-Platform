@@ -78,7 +78,7 @@ export const login = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 15 * 60 * 1000 // 15 mins
+      maxAge: 60 * 60 * 1000 // 1 hour
     });
 
     res.cookie('refreshToken', refreshToken, {
@@ -119,5 +119,43 @@ export const getMe = async (req, res) => {
     res.status(200).json({ user });
   } catch (error) {
     res.status(500).json({ message: 'Error retrieving user session.' });
+  }
+};
+
+/**
+ * Silently refresh access token using refresh token cookie
+ */
+export const refreshAccessToken = async (req, res) => {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+    if (!refreshToken) {
+      return res.status(401).json({ message: 'No refresh token provided.' });
+    }
+
+    let payload;
+    try {
+      payload = authService.verifyRefreshToken(refreshToken);
+    } catch {
+      return res.status(401).json({ message: 'Refresh token expired. Please log in again.' });
+    }
+
+    const user = await userService.findUserById(payload.id);
+    if (!user || !user.is_active) {
+      return res.status(401).json({ message: 'Account not found or suspended.' });
+    }
+
+    const { accessToken } = authService.generateTokens(user);
+
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 1000 // 1 hour
+    });
+
+    res.status(200).json({ message: 'Token refreshed.' });
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    res.status(500).json({ message: 'Internal server error during token refresh.' });
   }
 };

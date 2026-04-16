@@ -14,6 +14,7 @@ import {
   updateUser,
   deleteUser,
   createAdminUser,
+  bulkCreateStudents,
   getSections,
   getFacultyList,
   updateSectionSchedule,
@@ -39,6 +40,7 @@ router.get('/dashboard/stats', getDashboardStats);
 // User Management
 router.get('/users', getAllUsers);
 router.get('/users/pending', getPendingUsers);
+router.post('/users/bulk', bulkCreateStudents);
 router.post('/users', createAdminUser);
 router.patch('/users/:id', updateUser);
 router.delete('/users/:id', deleteUser);

@@ -19,6 +19,8 @@ import CourseEnrollment from './pages/student/CourseEnrollment';
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
 import UserManagement from './pages/admin/UserManagement';
+import StudentManagement from './pages/admin/StudentManagement';
+import FacultyManagement from './pages/admin/FacultyManagement';
 import CourseManagement from './pages/admin/CourseManagement';
 import Announcements from './pages/admin/Announcements';
 import TimetableManagement from './pages/admin/TimetableManagement';
@@ -69,6 +71,8 @@ function App() {
         >
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<UserManagement />} />
+          <Route path="students" element={<StudentManagement />} />
+          <Route path="faculty" element={<FacultyManagement />} />
           <Route path="courses" element={<CourseManagement />} />
           <Route path="announcements" element={<Announcements />} />
           <Route path="timetable" element={<TimetableManagement />} />

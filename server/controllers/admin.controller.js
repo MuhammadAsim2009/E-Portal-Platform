@@ -83,16 +83,53 @@ export const deleteUser = async (req, res) => {
 
 export const createAdminUser = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
-    // We reuse the user service logic but specify it's admin created
+    const { name, email, password, role, date_of_birth, gender, contact_number } = req.body;
     const passwordHash = await import('../services/auth.service.js').then(m => m.hashPassword(password));
     const user = await import('../services/user.service.js').then(m => m.createUser({ 
-      name, email, passwordHash, role, is_admin_created: true 
+      name, email, passwordHash, role, is_admin_created: true,
+      date_of_birth, gender, contact_number
     }));
     res.status(201).json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+};
+
+export const bulkCreateStudents = async (req, res) => {
+  const students = req.body; // Array of { name, email, password, date_of_birth, gender, contact_number }
+  if (!Array.isArray(students) || students.length === 0) {
+    return res.status(400).json({ message: 'No student records provided.' });
+  }
+
+  const authService = await import('../services/auth.service.js');
+  const userService = await import('../services/user.service.js');
+
+  const results = { success: [], failed: [] };
+
+  for (const row of students) {
+    const { name, email, password, date_of_birth, gender, contact_number } = row;
+    if (!name || !email || !password) {
+      results.failed.push({ email: email || '(missing)', reason: 'Name, email, and password are required.' });
+      continue;
+    }
+    try {
+      const passwordHash = await authService.hashPassword(password);
+      await userService.createUser({
+        name, email, passwordHash, role: 'student', is_admin_created: true,
+        date_of_birth: date_of_birth || null,
+        gender: gender || null,
+        contact_number: contact_number || null,
+      });
+      results.success.push(email);
+    } catch (err) {
+      results.failed.push({ email, reason: err.message });
+    }
+  }
+
+  res.status(207).json({
+    message: `${results.success.length} student(s) added, ${results.failed.length} failed.`,
+    ...results,
+  });
 };
 
 export const getAllCourses = async (req, res) => {
