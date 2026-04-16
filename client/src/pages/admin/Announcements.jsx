@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { 
   Megaphone, Plus, X, Pin, AlertCircle, CheckCircle2, 
-  Clock, Target, Tag, Calendar, User, Users, Shield,
+  Clock, Target, Tag, Calendar, User, Users, Shield, Mail,
   ArrowRight, Search, Zap, MoreHorizontal, BellRing, Trash2, Pencil
 } from 'lucide-react';
 
-const TARGET_ROLES = ['all', 'student', 'faculty', 'admin'];
+const TARGET_ROLES = ['all', 'student', 'faculty', 'admin', 'individual'];
 const CATEGORIES = ['Academic', 'General', 'Exam', 'Event', 'Alert'];
 
 const targetStyles = {
@@ -14,6 +14,7 @@ const targetStyles = {
   student: 'bg-sky-50 text-sky-700 border-sky-100',
   faculty: 'bg-violet-50 text-violet-700 border-violet-100',
   admin: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  individual: 'bg-rose-50 text-rose-700 border-rose-100',
 };
 
 const categoryStyles = {
@@ -37,8 +38,10 @@ const Announcements = () => {
   const [toast, setToast] = useState({ show: false, type: '', msg: '' });
   const [form, setForm] = useState({
     title: '', body: '', category: 'Academic',
-    target_role: 'all', expiry_date: '', is_pinned: false,
+    target_role: 'all', target_user_id: '', expiry_date: '', 
+    is_pinned: false, send_email: false
   });
+  const [users, setUsers] = useState([]);
 
   const showToast = (type, msg) => {
     setToast({ show: true, type, msg });
@@ -61,7 +64,19 @@ const Announcements = () => {
     }
   };
 
-  useEffect(() => { fetchAnnouncements(); }, []);
+  const fetchUsers = async () => {
+    try {
+      const res = await api.get('/admin/users');
+      setUsers(res.data.users || []);
+    } catch (err) {
+      console.error("Failed to load users for individual selection");
+    }
+  };
+
+  useEffect(() => { 
+    fetchAnnouncements(); 
+    fetchUsers();
+  }, []);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -91,15 +106,21 @@ const Announcements = () => {
       body: a.body,
       category: a.category,
       target_role: a.target_role || 'all',
+      target_user_id: a.target_user_id || '',
       expiry_date: a.expiry_date ? a.expiry_date.split('T')[0] : '',
-      is_pinned: a.is_pinned
+      is_pinned: a.is_pinned,
+      send_email: false
     });
     setEditingId(a.announcement_id);
     setShowModal(true);
   };
 
   const resetForm = () => {
-    setForm({ title: '', body: '', category: 'Academic', target_role: 'all', expiry_date: '', is_pinned: false });
+    setForm({ 
+      title: '', body: '', category: 'Academic', 
+      target_role: 'all', target_user_id: '', expiry_date: '', 
+      is_pinned: false, send_email: false 
+    });
     setEditingId(null);
   };
 
@@ -374,6 +395,26 @@ const Announcements = () => {
                   </div>
                 </div>
 
+                {/* Individual Recipient Search (if selected) */}
+                {form.target_role === 'individual' && (
+                  <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                    <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                      <User size={12} /> Select Recipient
+                    </label>
+                    <select 
+                      value={form.target_user_id} 
+                      onChange={e => setForm({ ...form, target_user_id: e.target.value })}
+                      required
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 focus:border-indigo-500/30 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl text-[13px] font-bold text-slate-900 transition-all appearance-none cursor-pointer"
+                    >
+                      <option value="">Search and select a user...</option>
+                      {users.map(u => (
+                        <option key={u.user_id} value={u.user_id}>{u.name} ({u.role})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {/* Body Content */}
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Message Content</label>
@@ -419,6 +460,28 @@ const Announcements = () => {
                       <Pin size={16} className={`${form.is_pinned ? 'text-amber-500' : 'text-amber-200'} transition-colors`} />
                     </div>
                   </div>
+                </div>
+
+                {/* Email Broadcast Toggle */}
+                <div className="pt-2">
+                  <label className="flex items-center gap-4 px-5 py-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50 transition-all hover:bg-indigo-50 cursor-pointer">
+                    <div className="p-2.5 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-200">
+                      <Mail size={18} />
+                    </div>
+                    <div className="flex flex-col flex-1">
+                       <span className="text-[10px] font-black uppercase tracking-[0.1em] text-indigo-700 leading-none mb-1.5">Email Notification</span>
+                       <span className="text-[11px] font-bold text-slate-500">Dispatch a copy to recipient mailboxes via SMTP</span>
+                    </div>
+                    <div className="relative inline-flex items-center">
+                      <input 
+                        type="checkbox" 
+                        checked={form.send_email}
+                        onChange={e => setForm({ ...form, send_email: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </div>
+                  </label>
                 </div>
 
                 {/* Footer Actions */}

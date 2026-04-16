@@ -1,4 +1,5 @@
 import * as db from '../config/db.js';
+import { sendEmail } from './email.service.js';
 
 // ─────────────────────── DASHBOARD OVERVIEW ───────────────────────
 
@@ -538,14 +539,57 @@ export const getAnnouncements = async () => {
   }
 };
 
-export const createAnnouncement = async ({ title, body, category, target_role, expiry_date, is_pinned, adminId }) => {
+export const createAnnouncement = async ({ title, body, category, target_role, target_user_id, expiry_date, is_pinned, adminId, send_email }) => {
   try {
     const res = await db.query(
-      `INSERT INTO announcements (title, body, category, target_role, expiry_date, is_pinned, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [title, body, category, target_role, expiry_date || null, is_pinned, adminId]
+      `INSERT INTO announcements (title, body, category, target_role, target_user_id, expiry_date, is_pinned, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [title, body, category, target_role, target_user_id || null, expiry_date || null, is_pinned, adminId]
     );
-    return res.rows[0];
+    const announcement = res.rows[0];
+
+    // Handle Email Broadcasting
+    if (send_email) {
+      let recipients = [];
+      if (target_role === 'individual' && target_user_id) {
+        const userRes = await db.query('SELECT email FROM users WHERE user_id = $1', [target_user_id]);
+        if (userRes.rows.length > 0) recipients = [userRes.rows[0].email];
+      } else if (target_role === 'all') {
+        const usersRes = await db.query('SELECT email FROM users WHERE is_active = true');
+        recipients = usersRes.rows.map(u => u.email);
+      } else {
+        const usersRes = await db.query('SELECT email FROM users WHERE role = $1 AND is_active = true', [target_role]);
+        recipients = usersRes.rows.map(u => u.email);
+      }
+
+      if (recipients.length > 0) {
+        // Send email in background (or wait if you prefer, usually background is better but here we can wait for confirmation)
+        sendEmail({
+          to: recipients,
+          subject: `[${category}] ${title}`,
+          text: body,
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+              <div style="background-color: #4f46e5; padding: 24px; color: white;">
+                <h2 style="margin: 0; font-size: 20px;">Institutional Announcement</h2>
+                <p style="margin: 4px 0 0 0; opacity: 0.8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">${category} Bulletin</p>
+              </div>
+              <div style="padding: 32px; color: #1e293b;">
+                <h1 style="margin: 0 0 16px 0; font-size: 24px; color: #0f172a;">${title}</h1>
+                <p style="margin: 0; line-height: 1.6; color: #475569; white-space: pre-wrap;">${body}</p>
+                <div style="margin-top: 32px; padding-top: 24px; border-t: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8;">
+                  Target Audience: ${target_role}<br>
+                  Date Posted: ${new Date().toLocaleDateString()}<br>
+                  This is an automated institutional message.
+                </div>
+              </div>
+            </div>
+          `
+        }).catch(err => console.error('E-Broadcast Failure:', err));
+      }
+    }
+
+    return announcement;
   } catch (err) {
     throw new Error(err.message);
   }

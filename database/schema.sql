@@ -143,7 +143,8 @@ CREATE TABLE IF NOT EXISTS announcements (
   title VARCHAR(255) NOT NULL,
   body TEXT NOT NULL,
   category VARCHAR(50) NOT NULL,
-  target_role VARCHAR(20) NOT NULL,
+  target_role VARCHAR(20) NOT NULL, -- 'all', 'student', 'faculty', 'individual'
+  target_user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
   expiry_date DATE,
   is_pinned BOOLEAN DEFAULT false,
   created_by UUID REFERENCES users(user_id) ON DELETE SET NULL,
