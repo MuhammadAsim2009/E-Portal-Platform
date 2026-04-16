@@ -23,6 +23,13 @@ export const toggleUserStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const result = await adminService.toggleUserStatus(id);
+    await adminService.logAction({
+      userId: req.user.user_id,
+      action: 'TOGGLE_USER_STATUS',
+      target: id,
+      details: `User status changed to ${result.is_active ? 'Active' : 'Inactive'}`,
+      ipAddress: req.ip
+    });
     res.json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -42,6 +49,14 @@ export const approveUser = async (req, res) => {
   try {
     const { id } = req.params;
     const result = await adminService.approveUser(id);
+    await adminService.logAction({
+      userId: req.user.user_id,
+      action: 'APPROVE_USER',
+      target: id,
+      details: `Approved registration for user ID: ${id}`,
+      severity: 'info',
+      ipAddress: req.ip
+    });
     res.json({ message: 'User approved successfully', user_id: result.user_id });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -83,22 +98,35 @@ export const deleteUser = async (req, res) => {
 
 export const createAdminUser = async (req, res) => {
   try {
-    const { name, email, password, role, date_of_birth, gender, contact_number } = req.body;
+    const { 
+      name, email, password, role, 
+      date_of_birth, gender, contact_number,
+      department, designation, qualifications 
+    } = req.body;
     const passwordHash = await import('../services/auth.service.js').then(m => m.hashPassword(password));
     const user = await import('../services/user.service.js').then(m => m.createUser({ 
       name, email, passwordHash, role, is_admin_created: true,
-      date_of_birth, gender, contact_number
+      date_of_birth, gender, contact_number,
+      department, designation, qualifications
     }));
+    await adminService.logAction({
+      userId: req.user.user_id,
+      action: 'CREATE_USER_ADMIN',
+      target: user.user_id,
+      details: `Admin manually created ${role} account for ${email}`,
+      severity: 'info',
+      ipAddress: req.ip
+    });
     res.status(201).json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-export const bulkCreateStudents = async (req, res) => {
-  const students = req.body; // Array of { name, email, password, date_of_birth, gender, contact_number }
-  if (!Array.isArray(students) || students.length === 0) {
-    return res.status(400).json({ message: 'No student records provided.' });
+export const bulkCreateUsers = async (req, res) => {
+  const users = req.body; // Array of { name, email, password, role, ...profile_fields }
+  if (!Array.isArray(users) || users.length === 0) {
+    return res.status(400).json({ message: 'No user records provided.' });
   }
 
   const authService = await import('../services/auth.service.js');
@@ -106,19 +134,30 @@ export const bulkCreateStudents = async (req, res) => {
 
   const results = { success: [], failed: [] };
 
-  for (const row of students) {
-    const { name, email, password, date_of_birth, gender, contact_number } = row;
+  for (const row of users) {
+    const { 
+      name, email, password, role, 
+      date_of_birth, gender, contact_number,
+      department, designation, qualifications 
+    } = row;
+
     if (!name || !email || !password) {
       results.failed.push({ email: email || '(missing)', reason: 'Name, email, and password are required.' });
       continue;
     }
+
     try {
       const passwordHash = await authService.hashPassword(password);
+      const userRole = role || 'student'; // Default to student
+      
       await userService.createUser({
-        name, email, passwordHash, role: 'student', is_admin_created: true,
+        name, email, passwordHash, role: userRole, is_admin_created: true,
         date_of_birth: date_of_birth || null,
         gender: gender || null,
         contact_number: contact_number || null,
+        department: department || null,
+        designation: designation || null,
+        qualifications: qualifications || null
       });
       results.success.push(email);
     } catch (err) {
@@ -127,7 +166,7 @@ export const bulkCreateStudents = async (req, res) => {
   }
 
   res.status(207).json({
-    message: `${results.success.length} student(s) added, ${results.failed.length} failed.`,
+    message: `${results.success.length} user(s) added, ${results.failed.length} failed.`,
     ...results,
   });
 };
@@ -184,6 +223,13 @@ export const createAnnouncement = async (req, res) => {
     const announcement = await adminService.createAnnouncement({
       ...req.body,
       adminId: req.user.user_id,
+    });
+    await adminService.logAction({
+      userId: req.user.user_id,
+      action: 'CREATE_ANNOUNCEMENT',
+      target: announcement.announcement_id,
+      details: `New announcement: ${announcement.title}`,
+      ipAddress: req.ip
     });
     res.status(201).json(announcement);
   } catch (err) {
@@ -284,6 +330,19 @@ export const getFinancialAnalytics = async (req, res) => {
     const stats = await adminService.getFinancialStats();
     const incomePerCourse = await adminService.getIncomePerCourse();
     res.json({ stats, incomePerCourse });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const getAuditLogs = async (req, res) => {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    const result = await adminService.getAuditLogs({ 
+      page: parseInt(page), 
+      limit: parseInt(limit) 
+    });
+    res.json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

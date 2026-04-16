@@ -4,30 +4,114 @@ import * as db from '../config/db.js';
 
 export const getDashboardStats = async () => {
   try {
-    const [usersRes, studentsRes, facultyRes, coursesRes, enrollmentsRes] = await Promise.all([
+    const [usersRes, studentsRes, facultyRes, coursesRes, enrollmentsRes, deptDistribution, recentLogs, trendRes] = await Promise.all([
       db.query(`SELECT COUNT(*) FROM users`),
-      db.query(`SELECT COUNT(*) FROM users WHERE role = 'student'`),
-      db.query(`SELECT COUNT(*) FROM users WHERE role = 'faculty'`),
+      db.query(`SELECT COUNT(*) FROM users WHERE role = 'student' AND registration_status = 'approved' AND is_active = true`),
+      db.query(`SELECT COUNT(*) FROM users WHERE role = 'faculty' AND registration_status = 'approved' AND is_active = true`),
       db.query(`SELECT COUNT(*) FROM courses WHERE is_active = true`),
       db.query(`SELECT COUNT(*) FROM enrollments WHERE status = 'enrolled'`),
+      db.query(`
+        SELECT department as dept, COUNT(*) as count 
+        FROM faculty 
+        WHERE department IS NOT NULL AND department != ''
+        GROUP BY department 
+        ORDER BY count DESC 
+        LIMIT 5
+      `),
+      db.query(`
+        SELECT 
+          l.*, 
+          u.name as user_name, 
+          u.email as user_email
+        FROM audit_logs l 
+        LEFT JOIN users u ON l.user_id = u.user_id 
+        ORDER BY l.created_at DESC 
+        LIMIT 5
+      `),
+      db.query(`
+        SELECT 
+          TO_CHAR(enrollment_date, 'Mon') as month, 
+          COUNT(*) as active
+        FROM enrollments
+        WHERE enrollment_date >= NOW() - INTERVAL '8 months'
+        GROUP BY month, date_trunc('month', enrollment_date)
+        ORDER BY date_trunc('month', enrollment_date)
+      `)
     ]);
-    return {
+
+    const totalStats = {
       totalUsers: parseInt(usersRes.rows[0].count),
       totalStudents: parseInt(studentsRes.rows[0].count),
       totalFaculty: parseInt(facultyRes.rows[0].count),
       activeCourses: parseInt(coursesRes.rows[0].count),
       activeEnrollments: parseInt(enrollmentsRes.rows[0].count),
+      departmentDistribution: deptDistribution.rows.map(d => ({
+        dept: d.dept,
+        students: Math.round((parseInt(d.count) / Math.max(1, parseInt(facultyRes.rows[0].count))) * 100),
+        color: '#6366f1'
+      })),
+      activities: recentLogs.rows.map(l => ({
+        id: l.log_id,
+        user: l.user_name || 'System',
+        action: l.action,
+        time: l.created_at,
+        status: 'Logged',
+        color: l.severity === 'critical' ? 'bg-rose-500' : 'bg-emerald-500'
+      })),
+      enrollmentTrend: trendRes.rows.map(r => ({
+        month: r.month,
+        active: parseInt(r.active),
+        new: Math.floor(parseInt(r.active) * 0.3)
+      }))
     };
-  } catch {
-    // Mock data when DB is unavailable
+    return totalStats;
+  } catch (err) {
+    console.error('Dashboard Stats Error:', err);
     return {
-      totalUsers: 142,
-      totalStudents: 120,
-      totalFaculty: 18,
-      activeCourses: 34,
-      activeEnrollments: 287,
+      totalUsers: 0,
+      totalStudents: 0,
+      totalFaculty: 0,
+      activeCourses: 0,
+      activeEnrollments: 0,
+      departmentDistribution: [],
+      activities: [],
+      enrollmentTrend: []
     };
   }
+};
+
+export const logAction = async ({ userId, action, target, details, severity = 'info', ipAddress }) => {
+  try {
+    await db.query(`
+      INSERT INTO audit_logs (user_id, action, target, details, severity, ip_address)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [userId, action, target, details, severity, ipAddress]);
+  } catch (err) {
+    console.error('Audit Log Error:', err);
+  }
+};
+
+export const getAuditLogs = async ({ page = 1, limit = 50 } = {}) => {
+  const offset = (page - 1) * limit;
+  const res = await db.query(`
+    SELECT 
+      l.*, 
+      u.name as user_name, 
+      u.email as user_email
+    FROM audit_logs l 
+    LEFT JOIN users u ON l.user_id = u.user_id 
+    ORDER BY l.created_at DESC 
+    LIMIT $1 OFFSET $2
+  `, [limit, offset]);
+  
+  const countRes = await db.query('SELECT COUNT(*) FROM audit_logs');
+
+  return {
+    logs: res.rows,
+    total: parseInt(countRes.rows[0].count),
+    page,
+    limit
+  };
 };
 
 // ─────────────────────── USER MANAGEMENT ───────────────────────
@@ -49,9 +133,16 @@ export const getAllUsers = async ({ role, page = 1, limit = 15 }) => {
     }
 
     const res = await db.query(
-      `SELECT user_id, name, email, role, is_active, created_at, registration_status
-       FROM users ${mainWhereClause}
-       ORDER BY created_at DESC
+      `SELECT 
+        u.user_id, u.name, u.email, u.role, u.is_active, u.created_at, u.registration_status,
+        s.date_of_birth, s.gender,
+        f.department, f.designation, f.qualifications,
+        COALESCE(s.contact_number, f.contact_number) as contact_number
+       FROM users u
+       LEFT JOIN students s ON u.user_id = s.user_id
+       LEFT JOIN faculty f ON u.user_id = f.user_id
+       ${mainWhereClause.replace(/role/g, 'u.role')}
+       ORDER BY u.created_at DESC
        LIMIT $1 OFFSET $2`,
       params
     );
@@ -115,12 +206,45 @@ export const rejectUser = async (userId) => {
 };
 
 export const updateUser = async (userId, data) => {
-  const { email, role, name } = data;
+  const { 
+    email, role, name, 
+    date_of_birth, gender, contact_number,
+    department, designation, qualifications 
+  } = data;
+
+  // 1. Update core user table
   const res = await db.query(
     `UPDATE users SET email = $1, role = $2, name = $3 WHERE user_id = $4 RETURNING *`,
     [email, role, name, userId]
   );
-  return res.rows[0];
+  if (res.rowCount === 0) throw new Error('User not found');
+  const user = res.rows[0];
+
+  // 2. Update role-specific profiles
+  if (role === 'student') {
+    await db.query(
+      `INSERT INTO students (user_id, date_of_birth, gender, contact_number)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id) DO UPDATE 
+       SET date_of_birth = EXCLUDED.date_of_birth,
+           gender = EXCLUDED.gender,
+           contact_number = EXCLUDED.contact_number`,
+      [userId, date_of_birth || null, gender || null, contact_number || null]
+    );
+  } else if (role === 'faculty') {
+    await db.query(
+      `INSERT INTO faculty (user_id, department, designation, contact_number, qualifications)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (user_id) DO UPDATE 
+       SET department = EXCLUDED.department,
+           designation = EXCLUDED.designation,
+           contact_number = EXCLUDED.contact_number,
+           qualifications = EXCLUDED.qualifications`,
+      [userId, department || null, designation || null, contact_number || null, qualifications || null]
+    );
+  }
+
+  return { ...user, date_of_birth, gender, contact_number, department, designation, qualifications };
 };
 
 export const deleteUser = async (userId) => {
@@ -312,10 +436,21 @@ export const getFinancialStats = async () => {
       db.query(`SELECT SUM(amount) FROM fees WHERE status = 'pending'`),
     ]);
 
+    const trend = await db.query(`
+      SELECT 
+        TO_CHAR(payment_date, 'Mon') as name, 
+        SUM(amount_paid) as revenue 
+      FROM payments 
+      WHERE payment_date >= NOW() - INTERVAL '6 months'
+      GROUP BY name, date_trunc('month', payment_date)
+      ORDER BY date_trunc('month', payment_date)
+    `);
+
     return {
       totalRevenue: parseFloat(totalRevenue.rows[0].sum || 0),
       collectionRate: Math.round(parseFloat(collectionRate.rows[0].rate || 0)),
       pendingAmount: parseFloat(pendingFees.rows[0].sum || 0),
+      revenueTrend: trend.rows
     };
   } catch (err) {
     console.error('Financial Stats Error:', err);

@@ -14,7 +14,7 @@ import {
   updateUser,
   deleteUser,
   createAdminUser,
-  bulkCreateStudents,
+  bulkCreateUsers,
   getSections,
   getFacultyList,
   updateSectionSchedule,
@@ -26,7 +26,8 @@ import {
   updateCourse,
   deleteCourse,
   getEligibleStudents,
-  removeStudent
+  removeStudent,
+  getAuditLogs
 } from '../controllers/admin.controller.js';
 
 const router = Router();
@@ -40,7 +41,7 @@ router.get('/dashboard/stats', getDashboardStats);
 // User Management
 router.get('/users', getAllUsers);
 router.get('/users/pending', getPendingUsers);
-router.post('/users/bulk', bulkCreateStudents);
+router.post('/users/bulk', bulkCreateUsers);
 router.post('/users', createAdminUser);
 router.patch('/users/:id', updateUser);
 router.delete('/users/:id', deleteUser);
@@ -61,6 +62,7 @@ router.delete('/sections/:id/enroll/:studentId', removeStudent);
 
 // Financials
 router.get('/analytics', getFinancialAnalytics);
+router.get('/audit-logs', getAuditLogs);
 
 // Course Management
 router.get('/courses', getAllCourses);

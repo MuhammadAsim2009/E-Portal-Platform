@@ -4,7 +4,7 @@ const mockUsers = []; // In-memory fallback
 const mockStudents = []; // In-memory fallback
 const mockFaculty = []; // In-memory fallback
 
-export const createUser = async ({ name, email, passwordHash, role, date_of_birth, gender, contact_number, ...reqBody }) => {
+export const createUser = async ({ name, email, passwordHash, role, cnic, date_of_birth, gender, contact_number, ...reqBody }) => {
   try {
     const sql = `
       INSERT INTO users (name, email, password_hash, role, registration_status)
@@ -17,12 +17,22 @@ export const createUser = async ({ name, email, passwordHash, role, date_of_birt
     const user = rows[0];
 
     if (role === 'student') {
-      const studSql = `INSERT INTO students (user_id, date_of_birth, gender, contact_number) VALUES ($1, $2, $3, $4) RETURNING student_id`;
-      const studRes = await query(studSql, [user.user_id, date_of_birth || null, gender || null, contact_number || null]);
+      const studSql = `INSERT INTO students (user_id, cnic, date_of_birth, gender, contact_number) VALUES ($1, $2, $3, $4, $5) RETURNING student_id`;
+      const studRes = await query(studSql, [user.user_id, cnic || null, date_of_birth || null, gender || null, contact_number || null]);
       user.student_id = studRes.rows[0].student_id;
     } else if (role === 'faculty') {
-      const facSql = `INSERT INTO faculty (user_id) VALUES ($1) RETURNING faculty_id`;
-      const facRes = await query(facSql, [user.user_id]);
+      const facSql = `
+        INSERT INTO faculty (user_id, department, designation, contact_number, qualifications) 
+        VALUES ($1, $2, $3, $4, $5) 
+        RETURNING faculty_id
+      `;
+      const facRes = await query(facSql, [
+        user.user_id, 
+        reqBody.department || null, 
+        reqBody.designation || null, 
+        contact_number || null, 
+        reqBody.qualifications || null
+      ]);
       user.faculty_id = facRes.rows[0].faculty_id;
     }
 
@@ -34,7 +44,7 @@ export const createUser = async ({ name, email, passwordHash, role, date_of_birt
       if (role === 'student') {
         const studentId = 'stud_' + Date.now().toString();
         mockUser.student_id = studentId;
-        mockStudents.push({ student_id: studentId, user_id: mockUser.user_id });
+        mockStudents.push({ student_id: studentId, user_id: mockUser.user_id, cnic, date_of_birth, gender, contact_number });
       } else if (role === 'faculty') {
         const facultyId = 'fac_' + Date.now().toString();
         mockUser.faculty_id = facultyId;

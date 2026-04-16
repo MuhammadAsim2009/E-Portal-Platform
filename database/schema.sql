@@ -15,7 +15,7 @@ CREATE TABLE users (
 
 CREATE TABLE students (
   student_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+  user_id UUID UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
   cnic VARCHAR(20),
   date_of_birth DATE,
   gender VARCHAR(10),
@@ -29,7 +29,7 @@ CREATE TABLE students (
 
 CREATE TABLE faculty (
   faculty_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+  user_id UUID UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
   department VARCHAR(100),
   designation VARCHAR(100),
   contact_number VARCHAR(20),
@@ -125,4 +125,15 @@ CREATE TABLE payments (
   transaction_id VARCHAR(100),
   payment_method VARCHAR(50),
   receipt_url TEXT
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  log_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
+  action VARCHAR(255) NOT NULL,
+  target VARCHAR(255),
+  details TEXT,
+  severity VARCHAR(20) DEFAULT 'info',
+  ip_address VARCHAR(45),
+  created_at TIMESTAMP DEFAULT NOW()
 );

@@ -26,13 +26,8 @@ import autoTable from 'jspdf-autotable';
 
 const Analytics = () => {
   const [data, setData] = useState({ 
-    stats: { totalRevenue: 124500, collectionRate: 85, pendingAmount: 18400 }, 
-    incomePerCourse: [
-      { course_code: 'CS101', title: 'Intro to Computer Science', enrolled_students: 120, total_income: 60000, growth: 12 },
-      { course_code: 'ENG202', title: 'Advanced English', enrolled_students: 85, total_income: 42500, growth: -5 },
-      { course_code: 'MATH301', title: 'Calculus III', enrolled_students: 65, total_income: 32500, growth: 8 },
-      { course_code: 'PHY101', title: 'General Physics', enrolled_students: 95, total_income: 47500, growth: 15 },
-    ] 
+    stats: { totalRevenue: 0, collectionRate: 0, pendingAmount: 0 }, 
+    incomePerCourse: [] 
   });
   const [loading, setLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -152,20 +147,22 @@ const Analytics = () => {
     document.body.removeChild(link);
   };
 
-  const revenueData = revenueTimeframe === 'Week' ? [
-    { name: 'Mon', revenue: 4200 },
-    { name: 'Tue', revenue: 3800 },
-    { name: 'Wed', revenue: 5400 },
-    { name: 'Thu', revenue: 4900 },
-    { name: 'Fri', revenue: 6200 },
-    { name: 'Sat', revenue: 3100 },
-    { name: 'Sun', revenue: 2800 },
-  ] : [
-    { name: 'Week 1', revenue: 28400 },
-    { name: 'Week 2', revenue: 32100 },
-    { name: 'Week 3', revenue: 29800 },
-    { name: 'Week 4', revenue: 34200 },
-  ];
+  const revenueData = (data.stats.revenueTrend && data.stats.revenueTrend.length > 0) 
+    ? data.stats.revenueTrend 
+    : (revenueTimeframe === 'Week' ? [
+        { name: 'Mon', revenue: 0 },
+        { name: 'Tue', revenue: 0 },
+        { name: 'Wed', revenue: 0 },
+        { name: 'Thu', revenue: 0 },
+        { name: 'Fri', revenue: 0 },
+        { name: 'Sat', revenue: 0 },
+        { name: 'Sun', revenue: 0 },
+      ] : [
+        { name: 'Week 1', revenue: 0 },
+        { name: 'Week 2', revenue: 0 },
+        { name: 'Week 3', revenue: 0 },
+        { name: 'Week 4', revenue: 0 },
+      ]);
 
   const distributionData = data.incomePerCourse.slice(0, 5).map((item, idx) => ({
     name: item.title,
@@ -184,6 +181,8 @@ const Analytics = () => {
       <p className="text-slate-400 font-bold text-sm tracking-widest uppercase">Aggregating Institutional Data...</p>
     </div>
   );
+
+  const hasIncomeData = data.incomePerCourse.length > 0;
 
   return (
     <div className="space-y-12">
@@ -267,41 +266,48 @@ const Analytics = () => {
               </button>
             </div>
           </div>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={revenueData}>
-                <defs>
-                  <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0.1}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} 
-                  dy={10}
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} 
-                />
-                <RechartsTooltip 
-                  cursor={{ fill: '#f8fafc' }}
-                  contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 50px -12px rgba(0,0,0,0.1)' }}
-                  formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']}
-                />
-                <Bar 
-                  dataKey="revenue" 
-                  fill="url(#barGrad)" 
-                  radius={[10, 10, 0, 0]} 
-                  barSize={40}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-[300px] w-full flex items-center justify-center">
+            {revenueData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={revenueData}>
+                  <defs>
+                    <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0.1}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} 
+                    dy={10}
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} 
+                  />
+                  <RechartsTooltip 
+                    cursor={{ fill: '#f8fafc' }}
+                    contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 50px -12px rgba(0,0,0,0.1)' }}
+                    formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']}
+                  />
+                  <Bar 
+                    dataKey="revenue" 
+                    fill="url(#barGrad)" 
+                    radius={[10, 10, 0, 0]} 
+                    barSize={40}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+               <div className="text-slate-300 font-bold text-xs uppercase tracking-[0.2em] flex flex-col items-center gap-3">
+                <Activity size={32} className="opacity-20" />
+                There is no data to show
+              </div>
+            )}
           </div>
         </div>
 
@@ -314,32 +320,39 @@ const Analytics = () => {
             </div>
           </div>
           <div className="h-[340px] w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={distributionData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={80}
-                  outerRadius={120}
-                  paddingAngle={8}
-                  dataKey="value"
-                >
-                  {distributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <RechartsTooltip 
-                  formatter={(value) => [`${value.toLocaleString()} Students`, 'Enrollment']}
-                  contentStyle={{ borderRadius: '15px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                />
-                <Legend 
-                  verticalAlign="bottom" 
-                  height={36} 
-                  formatter={(value) => <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{value}</span>}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {distributionData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={distributionData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={80}
+                    outerRadius={120}
+                    paddingAngle={8}
+                    dataKey="value"
+                  >
+                    {distributionData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip 
+                    formatter={(value) => [`${value.toLocaleString()} Students`, 'Enrollment']}
+                    contentStyle={{ borderRadius: '15px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                  />
+                  <Legend 
+                    verticalAlign="bottom" 
+                    height={36} 
+                    formatter={(value) => <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{value}</span>}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+               <div className="text-slate-300 font-bold text-xs uppercase tracking-[0.2em] flex flex-col items-center gap-3">
+                <PieChartIcon size={32} className="opacity-20" />
+                There is no data to show
+              </div>
+            )}
             <div className="absolute top-[57%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
               <div className="text-3xl font-black text-slate-900 tracking-tighter">
                 {data.incomePerCourse.reduce((acc, curr) => acc + parseInt(curr.enrolled_students), 0)}
@@ -385,37 +398,48 @@ const Analytics = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredData.map((item, idx) => (
-                <tr key={idx} className="hover:bg-indigo-50/30 transition-all group">
-                  <td className="px-10 py-8">
-                    <div className="flex items-center gap-6">
-                      <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 text-indigo-600 flex items-center justify-center font-black text-xs shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500">
-                        {item.course_code.slice(0,2)}
+              {filteredData.length > 0 ? (
+                filteredData.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-indigo-50/30 transition-all group">
+                    <td className="px-10 py-8">
+                      <div className="flex items-center gap-6">
+                        <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 text-indigo-600 flex items-center justify-center font-black text-xs shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500">
+                          {item.course_code?.slice(0,2) || '??'}
+                        </div>
+                        <div>
+                          <div className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{item.title}</div>
+                          <div className="text-[10px] font-bold text-slate-400 mt-1">{item.course_code} • General Curriculum</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{item.title}</div>
-                        <div className="text-[10px] font-bold text-slate-400 mt-1">{item.course_code} • General Curriculum</div>
+                    </td>
+                    <td className="px-10 py-8 text-center text-[10px] font-black">
+                      <span className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+                        {item.enrolled_students} LEADERS
+                      </span>
+                    </td>
+                    <td className="px-10 py-8 text-right">
+                      <div className="text-sm font-black text-slate-900">${parseFloat(item.total_income || 0).toLocaleString()}</div>
+                      <div className="text-[9px] font-black text-emerald-500 flex items-center justify-end gap-1 mt-1.5 uppercase tracking-widest">
+                        Confirmed <CheckCircle2 size={10} />
                       </div>
+                    </td>
+                    <td className="px-10 py-8 text-right">
+                      <button className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-xl transition-all shadow-sm shadow-transparent hover:shadow-slate-100">
+                        <ChevronRight size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="4" className="px-10 py-20 text-center">
+                    <div className="text-slate-300 font-bold text-xs uppercase tracking-[0.2em] flex flex-col items-center gap-3">
+                      <Layers size={32} className="opacity-20" />
+                      There is no data to show
                     </div>
-                  </td>
-                  <td className="px-10 py-8 text-center text-[10px] font-black">
-                    <span className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                      {item.enrolled_students} LEADERS
-                    </span>
-                  </td>
-                  <td className="px-10 py-8 text-right">
-                    <div className="text-sm font-black text-slate-900">${parseFloat(item.total_income).toLocaleString()}</div>
-                    <div className="text-[9px] font-black text-emerald-500 flex items-center justify-end gap-1 mt-1.5 uppercase tracking-widest">
-                      Confirmed <CheckCircle2 size={10} />
-                    </div>
-                  </td>
-                  <td className="px-10 py-8 text-right">
-                    <button className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-xl transition-all shadow-sm shadow-transparent hover:shadow-slate-100">
-                      <ChevronRight size={18} />
-                    </button>
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

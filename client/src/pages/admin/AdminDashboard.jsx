@@ -66,14 +66,14 @@ const AdminDashboard = () => {
           api.get('/admin/announcements'),
         ]);
         setStats(statsRes.data);
-        setAnnouncements(annRes.data.slice(0, 4));
-      } catch {
-        setStats({ totalUsers: 142, totalStudents: 120, totalFaculty: 18, activeCourses: 34, activeEnrollments: 287 });
-        setAnnouncements([
-          { announcement_id: '1', title: 'Mid-term Schedule Released', category: 'Academic', is_pinned: true, created_at: new Date().toISOString() },
-          { announcement_id: '2', title: 'Library Extended Hours', category: 'General', is_pinned: false, created_at: new Date().toISOString() },
-          { announcement_id: '3', title: 'New Faculty Orientation', category: 'General', is_pinned: false, created_at: new Date().toISOString() },
-        ]);
+        setAnnouncements((annRes.data || []).slice(0, 4));
+      } catch (err) {
+        console.error('Failed to fetch dashboard data', err);
+        setStats({
+          totalUsers: 0, totalStudents: 0, totalFaculty: 0, activeCourses: 0, activeEnrollments: 0,
+          enrollmentTrend: [], departmentDistribution: [], activities: []
+        });
+        setAnnouncements([]);
       } finally {
         setLoading(false);
       }
@@ -136,9 +136,10 @@ const AdminDashboard = () => {
             </div>
           </div>
           
-          <div className="h-72 w-full mt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={enrollmentTrend}>
+          <div className="h-72 w-full mt-4 flex items-center justify-center">
+            {stats?.enrollmentTrend?.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={stats.enrollmentTrend}>
                 <defs>
                   <linearGradient id="activeGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#6366f1" stopOpacity={0.25}/>
@@ -148,13 +149,13 @@ const AdminDashboard = () => {
                 <CartesianGrid strokeDasharray="5 5" vertical={false} stroke="#f1f5f9" />
                 <XAxis 
                   dataKey="month" 
-                  axisLine={false} 
+                  axisLine={{ stroke: '#f1f5f9', strokeWidth: 1 }} 
                   tickLine={false} 
                   tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} 
                   dy={15}
                 />
                 <YAxis 
-                  axisLine={false} 
+                  axisLine={{ stroke: '#f1f5f9', strokeWidth: 1 }} 
                   tickLine={false} 
                   tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} 
                 />
@@ -180,10 +181,17 @@ const AdminDashboard = () => {
                   dataKey="new" 
                   stroke="#c084fc" 
                   strokeWidth={2} 
-                  fill="transparent" 
+                  strokeDasharray="5 5"
+                  fill="none" 
                 />
               </AreaChart>
             </ResponsiveContainer>
+            ) : (
+              <div className="text-slate-300 font-bold text-xs uppercase tracking-[0.2em] flex flex-col items-center gap-3">
+                <Activity size={32} className="opacity-20" />
+                There is no data to show
+              </div>
+            )}
           </div>
         </div>
 
@@ -194,20 +202,26 @@ const AdminDashboard = () => {
             <div className="relative z-10">
               <h2 className="text-sm font-bold uppercase tracking-[0.15em] text-slate-400 mb-6">Department Distribution</h2>
               <div className="space-y-5">
-                {deptData.slice(0, 4).map((d) => (
-                  <div key={d.dept} className="space-y-2">
-                    <div className="flex justify-between text-[11px] font-bold uppercase tracking-widest text-slate-500">
-                      <span>{d.dept}</span>
-                      <span className="text-slate-900">{d.students}%</span>
+                {stats?.departmentDistribution?.length > 0 ? (
+                   stats.departmentDistribution.slice(0, 4).map((d) => (
+                    <div key={d.dept} className="space-y-2">
+                      <div className="flex justify-between text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                        <span>{d.dept}</span>
+                        <span className="text-slate-900">{d.students}%</span>
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+                        <div 
+                          className="h-full rounded-full bg-indigo-600 transition-all duration-1000 shadow-[0_0_8px_rgba(79,102,241,0.2)]"
+                          style={{ width: `${d.students}%` }} 
+                        />
+                      </div>
                     </div>
-                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
-                      <div 
-                        className="h-full rounded-full bg-indigo-600 transition-all duration-1000 shadow-[0_0_8px_rgba(79,102,241,0.2)]"
-                        style={{ width: `${d.students}%` }} 
-                      />
-                    </div>
+                  ))
+                ) : (
+                  <div className="py-12 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                    No distribution data
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>
@@ -237,26 +251,34 @@ const AdminDashboard = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {activities.map((act) => (
-                <tr key={act.id} className="group hover:bg-slate-50/50 transition-colors">
-                  <td className="py-4 pl-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 text-[10px] font-bold">
-                        {act.user.charAt(0)}
+              {stats?.activities?.length > 0 ? (
+                stats.activities.map((act) => (
+                  <tr key={act.id} className="group hover:bg-slate-50/50 transition-colors">
+                    <td className="py-4 pl-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 text-[10px] font-bold uppercase">
+                          {act.user.charAt(0)}
+                        </div>
+                        <span className="text-[13px] font-bold text-slate-900">{act.user}</span>
                       </div>
-                      <span className="text-[13px] font-bold text-slate-900">{act.user}</span>
-                    </div>
-                  </td>
-                  <td className="py-4 text-[13px] font-medium text-slate-600">{act.action}</td>
-                  <td className="py-4 text-[12px] font-bold text-slate-400">{act.time}</td>
-                  <td className="py-4 pr-4 text-right">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
-                      <span className={`w-1.5 h-1.5 rounded-full ${act.color}`} />
-                      {act.status}
-                    </span>
+                    </td>
+                    <td className="py-4 text-[13px] font-medium text-slate-600 capitalize">{act.action.replace(/_/g, ' ')}</td>
+                    <td className="py-4 text-[12px] font-bold text-slate-400">{new Date(act.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td className="py-4 pr-4 text-right">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                        <span className={`w-1.5 h-1.5 rounded-full ${act.color || 'bg-slate-400'}`} />
+                        {act.severity || 'Info'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="4" className="py-12 text-center text-slate-300 font-bold text-xs uppercase tracking-[0.2em]">
+                    There is no data to show
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

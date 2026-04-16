@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { UserPlus, Mail, Lock, User, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, Eye, EyeOff, AlertCircle, CreditCard, Calendar, Phone, Users } from 'lucide-react';
 import api from '../services/api.js';
 
 const Register = () => {
@@ -8,7 +8,11 @@ const Register = () => {
     name: '',
     email: '',
     password: '',
-    role: 'student', // hardcoded as requested
+    role: 'student',
+    cnic: '',
+    date_of_birth: '',
+    gender: 'Male',
+    contact_number: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -161,6 +165,96 @@ const Register = () => {
                       <Eye className="w-5 h-5" />
                     )}
                   </button>
+                </div>
+              </div>
+
+              {/* Extra Student Profile Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="cnic" className="block text-sm font-semibold text-slate-700">
+                    CNIC / ID Number
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-500 transition-colors">
+                      <CreditCard className="w-4 h-4" />
+                    </div>
+                    <input
+                      id="cnic"
+                      name="cnic"
+                      type="text"
+                      required
+                      className="block w-full pl-10 pr-4 py-3 bg-white border border-slate-200 text-slate-900 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all shadow-sm placeholder:text-slate-400 font-medium text-sm"
+                      placeholder="42101-XXXXXXX-X"
+                      value={formData.cnic}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="contact_number" className="block text-sm font-semibold text-slate-700">
+                    Contact Number
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-500 transition-colors">
+                      <Phone className="w-4 h-4" />
+                    </div>
+                    <input
+                      id="contact_number"
+                      name="contact_number"
+                      type="tel"
+                      required
+                      className="block w-full pl-10 pr-4 py-3 bg-white border border-slate-200 text-slate-900 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all shadow-sm placeholder:text-slate-400 font-medium text-sm"
+                      placeholder="+92 3XX XXXXXXX"
+                      value={formData.contact_number}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="date_of_birth" className="block text-sm font-semibold text-slate-700">
+                    Date of Birth
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-500 transition-colors">
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                    <input
+                      id="date_of_birth"
+                      name="date_of_birth"
+                      type="date"
+                      required
+                      className="block w-full pl-10 pr-4 py-3 bg-white border border-slate-200 text-slate-900 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all shadow-sm placeholder:text-slate-400 font-medium text-sm"
+                      value={formData.date_of_birth}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="gender" className="block text-sm font-semibold text-slate-700">
+                    Gender
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-500 transition-colors">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <select
+                      id="gender"
+                      name="gender"
+                      required
+                      className="block w-full pl-10 pr-4 py-3 bg-white border border-slate-200 text-slate-900 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all shadow-sm font-medium text-sm appearance-none"
+                      value={formData.gender}
+                      onChange={handleChange}
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>

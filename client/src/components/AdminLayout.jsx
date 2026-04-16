@@ -18,11 +18,11 @@ const navGroups = [
   {
     title: 'Management',
     links: [
-      { to: '/admin/courses', icon: BookOpen, label: 'Courses' },
-      { to: '/admin/timetable', icon: Calendar, label: 'Timetable' },
       { to: '/admin/users', icon: Users, label: 'All Users' },
       { to: '/admin/students', icon: GraduationCap, label: 'Students' },
       { to: '/admin/faculty', icon: Briefcase, label: 'Faculty' },
+      { to: '/admin/courses', icon: BookOpen, label: 'Courses' },
+      { to: '/admin/timetable', icon: Calendar, label: 'Timetable' },
     ]
   },
   {

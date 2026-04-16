@@ -1,12 +1,13 @@
 import * as userService from '../services/user.service.js';
 import * as authService from '../services/auth.service.js';
+import { logAction } from '../services/admin.service.js';
 
 /**
  * Register a new user
  */
 export const register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, cnic, date_of_birth, gender, contact_number } = req.body;
 
     // Check if user exists
     const existingUser = await userService.findUserByEmail(email);
@@ -16,7 +17,23 @@ export const register = async (req, res) => {
 
     // Hash password & Create user
     const passwordHash = await authService.hashPassword(password);
-    const newUser = await userService.createUser({ name, email, passwordHash, role });
+    const newUser = await userService.createUser({ 
+      name, 
+      email, 
+      passwordHash, 
+      role, 
+      cnic, 
+      date_of_birth, 
+      gender, 
+      contact_number 
+    });
+
+    await logAction({
+      userId: newUser.user_id,
+      action: 'USER_REGISTER',
+      details: `New ${role} registration: ${email}`,
+      ipAddress: req.ip
+    });
 
     res.status(201).json({
       message: 'Registration successful!',
@@ -91,6 +108,13 @@ export const login = async (req, res) => {
     res.status(200).json({
       message: 'Login successful!',
       user: { id: user.user_id, name: user.name, email: user.email, role: user.role }
+    });
+
+    await logAction({
+      userId: user.user_id,
+      action: 'USER_LOGIN',
+      details: `Successful login for ${email}`,
+      ipAddress: req.ip
     });
   } catch (error) {
     console.error('Login error:', error);
