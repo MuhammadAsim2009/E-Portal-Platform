@@ -34,7 +34,10 @@ import {
   getUnreadCount,
   markNotificationAsRead,
   getPayments,
-  updatePaymentStatus
+  updatePaymentStatus,
+  getSettings,
+  updateSettings,
+  testEmail
 } from '../controllers/admin.controller.js';
 
 const router = Router();
@@ -87,5 +90,10 @@ router.get('/announcements', getAnnouncements);
 router.post('/announcements', createAnnouncement);
 router.patch('/announcements/:id', updateAnnouncement);
 router.delete('/announcements/:id', deleteAnnouncement);
+
+// Site Settings
+router.get('/settings', getSettings);
+router.patch('/settings', updateSettings);
+router.post('/settings/test-email', testEmail);
 
 export default router;

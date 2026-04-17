@@ -40,6 +40,13 @@ export const getAvailableSections = async () => {
 
 export const enrollStudent = async (studentId, sectionId) => {
   try {
+    // 0. Check for delinquent fees (Financial Safety Valve)
+    const feeSql = `SELECT count(*) FROM fees WHERE student_id = $1 AND status = 'pending' AND due_date < NOW()`;
+    const feeRes = await query(feeSql, [studentId]);
+    if (parseInt(feeRes.rows[0].count) > 0) {
+      throw new Error('Course registration blocked: You have outstanding delinquent fees. Please settle your account at the finance office to continue.');
+    }
+
     // 1. Begin transaction / Check seats
     const checkSql = 'SELECT max_seats, current_seats FROM course_sections WHERE section_id = $1';
     const checkRes = await query(checkSql, [sectionId]);

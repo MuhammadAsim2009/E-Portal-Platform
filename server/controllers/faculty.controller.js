@@ -2,14 +2,14 @@ import * as facultyService from '../services/faculty.service.js';
 
 export const getFacultyDashboard = async (req, res) => {
   try {
-    const data = await facultyService.getFacultyDashboard(req.user.user_id);
+    const data = await facultyService.getFacultyDashboard(req.user.id);
     res.json(data);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
 export const getMyCourses = async (req, res) => {
   try {
-    const courses = await facultyService.getMyCourses(req.user.user_id);
+    const courses = await facultyService.getMyCourses(req.user.id);
     res.json(courses);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -41,7 +41,7 @@ export const submitAttendance = async (req, res) => {
   try {
     const { sectionId } = req.params;
     const { date, records } = req.body;
-    const result = await facultyService.submitAttendance(sectionId, date, records, req.user.faculty_id);
+    const result = await facultyService.submitAttendance(sectionId, date, records, req.user.id);
     res.json(result);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -58,7 +58,7 @@ export const createAssignment = async (req, res) => {
     const assignment = await facultyService.createAssignment({
       ...req.body,
       sectionId: req.params.sectionId,
-      facultyId: req.user.user_id,
+      userId: req.user.id,
     });
     res.status(201).json(assignment);
   } catch (err) { res.status(500).json({ message: err.message }); }

@@ -236,7 +236,7 @@ const StudentManagement = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50">
-                  {['Student', 'Email', 'Joined', 'Status', 'Actions'].map((h, i) => (
+                  {['Student', 'Financials', 'Joined', 'Status', 'Actions'].map((h, i) => (
                     <th key={h} className={`py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 ${i === 4 ? 'text-right px-8' : 'text-left px-6'} ${i === 0 ? 'px-8' : ''}`}>{h}</th>
                   ))}
                 </tr>
@@ -267,11 +267,21 @@ const StudentManagement = () => {
                         </div>
                         <div>
                           <p className="font-bold text-slate-900 text-sm">{s.name}</p>
-                          <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Student</p>
+                          <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">{s.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4"><span className="text-slate-600 text-[13px] font-medium">{s.email}</span></td>
+                    <td className="px-6 py-4">
+                      {s.is_delinquent ? (
+                        <div className="flex items-center gap-1.5 text-rose-600 font-black text-[10px] uppercase tracking-widest bg-rose-50 px-2 py-1 rounded-lg border border-rose-100">
+                          <AlertCircle size={10} /> Delinquent
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-emerald-600 font-black text-[10px] uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">
+                          <CheckCircle2 size={10} /> Cleared
+                        </div>
+                      )}
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1.5 text-slate-500 text-xs font-semibold">
                         <Calendar size={12} className="text-slate-400" />

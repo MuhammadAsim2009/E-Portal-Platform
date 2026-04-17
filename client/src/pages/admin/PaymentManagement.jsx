@@ -17,6 +17,8 @@ const PaymentManagement = () => {
   const [actionLoading, setActionLoading] = useState(null);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [waiverModal, setWaiverModal] = useState({ isOpen: false, id: null, status: '' });
+  const [justification, setJustification] = useState('');
 
   const fetchPayments = async () => {
     try {
@@ -33,11 +35,13 @@ const PaymentManagement = () => {
     fetchPayments();
   }, []);
 
-  const handleStatusUpdate = async (id, status) => {
+  const handleStatusUpdate = async (id, status, justificationText = null) => {
     setActionLoading(id);
     try {
-      await api.patch(`/admin/payments/${id}/status`, { status });
-      setPayments(payments.map(p => p.payment_id === id ? { ...p, status } : p));
+      await api.patch(`/admin/payments/${id}/status`, { status, waiver_justification: justificationText });
+      setPayments(payments.map(p => p.payment_id === id ? { ...p, status, waiver_justification: justificationText } : p));
+      setWaiverModal({ isOpen: false, id: null, status: '' });
+      setJustification('');
     } catch (err) {
       console.error('Error updating payment status:', err);
     } finally {
@@ -152,7 +156,8 @@ const PaymentManagement = () => {
   const statusColors = {
     pending: 'bg-amber-50 text-amber-600 border-amber-100',
     accepted: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-    rejected: 'bg-rose-50 text-rose-600 border-rose-100'
+    rejected: 'bg-rose-50 text-rose-600 border-rose-100',
+    waived: 'bg-indigo-50 text-indigo-600 border-indigo-100'
   };
 
   const filteredPayments = payments.filter(p => {
@@ -221,7 +226,7 @@ const PaymentManagement = () => {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl w-full md:w-auto">
+        <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl w-full md:w-auto overflow-x-auto whitespace-nowrap scrollbar-hide">
           {['all', 'pending', 'accepted', 'rejected'].map((s) => (
             <button
               key={s}
@@ -270,7 +275,7 @@ const PaymentManagement = () => {
                     </td>
                     <td className="px-8 py-6 text-center">
                       <div className="text-sm font-black text-slate-900 items-center justify-center flex tabular-nums">
-                        Rs ${parseFloat(p.amount_paid).toLocaleString()}
+                        Rs {parseFloat(p.amount_paid).toLocaleString()}
                       </div>
                       <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Confirmed Yield</div>
                     </td>
@@ -291,6 +296,14 @@ const PaymentManagement = () => {
                             >
                               <CheckCircle size={16} />
                             </button>
+                             <button 
+                              disabled={actionLoading === p.payment_id}
+                              onClick={() => setWaiverModal({ isOpen: true, id: p.payment_id, status: 'waived' })}
+                              className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-all disabled:opacity-50 border border-indigo-100/50"
+                              title="Waive Fee"
+                            >
+                              <DollarSign size={16} />
+                            </button>
                             <button 
                               disabled={actionLoading === p.payment_id}
                               onClick={() => handleStatusUpdate(p.payment_id, 'rejected')}
@@ -301,22 +314,24 @@ const PaymentManagement = () => {
                             </button>
                           </>
                         )}
-                        {p.status === 'accepted' && (
+                        {(p.status === 'accepted' || p.status === 'waived') && (
                           <>
                             <button 
                               onClick={() => setSelectedPayment(p)}
                               className="p-2 bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-all border border-slate-100"
-                              title="See Invoice"
+                              title="See Details"
                             >
                               <Eye size={16} />
                             </button>
-                            <button 
-                              onClick={() => handlePrintInvoice(p)}
-                              className="p-2 bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-all border border-slate-100"
-                              title="Print Invoice"
-                            >
-                              <Printer size={16} />
-                            </button>
+                            {p.status === 'accepted' && (
+                              <button 
+                                onClick={() => handlePrintInvoice(p)}
+                                className="p-2 bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-all border border-slate-100"
+                                title="Print Invoice"
+                              >
+                                <Printer size={16} />
+                              </button>
+                            )}
                           </>
                         )}
                       </div>
@@ -348,20 +363,21 @@ const PaymentManagement = () => {
                 <X size={20} className="text-slate-400" />
               </button>
             </div>
-            <div className="p-8 space-y-8">
+            <div className="max-h-[90vh] overflow-y-auto scrollbar-hide">
+              <div className="p-8 space-y-8">
               <div className="flex justify-center flex-col items-center gap-2">
                  <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100 rotate-3">
                     <CreditCard size={32} />
                  </div>
                  <div className="text-2xl font-black text-slate-900 mt-2 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis w-full text-center">
-                    Rs ${parseFloat(selectedPayment.amount_paid).toLocaleString()}
+                    Rs {parseFloat(selectedPayment.amount_paid).toLocaleString()}
                  </div>
                  <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${statusColors[selectedPayment.status]}`}>
                     {selectedPayment.status}
                  </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-y-6 gap-x-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-8">
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tx ID</p>
                   <p className="text-sm font-bold text-slate-900">{selectedPayment.transaction_id || 'N/A'}</p>
@@ -388,6 +404,13 @@ const PaymentManagement = () => {
                 </div>
               </div>
 
+              {selectedPayment.waiver_justification && (
+                <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100/50">
+                   <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">Administrative Justification</p>
+                   <p className="text-sm font-medium text-slate-700 leading-relaxed italic">"{selectedPayment.waiver_justification}"</p>
+                </div>
+              )}
+
               <div className="pt-6">
                 <button 
                   onClick={() => handlePrintInvoice(selectedPayment)}
@@ -400,6 +423,53 @@ const PaymentManagement = () => {
             </div>
           </div>
         </div>
+      </div>
+      )}
+      {/* Waiver Justification Modal */}
+      {waiverModal.isOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl border border-white/20 animate-in fade-in zoom-in duration-300">
+            <div className="max-h-[90vh] overflow-y-auto scrollbar-hide">
+              <div className="p-10 space-y-8">
+              <div className="flex flex-col items-center text-center gap-4">
+                 <div className="w-16 h-16 bg-indigo-600 text-white rounded-3xl flex items-center justify-center shadow-xl shadow-indigo-200 rotate-6">
+                    <FileText size={32} />
+                 </div>
+                 <div>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">Waiver Justification</h3>
+                    <p className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-widest">Administrative Audit Required</p>
+                 </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Justification Text</label>
+                <textarea 
+                  value={justification}
+                  onChange={(e) => setJustification(e.target.value)}
+                  placeholder="Provide clinical or administrative reasoning for this waiver..."
+                  className="w-full h-32 px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl text-sm font-bold text-slate-900 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition-all outline-none resize-none placeholder:text-slate-300"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <button 
+                  onClick={() => setWaiverModal({ isOpen: false, id: null, status: '' })}
+                  className="py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black rounded-2xl text-[11px] uppercase tracking-widest transition-all active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button 
+                  disabled={!justification.trim() || actionLoading}
+                  onClick={() => handleStatusUpdate(waiverModal.id, waiverModal.status, justification)}
+                  className="py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black rounded-2xl text-[11px] uppercase tracking-widest transition-all shadow-lg shadow-indigo-100 active:scale-95"
+                >
+                  Confirm Waive
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       )}
     </div>
   );

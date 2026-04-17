@@ -1,4 +1,29 @@
 import * as adminService from '../services/admin.service.js';
+import { sendEmail } from '../services/email.service.js';
+
+export const testEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+    await sendEmail({
+      to: email,
+      subject: 'Institutional SMTP Telemetry Test',
+      text: 'This is a test alert to verify the integrity of your institutional mail relay configuration. If you received this, your SMTP settings are functional.',
+      html: `
+        <div style="font-family: sans-serif; padding: 40px; border-radius: 12px; border: 1px solid #e2e8f0;">
+          <h2 style="color: #4f46e5; margin-bottom: 20px;">SMTP Relay Success</h2>
+          <p style="color: #475569; font-size: 14px;">This is a test alert to verify the integrity of your institutional mail relay configuration.</p>
+          <p style="color: #475569; font-size: 14px;">If you received this, your SMTP settings are <strong>functional</strong>.</p>
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8;">
+            Institutional Command Center &bull; Automated Telemetry
+          </div>
+        </div>
+      `
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 
 export const getDashboardStats = async (req, res) => {
   try {
@@ -434,8 +459,8 @@ export const getPayments = async (req, res) => {
 export const updatePaymentStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
-    const payment = await adminService.updatePaymentStatus(id, status);
+    const { status, waiver_justification } = req.body;
+    const payment = await adminService.updatePaymentStatus(id, status, waiver_justification);
     
     await adminService.logAction({
       userId: req.user.user_id,
@@ -479,6 +504,30 @@ export const getUnreadCount = async (req, res) => {
   try {
     const count = await adminService.getUnreadNotificationCount();
     res.json({ count });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const getSettings = async (req, res) => {
+  try {
+    const settings = await adminService.getSiteSettings();
+    res.json(settings);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const updateSettings = async (req, res) => {
+  try {
+    const settings = await adminService.updateSiteSettings(req.body);
+    await adminService.logAction({
+      userId: req.user.user_id,
+      action: 'UPDATE_SITE_SETTINGS',
+      details: 'Modified global site configuration',
+      ipAddress: req.ip
+    });
+    res.json(settings);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

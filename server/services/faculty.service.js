@@ -10,12 +10,18 @@ export const getFacultyDashboard = async (userId) => {
     if (!facultyRes.rows.length) throw new Error('Faculty record not found');
     const facultyId = facultyRes.rows[0].faculty_id;
 
-    const [sectionsRes, studentsRes, assignmentsRes] = await Promise.all([
+    const [sectionsRes, studentsRes, assignmentsRes, pendingTasksRes] = await Promise.all([
       db.query(`SELECT COUNT(*) FROM course_sections WHERE faculty_id = $1`, [facultyId]),
       db.query(`SELECT COUNT(DISTINCT e.student_id) FROM enrollments e
                 JOIN course_sections cs ON e.section_id = cs.section_id
                 WHERE cs.faculty_id = $1 AND e.status = 'enrolled'`, [facultyId]),
       db.query(`SELECT COUNT(*) FROM assignments WHERE created_by = $1`, [facultyId]),
+      db.query(`SELECT a.assignment_id as id, a.title, a.deadline, c.course_code, cs.section_name 
+                FROM assignments a
+                JOIN course_sections cs ON a.section_id = cs.section_id
+                JOIN courses c ON cs.course_id = c.course_id
+                WHERE a.created_by = $1 AND a.deadline >= NOW()
+                ORDER BY a.deadline ASC LIMIT 2`, [facultyId]),
     ]);
 
     return {
@@ -23,9 +29,11 @@ export const getFacultyDashboard = async (userId) => {
       sectionsCount: parseInt(sectionsRes.rows[0].count),
       studentsCount: parseInt(studentsRes.rows[0].count),
       assignmentsCount: parseInt(assignmentsRes.rows[0].count),
+      pendingTasks: pendingTasksRes.rows,
     };
-  } catch {
-    return { facultyId: null, sectionsCount: 4, studentsCount: 87, assignmentsCount: 12 };
+  } catch (error) {
+    console.error("Dashboard error:", error);
+    throw new Error('Failed to fetch dashboard data: ' + error.message);
   }
 };
 
@@ -45,12 +53,9 @@ export const getMyCourses = async (userId) => {
        ORDER BY c.course_code`, [facultyId]
     );
     return res.rows;
-  } catch {
-    return [
-      { section_id: '1', section_name: 'A', room: 'CS-101', schedule_time: 'Mon/Wed 9:00-10:30', max_seats: 30, current_seats: 28, course_code: 'CS-201', title: 'Data Structures', credit_hours: 3, department: 'Computer Science' },
-      { section_id: '2', section_name: 'B', room: 'CS-102', schedule_time: 'Tue/Thu 11:00-12:30', max_seats: 30, current_seats: 25, course_code: 'CS-301', title: 'Algorithms', credit_hours: 3, department: 'Computer Science' },
-      { section_id: '3', section_name: 'A', room: 'MT-201', schedule_time: 'Mon/Wed/Fri 8:00-9:00', max_seats: 40, current_seats: 34, course_code: 'MA-201', title: 'Calculus II', credit_hours: 3, department: 'Mathematics' },
-    ];
+  } catch (error) {
+    console.error("Courses error:", error);
+    throw new Error('Failed to fetch courses: ' + error.message);
   }
 };
 
@@ -109,8 +114,12 @@ export const getAttendance = async (sectionId, date) => {
   }
 };
 
-export const submitAttendance = async (sectionId, date, records, facultyId) => {
+export const submitAttendance = async (sectionId, date, records, userId) => {
   try {
+    const facultyRes = await db.query(`SELECT faculty_id FROM faculty WHERE user_id = $1`, [userId]);
+    const facultyId = facultyRes.rows[0]?.faculty_id;
+    if (!facultyId) throw new Error('Faculty record not found');
+
     // Upsert attendance records for each student
     for (const { studentId, status } of records) {
       await db.query(
@@ -142,8 +151,12 @@ export const getSectionAssignments = async (sectionId) => {
   }
 };
 
-export const createAssignment = async ({ sectionId, title, description, deadline, max_marks, submission_type, facultyId }) => {
+export const createAssignment = async ({ sectionId, title, description, deadline, max_marks, submission_type, userId }) => {
   try {
+    const facultyRes = await db.query(`SELECT faculty_id FROM faculty WHERE user_id = $1`, [userId]);
+    const facultyId = facultyRes.rows[0]?.faculty_id;
+    if (!facultyId) throw new Error('Faculty record not found');
+
     const res = await db.query(
       `INSERT INTO assignments (section_id, title, description, deadline, max_marks, submission_type, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,

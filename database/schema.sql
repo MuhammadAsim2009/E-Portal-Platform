@@ -113,6 +113,7 @@ CREATE TABLE fees (
   due_date DATE,
   status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('paid', 'pending', 'waived')),
   discount_amount DECIMAL(10,2) DEFAULT 0,
+  waiver_justification TEXT,
   notes TEXT
 );
 
@@ -161,4 +162,11 @@ CREATE TABLE IF NOT EXISTS notifications (
   is_read BOOLEAN DEFAULT false,
   related_id VARCHAR(255), -- ID of the related resource (user_id, payment_id, etc.)
   created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Global Site Settings
+CREATE TABLE IF NOT EXISTS site_settings (
+  key VARCHAR(100) PRIMARY KEY,
+  value JSONB,
+  updated_at TIMESTAMP DEFAULT NOW()
 );

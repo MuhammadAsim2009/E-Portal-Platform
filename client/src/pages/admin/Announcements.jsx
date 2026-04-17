@@ -257,46 +257,46 @@ const Announcements = () => {
                 a.is_pinned ? 'border-amber-200 bg-gradient-to-br from-white to-amber-50/20' : ''
               }`}
             >
-              <div className="absolute top-0 right-0 p-6 flex items-center gap-2">
-                {a.is_pinned && (
-                  <div className="bg-amber-100 text-amber-600 p-2 rounded-lg shadow-sm border border-amber-200">
-                    <Pin size={16} className="fill-current" />
+              <div className="flex items-start justify-between gap-4 mb-6">
+                <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
+                  <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] shadow-sm flex items-center gap-2 ${categoryStyles[a.category] || categoryStyles.General}`}>
+                    <Tag size={12} />
+                    {a.category}
+                  </span>
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest ${targetStyles[a.target_role]}`}>
+                    <Target size={12} />
+                    {a.target_role}
                   </div>
-                )}
-              <div className="flex gap-2">
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEdit(a);
-                  }}
-                  className="p-2.5 bg-slate-50 text-slate-500 rounded-xl hover:bg-indigo-600 hover:text-white transition-all border border-slate-100 shadow-sm"
-                >
-                  <Pencil size={16} />
-                </button>
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmDelete(a.announcement_id);
-                  }}
-                  className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-600 hover:text-white transition-all border border-rose-100 shadow-sm"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-              </div>
-              
-              <div className="flex flex-wrap items-center gap-3 mb-6">
-                <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] shadow-sm flex items-center gap-2 ${categoryStyles[a.category] || categoryStyles.General}`}>
-                  <Tag size={12} />
-                  {a.category}
-                </span>
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest ${targetStyles[a.target_role]}`}>
-                  <Target size={12} />
-                  {a.target_role}
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-100">
+                    <Clock size={12} />
+                    {new Date(a.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-100">
-                  <Clock size={12} />
-                  {new Date(a.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {a.is_pinned && (
+                    <div className="bg-amber-100 text-amber-600 p-2 rounded-lg shadow-sm border border-amber-200">
+                      <Pin size={16} className="fill-current" />
+                    </div>
+                  )}
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEdit(a);
+                    }}
+                    className="p-2 bg-slate-50 text-slate-500 rounded-xl hover:bg-indigo-600 hover:text-white transition-all border border-slate-100 shadow-sm"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmDelete(a.announcement_id);
+                    }}
+                    className="p-2 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-600 hover:text-white transition-all border border-rose-100 shadow-sm"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </div>
  
@@ -331,7 +331,7 @@ const Announcements = () => {
 
       {/* Publication Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 lg:p-12 transition-all">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 transition-all">
           <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden animate-in zoom-in-95 fade-in duration-300 flex flex-col">
             {/* Modal Header */}
             <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-indigo-50/50 sticky top-0 z-20">
@@ -353,7 +353,7 @@ const Announcements = () => {
             </div>
 
             {/* Modal Body */}
-            <div className="p-8 overflow-y-auto max-h-[80vh] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="p-8 overflow-y-auto max-h-[80vh] scrollbar-hide">
               <form onSubmit={handleCreate} className="space-y-6">
                 {/* Title Section */}
                 <div className="space-y-2">
@@ -520,7 +520,7 @@ const Announcements = () => {
                 <X size={20} />
               </button>
 
-              <div className="relative z-10 space-y-4">
+              <div className="relative z-10 space-y-4 pr-12 lg:pr-0">
                 <div className="flex items-center gap-3">
                   <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm ${categoryStyles[selectedAnnouncement.category]}`}>
                     {selectedAnnouncement.category}
@@ -552,7 +552,7 @@ const Announcements = () => {
             </div>
 
             {/* Modal Body */}
-            <div className="p-10 lg:p-14 overflow-y-auto max-h-[45vh] bg-white [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="p-10 lg:p-14 overflow-y-auto max-h-[50vh] bg-white scrollbar-hide">
               <div className="prose prose-slate max-w-none">
                 <p className="text-base lg:text-[17px] text-slate-600 leading-relaxed font-medium whitespace-pre-wrap">
                   {selectedAnnouncement.body}

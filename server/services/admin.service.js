@@ -181,7 +181,10 @@ export const getAllUsers = async ({ role, page = 1, limit = 15 }) => {
         u.user_id, u.name, u.email, u.role, u.is_active, u.created_at, u.registration_status,
         s.date_of_birth, s.gender,
         f.department, f.designation, f.qualifications,
-        COALESCE(s.contact_number, f.contact_number) as contact_number
+        COALESCE(s.contact_number, f.contact_number) as contact_number,
+        CASE WHEN u.role = 'student' THEN
+          EXISTS(SELECT 1 FROM fees fe WHERE fe.student_id = s.student_id AND fe.status = 'pending' AND fe.due_date < NOW())
+        ELSE false END as is_delinquent
        FROM users u
        LEFT JOIN students s ON u.user_id = s.user_id
        LEFT JOIN faculty f ON u.user_id = f.user_id
@@ -635,6 +638,13 @@ export const enrollStudentInSection = async (sectionId, studentId) => {
   const studentRes = await db.query('SELECT student_id FROM students WHERE student_id = $1', [studentId]);
   if (studentRes.rows.length === 0) throw new Error('Student not found with this ID');
   
+  // Financial Safety Valve: Check for delinquent fees
+  const feeSql = `SELECT count(*) FROM fees WHERE student_id = $1 AND status = 'pending' AND due_date < NOW()`;
+  const feeRes = await db.query(feeSql, [studentId]);
+  if (parseInt(feeRes.rows[0].count) > 0) {
+    throw new Error('Administrative enrollment blocked: This student has outstanding delinquent fees. Financial settlement is required before further enrollment.');
+  }
+
   const checkRes = await db.query('SELECT 1 FROM enrollments WHERE student_id = $1 AND section_id = $2', [studentId, sectionId]);
   if (checkRes.rows.length > 0) throw new Error('Student already enrolled in this section');
 
@@ -690,11 +700,18 @@ export const getAllPayments = async () => {
   return res.rows;
 };
 
-export const updatePaymentStatus = async (paymentId, status) => {
-  const res = await db.query(
-    `UPDATE payments SET status = $1 WHERE payment_id = $2 RETURNING *`,
-    [status, paymentId]
-  );
+export const updatePaymentStatus = async (paymentId, status, waiver_justification = null) => {
+  let query = `UPDATE payments SET status = $1`;
+  let values = [status, paymentId];
+  
+  if (waiver_justification) {
+    query += `, waiver_justification = $3`;
+    values.push(waiver_justification);
+  }
+  
+  query += ` WHERE payment_id = $2 RETURNING *`;
+  
+  const res = await db.query(query, values);
   
   if (res.rowCount === 0) throw new Error('Payment not found');
   
@@ -705,7 +722,36 @@ export const updatePaymentStatus = async (paymentId, status) => {
        WHERE fee_id = (SELECT fee_id FROM payments WHERE payment_id = $1)`,
       [paymentId]
     );
+  } else if (status === 'waived') {
+    await db.query(
+      `UPDATE fees SET status = 'waived', waiver_justification = $2
+       WHERE fee_id = (SELECT fee_id FROM payments WHERE payment_id = $1)`,
+      [paymentId, waiver_justification]
+    );
   }
   
   return res.rows[0];
+};
+
+// ─────────────────────── SITE SETTINGS ───────────────────────
+
+export const getSiteSettings = async () => {
+  const res = await db.query('SELECT key, value FROM site_settings');
+  return res.rows.reduce((acc, row) => {
+    acc[row.key] = row.value;
+    return acc;
+  }, {});
+};
+
+export const updateSiteSettings = async (settings) => {
+  const queries = Object.entries(settings).map(([key, value]) => {
+    return db.query(`
+      INSERT INTO site_settings (key, value, updated_at)
+      VALUES ($1, $2, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()
+    `, [key, JSON.stringify(value)]);
+  });
+  
+  await Promise.all(queries);
+  return getSiteSettings();
 };

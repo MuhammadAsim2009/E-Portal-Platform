@@ -17,7 +17,8 @@ import {
   Plus,
   X,
   Edit2,
-  UserMinus
+  UserMinus,
+  Download as DownloadIcon
 } from 'lucide-react';
 
 const TimetableManagement = () => {
@@ -200,6 +201,53 @@ const TimetableManagement = () => {
       showToast('error', err.response?.data?.message || 'Failed to remove student');
       setStudentToRemove(null);
     }
+  };
+
+  const handleExportICS = () => {
+    if (!selectedSection) return;
+    
+    const { course_title, course_code, section_name, faculty_name, room, day_of_week, start_time, end_time } = selectedSection;
+    
+    // Mapping days to RRULE format
+    const dayMap = { 
+      'Monday': 'MO', 'Tuesday': 'TU', 'Wednesday': 'WE', 
+      'Thursday': 'TH', 'Friday': 'FR', 'Saturday': 'SA', 'Sunday': 'SU' 
+    };
+    
+    const byDay = day_of_week ? day_of_week.split(', ').map(d => dayMap[d]).join(',') : '';
+    
+    // Create ICS content
+    const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const startStr = start_time ? start_time.replace(/:/g, '') + '00' : '080000';
+    const endStr = end_time ? end_time.replace(/:/g, '') + '00' : '090000';
+    
+    // We assume the semester starts today for the sake of the export
+    const startDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//E-Portal//Institutional Timetable//EN',
+      'BEGIN:VEVENT',
+      `UID:${selectedSection.section_id}@eportal.edu`,
+      `DTSTAMP:${now}`,
+      `DTSTART;TZID=Asia/Karachi:${startDate}T${startStr}`,
+      `DTEND;TZID=Asia/Karachi:${startDate}T${endStr}`,
+      `RRULE:FREQ=WEEKLY;BYDAY=${byDay}`,
+      `SUMMARY:${course_code} - ${course_title} (${section_name})`,
+      `DESCRIPTION:Instructor: ${faculty_name || 'TBD'}\\nSection: ${section_name}`,
+      `LOCATION:${room || 'TBD'}`,
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = `${course_code}_${section_name}_Schedule.ics`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const filteredSections = sections.filter(s => 
@@ -640,7 +688,15 @@ const TimetableManagement = () => {
                 </div>
                 <div>
                   <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-tight">{selectedSection.course_title}</h2>
-                  <p className="text-indigo-600 font-bold text-sm">Section {selectedSection.section_name} • {selectedSection.course_code}</p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <p className="text-indigo-600 font-bold text-sm">Section {selectedSection.section_name} • {selectedSection.course_code}</p>
+                    <button 
+                      onClick={handleExportICS}
+                      className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-1"
+                    >
+                      <DownloadIcon size={12} /> Export .ics
+                    </button>
+                  </div>
                 </div>
               </div>
               <button onClick={() => setShowViewModal(false)} className="p-2 hover:bg-slate-200 rounded-xl transition-colors"><X size={20} className="text-slate-400" /></button>
