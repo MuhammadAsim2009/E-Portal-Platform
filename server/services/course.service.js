@@ -82,3 +82,28 @@ export const enrollStudent = async (studentId, sectionId) => {
     throw err;
   }
 };
+
+export const dropStudent = async (studentId, sectionId) => {
+  try {
+    const checkSql = 'SELECT enrollment_id FROM enrollments WHERE student_id = $1 AND section_id = $2 AND status = \'enrolled\'';
+    const checkRes = await query(checkSql, [studentId, sectionId]);
+    if (checkRes.rows.length === 0) throw new Error('Enrollment record not found');
+
+    const updateSql = `
+      UPDATE enrollments 
+      SET status = 'dropped' 
+      WHERE student_id = $1 AND section_id = $2
+      RETURNING *
+    `;
+    const { rows } = await query(updateSql, [studentId, sectionId]);
+
+    // Decrement seats
+    await query('UPDATE course_sections SET current_seats = GREATEST(0, current_seats - 1) WHERE section_id = $1', [sectionId]);
+
+    return rows[0];
+  } catch (err) {
+    console.error('Drop error:', err);
+    throw err;
+  }
+};
+

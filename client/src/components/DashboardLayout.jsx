@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { 
-  BookOpen, 
   LayoutDashboard, 
   LogOut, 
   Menu, 
   X,
-  User
+  User,
+  Megaphone,
+  BookOpen,
+  FileText,
+  Award,
+  DollarSign
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
@@ -22,7 +26,13 @@ const DashboardLayout = () => {
 
   const navLinks = [
     { name: 'Dashboard', path: '/student/dashboard', icon: <LayoutDashboard size={20} /> },
-    { name: 'Course Enrollment', path: '/student/courses', icon: <BookOpen size={20} /> }
+    { name: 'Announcements', path: '/student/announcements', icon: <Megaphone size={20} /> },
+    { name: 'Explore', path: '/student/explore', icon: <BookOpen size={20} /> },
+    { name: 'My Courses', path: '/student/courses', icon: <Award size={20} /> },
+    { name: 'Assignments', path: '/student/assignments', icon: <FileText size={20} /> },
+
+    { name: 'Academic', path: '/student/academic', icon: <Award size={20} /> },
+    { name: 'Finance', path: '/student/finance', icon: <DollarSign size={20} /> },
   ];
 
   return (
@@ -57,12 +67,13 @@ const DashboardLayout = () => {
               key={link.name}
               to={link.path}
               className={({ isActive }) =>
-                `flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                `flex items-center px-4 py-3 text-sm font-bold rounded-xl transition-all duration-200 ${
                   isActive 
-                    ? 'bg-primary-50 text-primary-700' 
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                    : 'text-slate-500 hover:bg-indigo-50 hover:text-indigo-600'
                 }`
               }
+
               onClick={() => setIsSidebarOpen(false)}
             >
               {link.icon}

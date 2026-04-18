@@ -22,7 +22,11 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   }
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
-    return <Navigate to="/login" replace />;
+    // If authenticated but wrong role, redirect to their own dashboard instead of login
+    const dest = user?.role === 'admin' ? '/admin/dashboard' : 
+                 user?.role === 'faculty' ? '/faculty/dashboard' : 
+                 '/student/dashboard';
+    return <Navigate to={dest} replace />;
   }
 
   return children;

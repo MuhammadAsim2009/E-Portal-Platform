@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation, Navigate } from 'react-router-dom';
 import { LogIn, Mail, Lock, AlertCircle, EyeOff, Eye } from 'lucide-react';
 import useAuthStore from '../store/authStore.js';
 
@@ -12,7 +12,26 @@ const Login = () => {
   
   const navigate = useNavigate();
   const location = useLocation();
-  const login = useAuthStore((state) => state.login);
+  const { login, isAuthenticated, user } = useAuthStore();
+
+  // If already authenticated, redirect to the correct dashboard immediately
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const dest = user.role === 'admin' ? '/admin/dashboard' : 
+                   user.role === 'faculty' ? '/faculty/dashboard' : 
+                   '/student/dashboard';
+      
+      // If they came from a valid location for their role, go there, otherwise go to dest
+      const from = location.state?.from;
+      const isAuthorizedForFrom = from && (
+        (user.role === 'student' && from.pathname.startsWith('/student')) ||
+        (user.role === 'admin' && from.pathname.startsWith('/admin')) ||
+        (user.role === 'faculty' && from.pathname.startsWith('/faculty'))
+      );
+
+      navigate(isAuthorizedForFrom ? from : dest, { replace: true });
+    }
+  }, [isAuthenticated, user, navigate, location]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,11 +41,7 @@ const Login = () => {
     try {
       const result = await login(email, password);
       if (result.success) {
-        let dest = '/student/dashboard'; // default fallback
-        if (result.user?.role === 'admin') dest = '/admin/dashboard';
-        if (result.user?.role === 'faculty') dest = '/faculty/dashboard';
-        
-        navigate(location.state?.from || dest, { replace: true });
+        // Redirection will be handled by the useEffect above once state updates
       } else {
         setError(result.message);
       }

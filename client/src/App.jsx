@@ -15,6 +15,7 @@ import Register from './pages/Register';
 // Student pages
 import StudentDashboard from './pages/student/StudentDashboard';
 import CourseEnrollment from './pages/student/CourseEnrollment';
+import StudentAnnouncements from './pages/student/StudentAnnouncements';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -59,7 +60,13 @@ function App() {
           }
         >
           <Route path="dashboard" element={<StudentDashboard />} />
-          <Route path="courses" element={<CourseEnrollment />} />
+          <Route path="explore" element={<StudentDashboard />} />
+          <Route path="courses" element={<StudentDashboard />} />
+
+          <Route path="announcements" element={<StudentAnnouncements />} />
+          <Route path="assignments" element={<StudentDashboard />} />
+          <Route path="academic" element={<StudentDashboard />} />
+          <Route path="finance" element={<StudentDashboard />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 
