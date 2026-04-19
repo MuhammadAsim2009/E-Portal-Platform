@@ -1,26 +1,24 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation, Navigate } from 'react-router-dom';
 import { LogIn, Mail, Lock, AlertCircle, EyeOff, Eye } from 'lucide-react';
 import useAuthStore from '../store/authStore.js';
-
 const Login = () => {
+  usePageTitle('Login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated, user } = useAuthStore();
-
   // If already authenticated, redirect to the correct dashboard immediately
   useEffect(() => {
     if (isAuthenticated && user) {
       const dest = user.role === 'admin' ? '/admin/dashboard' : 
                    user.role === 'faculty' ? '/faculty/dashboard' : 
                    '/student/dashboard';
-      
       // If they came from a valid location for their role, go there, otherwise go to dest
       const from = location.state?.from;
       const isAuthorizedForFrom = from && (
@@ -28,20 +26,19 @@ const Login = () => {
         (user.role === 'admin' && from.pathname.startsWith('/admin')) ||
         (user.role === 'faculty' && from.pathname.startsWith('/faculty'))
       );
-
       navigate(isAuthorizedForFrom ? from : dest, { replace: true });
     }
   }, [isAuthenticated, user, navigate, location]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-
     try {
       const result = await login(email, password);
       if (result.success) {
-        // Redirection will be handled by the useEffect above once state updates
+        // Redirection handled by useEffect
+      } else if (result.mfaRequired) {
+        navigate(`/mfa/verify?userId=${result.userId}`);
       } else {
         setError(result.message);
       }
@@ -56,10 +53,8 @@ const Login = () => {
       setIsLoading(false);
     }
   };
-
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans">
-      
       {/* Left side: Premium Image Banner */}
       <div className="relative hidden w-full lg:block lg:w-1/2 overflow-hidden">
         <div className="absolute inset-0 bg-primary-900/40 z-10 mix-blend-multiply"></div>
@@ -85,11 +80,9 @@ const Login = () => {
           </p>
         </div>
       </div>
-
       {/* Right side: Modern Form */}
       <div className="flex flex-col justify-center w-full px-6 py-12 lg:w-1/2 sm:px-12 lg:px-24 xl:px-32 relative">
         <div className="w-full max-w-md mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          
           {/* Header section (visible mostly on mobile without the big banner, or as context on desktop) */}
           <div className="space-y-3">
             <div className="w-12 h-12 bg-primary-50 rounded-2xl flex items-center justify-center mb-6 lg:hidden border border-primary-100">
@@ -102,7 +95,6 @@ const Login = () => {
               Please enter your credentials to proceed.
             </p>
           </div>
-
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="p-4 bg-red-50/50 backdrop-blur-sm border border-red-200 rounded-2xl flex items-start gap-3">
@@ -110,7 +102,6 @@ const Login = () => {
                 <p className="text-sm text-red-700 font-medium">{error}</p>
               </div>
             )}
-
             <div className="space-y-5">
               <div className="space-y-1.5">
                 <label htmlFor="email" className="block text-sm font-semibold text-slate-700">
@@ -131,7 +122,6 @@ const Login = () => {
                   />
                 </div>
               </div>
-
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label htmlFor="password" className="block text-sm font-semibold text-slate-700">
@@ -168,7 +158,6 @@ const Login = () => {
                 </div>
               </div>
             </div>
-
             <div className="flex items-center">
               <input
                 id="remember-me"
@@ -179,7 +168,6 @@ const Login = () => {
                 Remember me for 30 days
               </label>
             </div>
-
             <button
               type="submit"
               disabled={isLoading}
@@ -195,7 +183,6 @@ const Login = () => {
               )}
             </button>
           </form>
-
           <p className="text-center font-medium text-slate-500 text-sm">
             Don't have an account?{' '}
             <Link to="/register" className="font-semibold text-primary-600 hover:text-primary-700 transition-colors">
@@ -207,5 +194,4 @@ const Login = () => {
     </div>
   );
 };
-
 export default Login;

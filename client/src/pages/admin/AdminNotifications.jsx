@@ -1,3 +1,4 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { 
@@ -6,17 +7,15 @@ import {
   ChevronRight, ArrowUpRight, History, Settings,
   User, Database, CreditCard, BookOpen
 } from 'lucide-react';
-
 const AdminNotifications = () => {
+  usePageTitle('Admin Notifications');
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('unread'); // 'unread', 'all'
   const [search, setSearch] = useState('');
-
   useEffect(() => {
     fetchNotifications();
   }, [activeTab]);
-
   const fetchNotifications = async () => {
     setLoading(true);
     try {
@@ -35,7 +34,6 @@ const AdminNotifications = () => {
       setLoading(false);
     }
   };
-
   const handleMarkAsRead = async (id) => {
     try {
       await api.patch(`/admin/notifications/${id}/read`);
@@ -47,16 +45,15 @@ const AdminNotifications = () => {
       console.error(err);
     }
   };
-
   const getPriorityStyles = (priority) => {
     switch (priority) {
-      case 'high': return 'bg-rose-50 text-rose-600 border-rose-100';
-      case 'urgent': return 'bg-rose-100 text-rose-700 border-rose-200';
-      case 'low': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
-      default: return 'bg-amber-50 text-amber-600 border-amber-100';
+      case 'high': 
+      case 'urgent': return 'bg-rose-600 text-white shadow-lg shadow-rose-600/20';
+      case 'medium': return 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20';
+      case 'low': return 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20';
+      default: return 'bg-amber-600 text-white shadow-lg shadow-amber-600/20';
     }
   };
-
   const getTypeIcon = (type) => {
     switch (type) {
       case 'registration': return <User size={18} />;
@@ -66,21 +63,19 @@ const AdminNotifications = () => {
       default: return <Info size={18} />;
     }
   };
-
   const filteredNotifications = notifications.filter(n => {
       const matchesSearch = n.message.toLowerCase().includes(search.toLowerCase()) || 
                           n.title.toLowerCase().includes(search.toLowerCase());
       return matchesSearch;
   });
-
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-slate-900 rounded-[1.25rem] flex items-center justify-center text-white shadow-xl shadow-slate-900/10">
-              <Bell size={24} className="animate-pulse" />
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-600/10">
+              <Bell size={20} />
             </div>
             <div>
                <h1 className="text-2xl font-black text-slate-900 tracking-tight">Notifications</h1>
@@ -91,22 +86,21 @@ const AdminNotifications = () => {
         <div className="flex items-center gap-3">
             <button 
               onClick={fetchNotifications}
-              className="px-6 py-3 bg-white border border-slate-200 text-slate-900 rounded-2xl text-[13px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2"
+              className="px-6 py-3 bg-indigo-600 text-white rounded-2xl text-[13px] font-black uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-indigo-600/20 flex items-center gap-2 active:scale-95"
             >
               <History size={16} /> Refresh Feed
             </button>
         </div>
       </div>
-
       <div className="bg-white border border-slate-200 rounded-2xl p-3 flex flex-col md:flex-row items-center gap-3 shadow-sm">
         <div className="relative flex-1 w-full group">
-          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-slate-900 transition-colors" />
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
           <input
             type="text"
             placeholder="Search alerts by student name or content..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none focus:ring-2 focus:ring-slate-900/5 rounded-xl text-[13px] font-bold transition-all focus:bg-white"
+            className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none focus:ring-2 focus:ring-indigo-500/10 rounded-xl text-[13px] font-bold transition-all focus:bg-white"
           />
         </div>
         <div className="h-10 w-px bg-slate-200 hidden md:block mx-2" />
@@ -126,7 +120,6 @@ const AdminNotifications = () => {
           ))}
         </div>
       </div>
-
       {/* Notifications Feed */}
       <div className="space-y-4">
         {loading ? (
@@ -156,22 +149,20 @@ const AdminNotifications = () => {
               }`}
             >
               {!item.is_read && (
-                <div className="absolute top-4 right-4 animate-in fade-in zoom-in duration-500">
+                <div className="absolute top-6 right-6">
                   <button 
                     onClick={() => handleMarkAsRead(item.notification_id)}
-                    className="p-2.5 bg-slate-900 text-white rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-slate-900/10 flex items-center gap-2 px-4"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 active:scale-95"
                   >
                     <ShieldCheck size={14} /> 
-                    <span className="text-[10px] font-black uppercase tracking-widest">Mark as Handled</span>
+                    <span>Mark Handled</span>
                   </button>
                 </div>
               )}
-              
               <div className="flex flex-col md:flex-row md:items-start gap-6">
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border transition-transform group-hover:scale-110 ${getPriorityStyles(item.priority)} shadow-sm`}>
                   {getTypeIcon(item.type)}
                 </div>
-                
                 <div className="flex-1 space-y-2">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
@@ -193,17 +184,14 @@ const AdminNotifications = () => {
                       </span>
                     </div>
                   </div>
-                  
                   <h3 className="text-slate-900 font-black text-lg tracking-tight leading-tight">
                     {item.title}
                   </h3>
-                  
                   <p className="text-slate-500 font-bold tracking-tight text-[15px] leading-relaxed max-w-2xl">
                     {item.message}
                   </p>
-                  
                   <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-50">
-                    <div className="w-8 h-8 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400">
+                    <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500">
                       <User size={14} />
                     </div>
                     <span className="text-[12px] font-black text-slate-900">{item.user_name || 'System'}</span>
@@ -216,7 +204,6 @@ const AdminNotifications = () => {
           ))
         )}
       </div>
-      
       {/* Footer Info */}
       {!loading && notifications.length > 0 && (
          <div className="flex items-center justify-center py-6 border-t border-slate-100">
@@ -228,5 +215,4 @@ const AdminNotifications = () => {
     </div>
   );
 };
-
 export default AdminNotifications;

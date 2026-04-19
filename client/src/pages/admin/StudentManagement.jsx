@@ -1,3 +1,4 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import { useEffect, useState, useRef } from 'react';
 import api from '../../services/api';
 import {
@@ -7,19 +8,16 @@ import {
   Users, UserCheck2, UserMinus, Upload, Download,
   FileSpreadsheet, CheckCircle2, AlertCircle
 } from 'lucide-react';
-
 const statusStyles = {
   active:   'bg-emerald-50 text-emerald-700 ring-emerald-200',
   inactive: 'bg-rose-50 text-rose-700 ring-rose-200',
 };
 const GENDERS = ['Male', 'Female', 'Other', 'Prefer not to say'];
-
 const CSV_HEADERS = ['name', 'email', 'password', 'date_of_birth', 'gender', 'contact_number'];
 const CSV_EXAMPLE = [
   'Muhammad Asim,asim@university.edu,Pass@1234,2000-05-15,Male,+92 300 1234567',
   'Aisha Khan,aisha@university.edu,SecurePass1,1999-11-20,Female,+92 321 7654321',
 ];
-
 const StatCard = ({ icon: Icon, label, value, color }) => (
   <div className="bg-white rounded-2xl border border-slate-200 p-6 flex items-center gap-5 shadow-sm hover:shadow-md transition-all group">
     <div className={`w-14 h-14 rounded-2xl ${color} flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform`}>
@@ -31,20 +29,18 @@ const StatCard = ({ icon: Icon, label, value, color }) => (
     </div>
   </div>
 );
-
 const StudentManagement = () => {
+  usePageTitle('Student Management');
   const [students, setStudents]       = useState([]);
   const [total, setTotal]             = useState(0);
   const [page, setPage]               = useState(1);
   const [search, setSearch]           = useState('');
   const [loading, setLoading]         = useState(true);
   const [togglingId, setTogglingId]   = useState(null);
-
   // Add Single
   const [showAddModal, setShowAddModal]     = useState(false);
   const [showPassword, setShowPassword]     = useState(false);
   const [addLoading, setAddLoading]         = useState(false);
-
   // Add Bulk
   const [showBulkModal, setShowBulkModal]   = useState(false);
   const [csvRows, setCsvRows]               = useState([]);          // parsed rows
@@ -52,15 +48,12 @@ const StudentManagement = () => {
   const [bulkResult, setBulkResult]         = useState(null);        // { success, failed, message }
   const [dragOver, setDragOver]             = useState(false);
   const fileInputRef = useRef();
-
   // Edit / Delete
   const [showEditModal, setShowEditModal]       = useState(false);
   const [selectedStudent, setSelectedStudent]   = useState(null);
   const [studentToDelete, setStudentToDelete]   = useState(null);
   const [errorModal, setErrorModal]             = useState(null);
-
   const limit = 12;
-
   const fetchStudents = async () => {
     setLoading(true);
     try {
@@ -70,12 +63,9 @@ const StudentManagement = () => {
     } catch (err) { console.error(err); setStudents([]); setTotal(0); }
     finally { setLoading(false); }
   };
-
   useEffect(() => { fetchStudents(); }, [page]);
-
   const activeCount   = students.filter(s => s.is_active).length;
   const inactiveCount = students.filter(s => !s.is_active).length;
-
   /* ── CSV helpers ── */
   const downloadTemplate = () => {
     const content = [CSV_HEADERS.join(','), ...CSV_EXAMPLE].join('\n');
@@ -85,7 +75,6 @@ const StudentManagement = () => {
     a.download = 'students_template.csv'; a.click();
     URL.revokeObjectURL(url);
   };
-
   const parseCSV = (text) => {
     const lines = text.trim().split('\n').filter(Boolean);
     if (lines.length < 2) return [];
@@ -95,7 +84,6 @@ const StudentManagement = () => {
       return Object.fromEntries(headers.map((h, i) => [h, vals[i] || '']));
     });
   };
-
   const handleFileChange = (file) => {
     if (!file) return;
     const reader = new FileReader();
@@ -106,7 +94,6 @@ const StudentManagement = () => {
     };
     reader.readAsText(file);
   };
-
   const handleBulkImport = async () => {
     if (!csvRows.length) return;
     setBulkLoading(true);
@@ -119,11 +106,9 @@ const StudentManagement = () => {
       setBulkResult({ message: err.response?.data?.message || 'Import failed.', success: [], failed: [] });
     } finally { setBulkLoading(false); }
   };
-
   const closeBulkModal = () => {
     setShowBulkModal(false); setCsvRows([]); setBulkResult(null);
   };
-
   /* ── CRUD handlers ── */
   const handleAddStudent = async (e) => {
     e.preventDefault();
@@ -143,7 +128,6 @@ const StudentManagement = () => {
       setErrorModal({ title: 'Failed to Add Student', message: err.response?.data?.message || 'An error occurred.' });
     } finally { setAddLoading(false); }
   };
-
   const handleToggle = async (userId) => {
     setTogglingId(userId);
     try {
@@ -152,7 +136,6 @@ const StudentManagement = () => {
     } catch { setStudents(prev => prev.map(s => s.user_id === userId ? { ...s, is_active: !s.is_active } : s)); }
     finally { setTogglingId(null); }
   };
-
   const handleUpdateStudent = async (e) => {
     e.preventDefault();
     try {
@@ -161,7 +144,6 @@ const StudentManagement = () => {
       setShowEditModal(false); fetchStudents();
     } catch { console.error('Update failed'); }
   };
-
   const handleDeleteStudent = async () => {
     if (!studentToDelete) return;
     try {
@@ -173,14 +155,11 @@ const StudentManagement = () => {
       setErrorModal({ title: err.response?.status === 409 ? 'Cannot Delete Enrolled Student' : 'Deletion Failed', message: msg });
     }
   };
-
   const filtered   = search ? students.filter(s => s.name.toLowerCase().includes(search.toLowerCase()) || s.email.toLowerCase().includes(search.toLowerCase())) : students;
   const totalPages = Math.ceil(total / limit);
-
   return (
     <>
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
-
         {/* ── Header ── */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div>
@@ -209,14 +188,12 @@ const StudentManagement = () => {
             </button>
           </div>
         </div>
-
         {/* ── Stat Cards ── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           <StatCard icon={Users}      label="Total Students"  value={total}         color="bg-gradient-to-br from-indigo-500 to-violet-600" />
           <StatCard icon={UserCheck2} label="Active Students" value={activeCount}   color="bg-gradient-to-br from-emerald-500 to-teal-500" />
           <StatCard icon={UserMinus}  label="Suspended"       value={inactiveCount} color="bg-gradient-to-br from-rose-500 to-pink-500" />
         </div>
-
         {/* ── Search ── */}
         <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3 flex items-center gap-4 shadow-sm">
           <Search size={18} className="text-slate-400 shrink-0" />
@@ -225,7 +202,6 @@ const StudentManagement = () => {
             className="flex-1 bg-transparent outline-none text-[13px] font-medium text-slate-700 placeholder-slate-400" />
           {search && <button onClick={() => setSearch('')} className="text-slate-400 hover:text-slate-700 text-xs font-bold transition-colors">Clear</button>}
         </div>
-
         {/* ── Table ── */}
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-8 py-6 border-b border-slate-100">
@@ -337,7 +313,6 @@ const StudentManagement = () => {
           </div>
         </div>
       </div>
-
       {/* ══════════════════════════════════════════
           ADD SINGLE STUDENT MODAL
       ══════════════════════════════════════════ */}
@@ -358,7 +333,6 @@ const StudentManagement = () => {
                 <X size={18} />
               </button>
             </div>
-
             <form onSubmit={handleAddStudent} className="px-8 pt-6 pb-8 space-y-4">
               {/* Name */}
               <div className="space-y-1.5">
@@ -366,7 +340,6 @@ const StudentManagement = () => {
                 <input name="name" required placeholder="e.g. Muhammad Asim"
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px] outline-none transition-all" />
               </div>
-
               {/* Email + Password */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -386,7 +359,6 @@ const StudentManagement = () => {
                   </div>
                 </div>
               </div>
-
               {/* DoB + Gender */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -403,14 +375,12 @@ const StudentManagement = () => {
                   </select>
                 </div>
               </div>
-
               {/* Contact */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Contact Number</label>
                 <input name="contact_number" type="tel" placeholder="+92 300 0000000"
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px] outline-none transition-all" />
               </div>
-
               {/* Buttons */}
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => { setShowAddModal(false); setShowPassword(false); }}
@@ -425,7 +395,6 @@ const StudentManagement = () => {
           </div>
         </div>
       )}
-
       {/* ══════════════════════════════════════════
           BULK IMPORT MODAL
       ══════════════════════════════════════════ */}
@@ -446,7 +415,6 @@ const StudentManagement = () => {
                 <X size={18} />
               </button>
             </div>
-
             <div className="px-8 py-6 space-y-5 max-h-[60vh] overflow-y-auto scrollbar-hide">
               {/* Step 1: Download template */}
               <div className="flex items-center justify-between bg-indigo-50 rounded-2xl px-6 py-4 border border-indigo-100">
@@ -459,7 +427,6 @@ const StudentManagement = () => {
                   <Download size={14} /> Download CSV
                 </button>
               </div>
-
               {/* Step 2: Upload */}
               <div>
                 <p className="font-bold text-slate-800 text-sm mb-3">Step 2 — Upload Filled Template</p>
@@ -479,7 +446,6 @@ const StudentManagement = () => {
                     onChange={e => handleFileChange(e.target.files[0])} />
                 </div>
               </div>
-
               {/* Preview */}
               {csvRows.length > 0 && !bulkResult && (
                 <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4">
@@ -507,7 +473,6 @@ const StudentManagement = () => {
                   </div>
                 </div>
               )}
-
               {/* Result */}
               {bulkResult && (
                 <div className={`rounded-2xl border p-5 ${bulkResult.failed?.length > 0 ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
@@ -530,7 +495,6 @@ const StudentManagement = () => {
                 </div>
               )}
             </div>
-
             {/* Footer */}
             <div className="px-8 pb-8 flex gap-3">
               <button onClick={closeBulkModal}
@@ -548,7 +512,6 @@ const StudentManagement = () => {
           </div>
         </div>
       )}
-
       {/* ── Edit Modal ── */}
       {showEditModal && selectedStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
@@ -577,7 +540,6 @@ const StudentManagement = () => {
           </div>
         </div>
       )}
-
       {/* ── Delete Modal ── */}
       {studentToDelete && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
@@ -595,7 +557,6 @@ const StudentManagement = () => {
           </div>
         </div>
       )}
-
       {/* ── Error Modal ── */}
       {errorModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
@@ -611,5 +572,4 @@ const StudentManagement = () => {
     </>
   );
 };
-
 export default StudentManagement;

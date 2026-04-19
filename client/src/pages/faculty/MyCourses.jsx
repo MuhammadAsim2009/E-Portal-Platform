@@ -1,12 +1,12 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { BookOpen, Users, Clock, MapPin } from 'lucide-react';
-
 const MyCourses = () => {
+  usePageTitle('My Courses');
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     api.get('/faculty/courses')
       .then(res => setCourses(res.data))
@@ -17,7 +17,6 @@ const MyCourses = () => {
       ]))
       .finally(() => setLoading(false));
   }, []);
-
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
@@ -26,7 +25,6 @@ const MyCourses = () => {
         </h1>
         <p className="text-slate-500 mt-1 text-sm font-medium">All sections assigned to you this semester.</p>
       </div>
-
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {[...Array(3)].map((_, i) => (
@@ -51,9 +49,7 @@ const MyCourses = () => {
                     Sec {course.section_name}
                   </span>
                 </div>
-
                 <h3 className="font-semibold text-slate-800 mb-3 leading-snug">{course.title}</h3>
-
                 <div className="space-y-2 text-xs text-slate-500">
                   <div className="flex items-center gap-2">
                     <Clock size={13} className="text-slate-400 flex-shrink-0" />
@@ -68,7 +64,6 @@ const MyCourses = () => {
                     <span>{course.current_seats} / {course.max_seats} students</span>
                   </div>
                 </div>
-
                 {/* Occupancy bar */}
                 <div className="mt-4">
                   <div className="flex justify-between text-xs text-slate-400 mb-1.5">
@@ -82,7 +77,6 @@ const MyCourses = () => {
                     />
                   </div>
                 </div>
-
                 <div className="mt-5 pt-4 border-t border-slate-100 grid grid-cols-2 gap-2">
                   <Link
                     to={`/faculty/gradebook?section=${course.section_id}`}
@@ -105,5 +99,4 @@ const MyCourses = () => {
     </div>
   );
 };
-
 export default MyCourses;

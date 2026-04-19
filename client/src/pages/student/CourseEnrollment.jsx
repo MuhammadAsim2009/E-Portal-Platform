@@ -1,3 +1,4 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { 
@@ -8,18 +9,16 @@ import {
   AlertCircle,
   CheckCircle2
 } from 'lucide-react';
-
 const CourseEnrollment = () => {
+  usePageTitle('Course Enrollment');
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [enrollStatus, setEnrollStatus] = useState({ type: '', message: '' });
   const [enrollingId, setEnrollingId] = useState(null);
-
   useEffect(() => {
     fetchCourses();
   }, []);
-
   const fetchCourses = async () => {
     try {
       const res = await api.get('/student/courses/available');
@@ -30,7 +29,6 @@ const CourseEnrollment = () => {
       setLoading(false);
     }
   };
-
   const handleEnroll = async (sectionId) => {
     setEnrollingId(sectionId);
     setEnrollStatus({ type: '', message: '' });
@@ -50,7 +48,6 @@ const CourseEnrollment = () => {
       setEnrollingId(null);
     }
   };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -58,7 +55,6 @@ const CourseEnrollment = () => {
       </div>
     );
   }
-
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
@@ -67,14 +63,12 @@ const CourseEnrollment = () => {
           <p className="mt-1 text-sm text-slate-500">Browse and register for available modules.</p>
         </div>
       </div>
-
       {error && (
         <div className="flex p-4 text-red-700 bg-red-50 rounded-lg border border-red-200">
           <AlertCircle className="w-5 h-5 mr-3 flex-shrink-0" />
           <p>{error}</p>
         </div>
       )}
-
       {enrollStatus.message && (
         <div className={`flex items-center p-4 rounded-lg border ${
           enrollStatus.type === 'success' 
@@ -89,7 +83,6 @@ const CourseEnrollment = () => {
           <p className="font-medium">{enrollStatus.message}</p>
         </div>
       )}
-
       {courses.length === 0 ? (
         <div className="py-12 text-center bg-white border border-slate-200 rounded-xl border-dashed">
           <BookOpen className="mx-auto h-12 w-12 text-slate-300 mb-3" />
@@ -100,7 +93,6 @@ const CourseEnrollment = () => {
           {courses.map((course) => {
             const isFull = course.current_seats >= course.max_seats;
             const availableSeats = course.max_seats - course.current_seats;
-
             return (
               <div 
                 key={course.section_id} 
@@ -115,11 +107,9 @@ const CourseEnrollment = () => {
                       {course.credit_hours} CH
                     </span>
                   </div>
-                  
                   <h3 className="mb-2 text-lg font-bold text-slate-800 line-clamp-2">
                     {course.title}
                   </h3>
-                  
                   <div className="space-y-2 mt-4">
                     <div className="flex items-center text-sm text-slate-600">
                       <Clock size={16} className="mr-2 text-slate-400" />
@@ -135,7 +125,6 @@ const CourseEnrollment = () => {
                     </div>
                   </div>
                 </div>
-
                 <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
                   <div className="text-sm">
                     {isFull ? (
@@ -166,5 +155,4 @@ const CourseEnrollment = () => {
     </div>
   );
 };
-
 export default CourseEnrollment;

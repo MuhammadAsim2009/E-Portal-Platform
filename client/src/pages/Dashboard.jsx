@@ -1,8 +1,8 @@
+import usePageTitle from '../hooks/usePageTitle';
 import useAuthStore from '../store/authStore.js';
-
 const Dashboard = () => {
+  usePageTitle('Dashboard');
   const { user, logout } = useAuthStore();
-
   return (
     <div className="min-h-screen bg-neutral-50 p-8">
       <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm p-8 border border-neutral-100">
@@ -18,7 +18,6 @@ const Dashboard = () => {
             Sign Out
           </button>
         </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="p-6 bg-primary-50 rounded-xl border border-primary-100">
             <h3 className="font-bold text-primary-900 mb-2">Welcome, {user?.name}!</h3>
@@ -37,5 +36,4 @@ const Dashboard = () => {
     </div>
   );
 };
-
 export default Dashboard;

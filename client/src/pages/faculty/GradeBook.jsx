@@ -1,11 +1,11 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
-import { ClipboardList, Save, CheckCircle2 } from 'lucide-react';
-
+import { ClipboardList, Save, CheckCircle2, Download } from 'lucide-react';
 const GRADES = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F', 'I', 'W'];
-
 const GradeBook = () => {
+  usePageTitle('Grade Book');
   const [searchParams] = useSearchParams();
   const [courses, setCourses] = useState([]);
   const [selectedSection, setSelectedSection] = useState(searchParams.get('section') || '');
@@ -14,7 +14,6 @@ const GradeBook = () => {
   const [saving, setSaving] = useState({});
   const [saved, setSaved] = useState({});
   const [loading, setLoading] = useState(false);
-
   // Load courses list for selector
   useEffect(() => {
     api.get('/faculty/courses')
@@ -30,7 +29,6 @@ const GradeBook = () => {
         if (!selectedSection) setSelectedSection('1');
       });
   }, []);
-
   // Load students when section changes
   useEffect(() => {
     if (!selectedSection) return;
@@ -56,7 +54,6 @@ const GradeBook = () => {
       })
       .finally(() => setLoading(false));
   }, [selectedSection]);
-
   const handleSaveGrade = async (enrollmentId) => {
     setSaving(prev => ({ ...prev, [enrollmentId]: true }));
     try {
@@ -70,9 +67,31 @@ const GradeBook = () => {
       setSaving(prev => ({ ...prev, [enrollmentId]: false }));
     }
   };
-
+  const handleExportCSV = () => {
+    if (students.length === 0) return;
+    const headers = ['#', 'Student Name', 'Email', 'Program', 'Semester', 'Grade'];
+    const rows = students.map((s, idx) => [
+      idx + 1,
+      s.name,
+      s.email,
+      s.program,
+      s.semester,
+      grades[s.enrollment_id] || 'Pending'
+    ]);
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Gradebook_${selectedCourse?.course_code || 'Export'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
   const selectedCourse = courses.find(c => c.section_id === selectedSection);
-
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -82,21 +101,28 @@ const GradeBook = () => {
           </h1>
           <p className="text-slate-500 mt-1 text-sm font-medium">Assign and update final grades per student.</p>
         </div>
-
-        {/* Section selector */}
-        <select
-          value={selectedSection}
-          onChange={e => setSelectedSection(e.target.value)}
-          className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all shadow-sm min-w-[220px]"
-        >
-          {courses.map(c => (
-            <option key={c.section_id} value={c.section_id}>
-              {c.course_code} — Sec {c.section_name}: {c.title}
-            </option>
-          ))}
-        </select>
+        {/* Section selector & Export */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleExportCSV}
+            disabled={students.length === 0}
+            className="px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all flex items-center gap-2 border border-slate-200 disabled:opacity-50"
+          >
+            <Download size={18} /> Export CSV
+          </button>
+          <select
+            value={selectedSection}
+            onChange={e => setSelectedSection(e.target.value)}
+            className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all shadow-sm min-w-[220px]"
+          >
+            {courses.map(c => (
+              <option key={c.section_id} value={c.section_id}>
+                {c.course_code} — Sec {c.section_name}: {c.title}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
-
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
         {selectedCourse && (
           <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
@@ -106,7 +132,6 @@ const GradeBook = () => {
             </p>
           </div>
         )}
-
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -186,5 +211,4 @@ const GradeBook = () => {
     </div>
   );
 };
-
 export default GradeBook;

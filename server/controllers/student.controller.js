@@ -94,8 +94,35 @@ export const dropModule = async (req, res) => {
 
     res.status(200).json({ message: 'Successfully dropped module', enrollment: result });
   } catch (err) {
-    console.error('Drop module error:', err);
     res.status(400).json({ message: err.message || 'Drop failed' });
+  }
+};
+
+/**
+ * Swap an enrolled section for a new one (Transactional)
+ */
+export const swapModule = async (req, res) => {
+  try {
+    const { oldSectionId, newSectionId } = req.body;
+    
+    const studentRes = await db.query('SELECT student_id FROM students WHERE user_id = $1', [req.user.id]);
+    if (studentRes.rows.length === 0) throw new Error('Student profile not found');
+    const studentId = studentRes.rows[0].student_id;
+
+    const result = await courseService.swapStudent(studentId, oldSectionId, newSectionId);
+    
+    await logAction({
+      userId: req.user.id,
+      action: 'COURSE_SWAP',
+      target: newSectionId,
+      details: `Swapped section ${oldSectionId} for ${newSectionId}`,
+      ipAddress: req.ip
+    });
+
+    res.status(200).json({ message: 'Successfully swapped courses!', result });
+  } catch (err) {
+    console.error('Swap error:', err);
+    res.status(400).json({ message: err.message || 'Swap failed' });
   }
 };
 

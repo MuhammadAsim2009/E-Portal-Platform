@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, ClipboardList,
-  CalendarCheck, LogOut, Menu, X, ChevronRight, GraduationCap
+  CalendarCheck, LogOut, Menu, X, ChevronRight, GraduationCap, FileText
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
@@ -11,6 +11,7 @@ const navLinks = [
   { to: '/faculty/courses', icon: BookOpen, label: 'My Courses' },
   { to: '/faculty/gradebook', icon: ClipboardList, label: 'Grade Book' },
   { to: '/faculty/attendance', icon: CalendarCheck, label: 'Attendance' },
+  { to: '/faculty/assignments', icon: FileText, label: 'Assignments' },
 ];
 
 const FacultyLayout = () => {

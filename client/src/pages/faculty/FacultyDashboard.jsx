@@ -1,31 +1,42 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { BookOpen, Users, ClipboardList, ChevronRight, GraduationCap, Clock, Calendar, CheckCircle2, ArrowRight } from 'lucide-react';
-
-const StatCard = ({ icon: Icon, label, value, gradient, delay }) => (
-  <div 
-    className={`relative overflow-hidden bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-4`} 
-    style={{ animationDelay: `${delay}ms`, animationFillMode: 'both' }}
-  >
-    <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full opacity-10 bg-gradient-to-br ${gradient}`}></div>
-    <div className="flex justify-between items-start mb-4">
-      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br ${gradient} shadow-md`}>
-        <Icon size={24} className="text-white" />
+const StatCard = ({ icon: Icon, label, value, gradient, delay, to }) => {
+  const CardContent = (
+    <>
+      <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full opacity-10 bg-gradient-to-br ${gradient}`}></div>
+      <div className="flex justify-between items-start mb-4">
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br ${gradient} shadow-md group-hover:scale-110 transition-transform duration-300`}>
+          <Icon size={24} className="text-white" />
+        </div>
+        {to && <ChevronRight size={20} className="text-slate-300 group-hover:text-slate-500 transition-colors" />}
       </div>
+      <p className="text-4xl font-extrabold text-slate-800 mb-1 tracking-tight">{value ?? '—'}</p>
+      <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
+    </>
+  );
+  const className = `relative overflow-hidden bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-4 group`;
+  if (to) {
+    return (
+      <Link to={to} className={className} style={{ animationDelay: `${delay}ms`, animationFillMode: 'both' }}>
+        {CardContent}
+      </Link>
+    );
+  }
+  return (
+    <div className={className} style={{ animationDelay: `${delay}ms`, animationFillMode: 'both' }}>
+      {CardContent}
     </div>
-    <p className="text-4xl font-extrabold text-slate-800 mb-1 tracking-tight">{value ?? '—'}</p>
-    <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
-  </div>
-);
-
+  );
+};
 const FacultyDashboard = () => {
+  usePageTitle('Faculty Dashboard');
   const [stats, setStats] = useState(null);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState(null);
-
   useEffect(() => {
     const fetchAll = async () => {
       try {
@@ -44,13 +55,11 @@ const FacultyDashboard = () => {
     };
     fetchAll();
   }, []);
-
   if (loading) return (
     <div className="flex h-full items-center justify-center">
       <div className="w-8 h-8 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
     </div>
   );
-
   if (error) return (
     <div className="flex h-full items-center justify-center">
       <div className="bg-red-50 text-red-600 p-6 rounded-2xl max-w-lg text-center font-medium shadow-sm border border-red-100">
@@ -58,7 +67,6 @@ const FacultyDashboard = () => {
       </div>
     </div>
   );
-
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -66,25 +74,20 @@ const FacultyDashboard = () => {
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Faculty Dashboard</h1>
           <p className="text-slate-500 mt-2 font-medium">Welcome back! Here's your teaching overview for this semester.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link to="/faculty/attendance" className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center gap-2 shadow-sm">
-            <CheckCircle2 size={18} />
-            Mark Attendance
+          <Link to="/faculty/assignments" className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center gap-2 shadow-sm">
+            <BookOpen size={18} />
+            Post Assignment
           </Link>
           <Link to="/faculty/gradebook" className="px-5 py-2.5 bg-violet-600 text-white font-semibold rounded-xl hover:bg-violet-700 transition-colors shadow-md shadow-violet-600/20 flex items-center gap-2">
             <ClipboardList size={18} />
             Grade Book
           </Link>
         </div>
-      </div>
-
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard icon={BookOpen} label="Course Sections" value={stats?.sectionsCount} gradient="from-violet-500 to-indigo-600" delay={100} />
+        <StatCard icon={BookOpen} label="Course Sections" value={stats?.sectionsCount} gradient="from-violet-500 to-indigo-600" delay={100} to="/faculty/courses" />
         <StatCard icon={Users} label="Total Students" value={stats?.studentsCount} gradient="from-blue-500 to-cyan-600" delay={200} />
-        <StatCard icon={ClipboardList} label="Assignments Created" value={stats?.assignmentsCount} gradient="from-emerald-500 to-teal-600" delay={300} />
+        <StatCard icon={ClipboardList} label="Assignments Created" value={stats?.assignmentsCount} gradient="from-emerald-500 to-teal-600" delay={300} to="/faculty/assignments" />
       </div>
-
       {/* Split Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-8">
         {/* Left Column: My Courses */}
@@ -95,7 +98,6 @@ const FacultyDashboard = () => {
               View all courses <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
-          
           <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
             <div className="divide-y divide-slate-100">
               {courses.length === 0 ? (
@@ -127,7 +129,6 @@ const FacultyDashboard = () => {
                         </div>
                       </div>
                     </div>
-                    
                     <div className="flex sm:flex-col items-center sm:items-end gap-3 sm:gap-1.5 ml-19 sm:ml-[76px] lg:ml-0">
                       <span className="text-sm font-bold text-slate-800 bg-slate-100 px-3 py-1.5 rounded-lg flex items-center gap-2 whitespace-nowrap">
                         <Users size={16} className="text-slate-500" /> {course.current_seats} Enrolled
@@ -139,13 +140,10 @@ const FacultyDashboard = () => {
             </div>
           </div>
         </div>
-
         {/* Right Column: Quick Actions & Tasks placeholder */}
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '500ms', animationFillMode: 'both' }}>
            <h2 className="text-xl font-bold text-slate-800">Quick Tools</h2>
-           
            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm relative overflow-hidden">
-             
              <h3 className="text-lg font-bold mb-4 flex items-center gap-2 relative z-10 text-slate-800"><ClipboardList size={20} className="text-violet-600" /> Pending Tasks</h3>
              <ul className="space-y-3 relative z-10">
                {(!stats?.pendingTasks || stats.pendingTasks.length === 0) ? (
@@ -167,7 +165,6 @@ const FacultyDashboard = () => {
                )}
              </ul>
            </div>
-
            {/* Quick links block */}
            <div className="grid grid-cols-2 gap-4">
               <Link to="/faculty/attendance" className="bg-white border border-slate-200 p-5 rounded-2xl hover:border-violet-300 hover:shadow-md transition-all group flex flex-col items-center justify-center text-center gap-3">
@@ -185,7 +182,6 @@ const FacultyDashboard = () => {
            </div>
         </div>
       </div>
-
       {/* Bottom Section: Announcements & Guidelines */}
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '600ms', animationFillMode: 'both' }}>
         <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-3xl overflow-hidden shadow-xl">
@@ -209,9 +205,7 @@ const FacultyDashboard = () => {
           </div>
         </div>
       </div>
-
     </div>
   );
 };
-
 export default FacultyDashboard;

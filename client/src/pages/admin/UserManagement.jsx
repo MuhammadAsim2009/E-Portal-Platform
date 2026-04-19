@@ -1,21 +1,21 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { 
   Users, Search, ToggleLeft, ToggleRight, 
   ChevronLeft, ChevronRight, Filter, MoreVertical,
   Mail, Calendar, Shield, UserX, UserCheck, Download,
-  Ban, Edit2, Trash2, Eye, EyeOff, ShieldAlert
+  Ban, Edit2, Trash2, Eye, EyeOff, ShieldAlert, FileUp, Info, HelpCircle
 } from 'lucide-react';
-
+import toast from 'react-hot-toast';
 const ROLES = ['all', 'student', 'faculty', 'admin'];
-
 const roleStyles = {
   student: 'bg-indigo-50 text-indigo-700 border-indigo-100 ring-indigo-500/10',
   faculty: 'bg-violet-50 text-violet-700 border-violet-100 ring-violet-500/10',
   admin: 'bg-rose-50 text-rose-700 border-rose-100 ring-rose-500/10',
 };
-
 const UserManagement = () => {
+  usePageTitle('User Management');
   const [users, setUsers] = useState([]);
   const [pendingUsers, setPendingUsers] = useState([]);
   const [total, setTotal] = useState(0);
@@ -31,8 +31,10 @@ const UserManagement = () => {
   const [userToDelete, setUserToDelete] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [errorModal, setErrorModal] = useState(null); // { title, message }
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkFile, setBulkFile] = useState(null);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
   const limit = 10;
-
   const fetchUsers = async () => {
     setLoading(true);
     try {
@@ -56,16 +58,13 @@ const UserManagement = () => {
       setLoading(false);
     }
   };
-
   // Always fetch pending count for badge
   useEffect(() => {
     api.get('/admin/users/pending').then(res => {
       setPendingUsers(res.data || []);
     }).catch(() => {});
   }, []);
-
   useEffect(() => { fetchUsers(); }, [role, page, activeTab]);
-
   const handleApprove = async (id) => {
     try {
       await api.patch(`/admin/users/${id}/approve`);
@@ -74,7 +73,6 @@ const UserManagement = () => {
       fetchUsers();
     } catch (err) { console.error('Failed to approve user', err); }
   };
-
   const handleReject = async (id) => {
     try {
       await api.patch(`/admin/users/${id}/reject`);
@@ -82,7 +80,6 @@ const UserManagement = () => {
       setPendingUsers(updated);
     } catch (err) { console.error('Failed to reject user', err); }
   };
-
   const handleToggle = async (userId) => {
     setTogglingId(userId);
     try {
@@ -94,7 +91,6 @@ const UserManagement = () => {
       setTogglingId(null);
     }
   };
-
   const handleUpdateUser = async (e) => {
     e.preventDefault();
     try {
@@ -104,7 +100,6 @@ const UserManagement = () => {
       fetchUsers(); // Refresh to be completely safe
     } catch { alert('Update failed'); }
   };
-
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
     try {
@@ -120,7 +115,6 @@ const UserManagement = () => {
       });
     }
   };
-
   const handleAddUser = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -131,14 +125,41 @@ const UserManagement = () => {
       fetchUsers();
     } catch { alert('Creation failed'); }
   };
-
+  const handleBulkEnroll = async (e) => {
+    e.preventDefault();
+    if (!bulkFile) return;
+    setBulkProcessing(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target.result;
+        const rows = text.split('\n').slice(1); // Skip header
+        const usersToCreate = rows.filter(row => row.trim()).map(row => {
+          const [name, email, role, password, department, registration_status] = row.split(',').map(s => s?.trim());
+          return { name, email, role, password, department, is_admin_created: true };
+        });
+        if (usersToCreate.length === 0) {
+          toast.error('CSV file appears empty or malformed');
+          return;
+        }
+        const res = await api.post('/admin/users/bulk', usersToCreate);
+        toast.success(res.data.message);
+        setShowBulkModal(false);
+        setBulkFile(null);
+        fetchUsers();
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Batch enrollment failed');
+      } finally {
+        setBulkProcessing(false);
+      }
+    };
+    reader.readAsText(bulkFile);
+  };
   const displayData = activeTab === 'all' ? users : pendingUsers;
   const filtered = search
     ? displayData.filter(u => u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()))
     : displayData;
-
   const totalPages = Math.ceil(total / limit);
-
   return (
     <>
       <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
@@ -168,14 +189,20 @@ const UserManagement = () => {
           </div>
           <div className="flex items-center gap-3">
             <button 
+              onClick={() => setShowBulkModal(true)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-[13px] font-semibold hover:bg-slate-50 transition-all shadow-sm"
+            >
+              <FileUp size={16} className="text-indigo-500" />
+              Batch Enrollment
+            </button>
+            <button 
               onClick={() => setShowAddModal(true)}
               className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-[13px] font-semibold hover:bg-indigo-700 transition-all shadow-sm"
             >
-              Add Users
+              Add User
             </button>
           </div>
         </div>
-
         {/* Control Bar */}
         <div className="bg-white border border-slate-200 rounded-2xl p-3 flex flex-col md:flex-row items-center gap-3 shadow-sm">
           <div className="relative flex-1 w-full group">
@@ -205,7 +232,6 @@ const UserManagement = () => {
             ))}
           </div>
         </div>
-
         <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -323,7 +349,6 @@ const UserManagement = () => {
                                   <UserCheck size={18} />
                                 )}
                               </button>
-                              
                               <button 
                                 onClick={() => { setSelectedUser(u); setShowEditModal(true); }}
                                 className="w-10 h-10 rounded-2xl flex items-center justify-center text-indigo-500 bg-indigo-50 hover:bg-indigo-100 transition-all"
@@ -331,7 +356,6 @@ const UserManagement = () => {
                               >
                                 <Edit2 size={18} />
                               </button>
-                              
                               <button 
                                 onClick={() => setUserToDelete(u)}
                                 className="w-10 h-10 rounded-2xl flex items-center justify-center text-rose-500 bg-rose-50 hover:bg-rose-100 transition-all"
@@ -349,7 +373,6 @@ const UserManagement = () => {
               </tbody>
             </table>
           </div>
-
           {/* Footer Navigation */}
           <div className="px-10 py-8 bg-slate-50/50 flex items-center justify-between border-t border-slate-100">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
@@ -387,7 +410,6 @@ const UserManagement = () => {
           </div>
         </div>
       </div>
-
       {/* Add User Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
@@ -434,7 +456,6 @@ const UserManagement = () => {
                   </select>
                 </div>
               </div>
-              
               <div className="flex gap-4 pt-4">
                 <button 
                   type="button" 
@@ -447,14 +468,12 @@ const UserManagement = () => {
           </div>
         </div>
       )}
-
       {/* Edit User Modal */}
       {showEditModal && selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-xl p-8 animate-in zoom-in-95 duration-300 border border-slate-200">
             <h2 className="text-xl font-bold text-slate-900 mb-2 tracking-tight">Edit Profile</h2>
             <p className="text-slate-500 mb-6 font-medium text-[13px]">Modify existing metadata for the selected academic user.</p>
-            
             <form onSubmit={handleUpdateUser} className="space-y-6">
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -486,7 +505,6 @@ const UserManagement = () => {
                   </select>
                 </div>
               </div>
-              
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-semibold text-[13px] hover:bg-slate-200 transition-all">Cancel</button>
                 <button type="submit" className="flex-[2] px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold text-[13px] hover:bg-slate-800 transition-all shadow-sm">Save Changes</button>
@@ -495,7 +513,6 @@ const UserManagement = () => {
           </div>
         </div>
       )}
-
       {/* Custom Delete Confirmation Modal */}
       {userToDelete && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
@@ -527,7 +544,6 @@ const UserManagement = () => {
           </div>
         </div>
       )}
-
       {/* Error / Blocked-Action Modal */}
       {errorModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
@@ -550,8 +566,105 @@ const UserManagement = () => {
           </div>
         </div>
       )}
+      {/* Bulk Enrollment Modal */}
+      {showBulkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-xl p-10 animate-in zoom-in-95 duration-300 border border-slate-200">
+            <div className="flex flex-col items-center text-center mb-8">
+              <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mb-4 shadow-inner">
+                <FileUp size={32} />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">Batch Enrollment</h2>
+              <p className="text-slate-500 font-medium text-sm mt-1">Seamlessly provision multiple accounts via CSV</p>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-8 border-dashed">
+              <div className="flex items-start gap-4">
+                <div className="mt-1">
+                  <Info size={18} className="text-slate-400" />
+                </div>
+                <div className="text-left">
+                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-1">CSV Standard Pattern</p>
+                  <p className="text-[11px] font-bold text-slate-600 leading-relaxed font-mono">
+                    name, email, role, password, department
+                  </p>
+                  <button 
+                    onClick={() => {
+                      const headers = 'name,email,role,password,department\nJohn Doe,john@example.com,student,pass123,BSCS\nJane Doe,jane@example.com,faculty,pass456,IT';
+                      const blob = new Blob([headers], { type: 'text/csv' });
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.setAttribute('hidden', '');
+                      a.setAttribute('href', url);
+                      a.setAttribute('download', 'user_enrollment_template.csv');
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                    }}
+                    className="text-[11px] font-black text-indigo-600 uppercase tracking-widest mt-2 hover:text-indigo-700 transition-colors flex items-center gap-1"
+                  >
+                    Download Template Schema
+                    <Download size={10} />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <form onSubmit={handleBulkEnroll} className="space-y-6">
+              <div 
+                className={`relative border-2 border-dashed rounded-3xl p-8 transition-all flex flex-col items-center justify-center gap-3 cursor-pointer group ${
+                  bulkFile ? 'border-emerald-500 bg-emerald-50/30' : 'border-slate-200 hover:border-indigo-400 hover:bg-slate-50'
+                }`}
+                onClick={() => document.getElementById('bulk-csv-input').click()}
+              >
+                <input 
+                  id="bulk-csv-input"
+                  type="file" 
+                  accept=".csv"
+                  className="hidden"
+                  onChange={(e) => setBulkFile(e.target.files[0])}
+                />
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors shadow-sm ${
+                  bulkFile ? 'bg-emerald-500 text-white' : 'bg-white text-slate-400 group-hover:text-indigo-500'
+                }`}>
+                  <FileUp size={24} />
+                </div>
+                {bulkFile ? (
+                  <div className="text-center">
+                    <p className="text-[14px] font-black text-slate-900">{bulkFile.name}</p>
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mt-0.5">Ready for ingestion</p>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-[14px] font-black text-slate-900">Choose CSV File</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">or drop it here</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-4 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => { setShowBulkModal(false); setBulkFile(null); }} 
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={!bulkFile || bulkProcessing}
+                  className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                >
+                  {bulkProcessing ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Ingesting...
+                    </div>
+                  ) : 'Start Ingestion'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 };
-
 export default UserManagement;

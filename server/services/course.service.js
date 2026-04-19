@@ -107,3 +107,49 @@ export const dropStudent = async (studentId, sectionId) => {
   }
 };
 
+export const swapStudent = async (studentId, oldSectionId, newSectionId) => {
+  // Use a transaction for atomicity
+  const { pool } = await import('../config/db.js');
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+
+    // 1. Check for delinquent fees
+    const feeSql = `SELECT count(*) FROM fees WHERE student_id = $1 AND status = 'pending' AND due_date < NOW()`;
+    const feeRes = await client.query(feeSql, [studentId]);
+    if (parseInt(feeRes.rows[0].count) > 0) {
+      throw new Error('Course swap blocked: You have outstanding delinquent fees.');
+    }
+
+    // 2. Verify old enrollment exists
+    const checkOldSql = 'SELECT enrollment_id FROM enrollments WHERE student_id = $1 AND section_id = $2 AND status = \'enrolled\'';
+    const checkOldRes = await client.query(checkOldSql, [studentId, oldSectionId]);
+    if (checkOldRes.rows.length === 0) throw new Error('Existing enrollment record not found');
+
+    // 3. Check seats for new section
+    const checkNewSql = 'SELECT max_seats, current_seats FROM course_sections WHERE section_id = $1';
+    const checkNewRes = await client.query(checkNewSql, [newSectionId]);
+    if (checkNewRes.rows.length === 0) throw new Error('New section not found');
+    if (checkNewRes.rows[0].current_seats >= checkNewRes.rows[0].max_seats) {
+      throw new Error('Target section is full');
+    }
+
+    // 4. Drop old
+    await client.query(`UPDATE enrollments SET status = 'dropped' WHERE student_id = $1 AND section_id = $2`, [studentId, oldSectionId]);
+    await client.query('UPDATE course_sections SET current_seats = GREATEST(0, current_seats - 1) WHERE section_id = $1', [oldSectionId]);
+
+    // 5. Enroll new
+    await client.query(`INSERT INTO enrollments (student_id, section_id) VALUES ($1, $2)`, [studentId, newSectionId]);
+    await client.query('UPDATE course_sections SET current_seats = current_seats + 1 WHERE section_id = $1', [newSectionId]);
+
+    await client.query('COMMIT');
+    return { success: true };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+

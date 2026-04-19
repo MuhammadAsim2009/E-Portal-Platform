@@ -1,8 +1,13 @@
 import pkg from 'pg';
 const { Pool } = pkg;
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const pool = new Pool({
   user: process.env.DB_USER,
@@ -10,10 +15,13 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
+  ssl: { rejectUnauthorized: false }
 });
 
 pool.on('connect', () => {
-  console.log('Successfully connected to the PostgreSQL database');
+  const isAWS = process.env.DB_HOST?.includes('rds.amazonaws.com');
+  const dbName = isAWS ? 'AWS PostgreSQL' : 'PostgreSQL';
+  console.log(`Successfully connected to the ${dbName} database`);
 });
 
 pool.on('error', (err) => {

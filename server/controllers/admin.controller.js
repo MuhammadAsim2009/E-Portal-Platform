@@ -1,6 +1,13 @@
 import * as adminService from '../services/admin.service.js';
 import { sendEmail } from '../services/email.service.js';
 
+const isValidUUID = (uuid) => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  // Loosened regex to support more UUID versions if needed, though Postgres gen_random_uuid is v4
+  const looseRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return looseRegex.test(uuid);
+};
+
 export const testEmail = async (req, res) => {
   try {
     const { email } = req.body;
@@ -21,7 +28,11 @@ export const testEmail = async (req, res) => {
     });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -30,7 +41,11 @@ export const getDashboardStats = async (req, res) => {
     const stats = await adminService.getDashboardStats();
     res.json(stats);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -40,7 +55,11 @@ export const getAllUsers = async (req, res) => {
     const result = await adminService.getAllUsers({ role, page: parseInt(page), limit: parseInt(limit) });
     res.json(result);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -49,7 +68,7 @@ export const toggleUserStatus = async (req, res) => {
     const { id } = req.params;
     const result = await adminService.toggleUserStatus(id);
     await adminService.logAction({
-      userId: req.user.user_id,
+      userId: req.user.id,
       action: 'TOGGLE_USER_STATUS',
       target: id,
       details: `User status changed to ${result.is_active ? 'Active' : 'Inactive'}`,
@@ -57,7 +76,11 @@ export const toggleUserStatus = async (req, res) => {
     });
     res.json(result);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -66,7 +89,11 @@ export const getPendingUsers = async (req, res) => {
     const users = await adminService.getPendingUsers();
     res.json(users);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -75,7 +102,7 @@ export const approveUser = async (req, res) => {
     const { id } = req.params;
     const result = await adminService.approveUser(id);
     await adminService.logAction({
-      userId: req.user.user_id,
+      userId: req.user.id,
       action: 'APPROVE_USER',
       target: id,
       details: `Approved registration for user ID: ${id}`,
@@ -84,7 +111,11 @@ export const approveUser = async (req, res) => {
     });
     res.json({ message: 'User approved successfully', user_id: result.user_id });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -93,7 +124,7 @@ export const rejectUser = async (req, res) => {
     const { id } = req.params;
     const result = await adminService.rejectUser(id);
     await adminService.logAction({
-      userId: req.user.user_id,
+      userId: req.user.id,
       action: 'REJECT_USER',
       target: id,
       details: `Rejected registration for user ID: ${id}`,
@@ -102,7 +133,11 @@ export const rejectUser = async (req, res) => {
     });
     res.json({ message: 'User rejected successfully', user_id: result.user_id });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -112,7 +147,11 @@ export const updateUser = async (req, res) => {
     const result = await adminService.updateUser(id, req.body);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -121,7 +160,7 @@ export const deleteUser = async (req, res) => {
     const { id } = req.params;
     await adminService.deleteUser(id);
     await adminService.logAction({
-      userId: req.user.user_id,
+      userId: req.user.id,
       action: 'DELETE_USER',
       target: id,
       details: `Permanently deleted user account ${id}`,
@@ -151,7 +190,7 @@ export const createAdminUser = async (req, res) => {
       department, designation, qualifications
     }));
     await adminService.logAction({
-      userId: req.user.user_id,
+      userId: req.user.id,
       action: 'CREATE_USER_ADMIN',
       target: user.user_id,
       details: `Admin manually created ${role} account for ${email}`,
@@ -160,7 +199,11 @@ export const createAdminUser = async (req, res) => {
     });
     res.status(201).json(user);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -217,15 +260,22 @@ export const getAllCourses = async (req, res) => {
     const courses = await adminService.getAllCourses();
     res.json(courses);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
 export const createCourse = async (req, res) => {
   try {
     const course = await adminService.createCourse(req.body);
+    if (!course) {
+        return res.status(400).json({ message: 'Failed to create course. Please verify inputs.' });
+    }
     await adminService.logAction({
-      userId: req.user.user_id,
+      userId: req.user.id,
       action: 'CREATE_COURSE',
       target: course.course_id,
       details: `Registered new course: ${course.title} (${course.course_code})`,
@@ -234,16 +284,26 @@ export const createCourse = async (req, res) => {
     });
     res.status(201).json(course);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
 export const updateCourse = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!isValidUUID(id)) {
+      return res.status(400).json({ message: 'Invalid course reference (ID is not a valid sequence)' });
+    }
     const course = await adminService.updateCourse(id, req.body);
+    if (!course) {
+      return res.status(404).json({ message: 'Course not found or no changes made.' });
+    }
     await adminService.logAction({
-      userId: req.user.user_id,
+      userId: req.user.id,
       action: 'UPDATE_COURSE',
       target: id,
       details: `Modified curriculum details for course: ${course.title}`,
@@ -252,16 +312,23 @@ export const updateCourse = async (req, res) => {
     });
     res.json(course);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
 export const deleteCourse = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!isValidUUID(id)) {
+      return res.status(400).json({ message: 'Invalid course reference (ID is not a valid sequence)' });
+    }
     await adminService.deleteCourse(id);
     await adminService.logAction({
-      userId: req.user.user_id,
+      userId: req.user.id,
       action: 'DELETE_COURSE',
       target: id,
       details: `Withdrew course from catalog (ID: ${id})`,
@@ -270,7 +337,11 @@ export const deleteCourse = async (req, res) => {
     });
     res.json({ message: 'Course deleted successfully' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -279,7 +350,11 @@ export const getAnnouncements = async (req, res) => {
     const announcements = await adminService.getAnnouncements();
     res.json(announcements);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -287,10 +362,10 @@ export const createAnnouncement = async (req, res) => {
   try {
     const announcement = await adminService.createAnnouncement({
       ...req.body,
-      adminId: req.user.user_id,
+      adminId: req.user.id,
     });
     await adminService.logAction({
-      userId: req.user.user_id,
+      userId: req.user.id,
       action: 'CREATE_ANNOUNCEMENT',
       target: announcement.announcement_id,
       details: `New announcement: ${announcement.title}`,
@@ -298,7 +373,11 @@ export const createAnnouncement = async (req, res) => {
     });
     res.status(201).json(announcement);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 export const updateAnnouncement = async (req, res) => {
@@ -306,7 +385,7 @@ export const updateAnnouncement = async (req, res) => {
     const { id } = req.params;
     const announcement = await adminService.updateAnnouncement(id, req.body);
     await adminService.logAction({
-      userId: req.user.user_id,
+      userId: req.user.id,
       action: 'UPDATE_ANNOUNCEMENT',
       target: id,
       details: `Updated announcement: ${announcement.title}`,
@@ -314,7 +393,11 @@ export const updateAnnouncement = async (req, res) => {
     });
     res.json(announcement);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -323,7 +406,7 @@ export const deleteAnnouncement = async (req, res) => {
     const { id } = req.params;
     const result = await adminService.deleteAnnouncement(id);
     await adminService.logAction({
-      userId: req.user.user_id,
+      userId: req.user.id,
       action: 'DELETE_ANNOUNCEMENT',
       target: id,
       details: `Deleted announcement ID: ${id}`,
@@ -332,7 +415,11 @@ export const deleteAnnouncement = async (req, res) => {
     });
     res.json({ message: 'Announcement deleted successfully', id: result.announcement_id });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -341,7 +428,11 @@ export const getSections = async (req, res) => {
     const result = await adminService.getAllSections();
     res.json(result);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -350,7 +441,11 @@ export const getFacultyList = async (req, res) => {
     const result = await adminService.getAllFaculty();
     res.json(result);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -379,7 +474,11 @@ export const deleteSection = async (req, res) => {
     await adminService.deleteSection(id);
     res.json({ message: 'Section deleted successfully' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -389,7 +488,11 @@ export const getSectionStudents = async (req, res) => {
     const students = await adminService.getSectionStudents(id);
     res.json(students);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -410,7 +513,11 @@ export const getEligibleStudents = async (req, res) => {
     const students = await adminService.getEligibleStudentsForSection(id);
     res.json(students);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -430,7 +537,11 @@ export const getFinancialAnalytics = async (req, res) => {
     const incomePerCourse = await adminService.getIncomePerCourse();
     res.json({ stats, incomePerCourse });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -443,7 +554,11 @@ export const getAuditLogs = async (req, res) => {
     });
     res.json(result);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -452,7 +567,11 @@ export const getPayments = async (req, res) => {
     const payments = await adminService.getAllPayments();
     res.json(payments);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -463,7 +582,7 @@ export const updatePaymentStatus = async (req, res) => {
     const payment = await adminService.updatePaymentStatus(id, status, waiver_justification);
     
     await adminService.logAction({
-      userId: req.user.user_id,
+      userId: req.user.id,
       action: 'UPDATE_PAYMENT_STATUS',
       target: id,
       details: `Payment status updated to ${status} for transaction ${payment.transaction_id}`,
@@ -486,7 +605,11 @@ export const getNotifications = async (req, res) => {
     });
     res.json(notifications);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -496,7 +619,11 @@ export const markNotificationAsRead = async (req, res) => {
     await adminService.markNotificationRead(id);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -505,7 +632,11 @@ export const getUnreadCount = async (req, res) => {
     const count = await adminService.getUnreadNotificationCount();
     res.json({ count });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -514,7 +645,11 @@ export const getSettings = async (req, res) => {
     const settings = await adminService.getSiteSettings();
     res.json(settings);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -522,12 +657,75 @@ export const updateSettings = async (req, res) => {
   try {
     const settings = await adminService.updateSiteSettings(req.body);
     await adminService.logAction({
-      userId: req.user.user_id,
+      userId: req.user.id,
       action: 'UPDATE_SITE_SETTINGS',
       details: 'Modified global site configuration',
       ipAddress: req.ip
     });
     res.json(settings);
+  } catch (err) {
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
+  }
+};
+
+export const getFeeStructures = async (req, res) => {
+  try {
+    const structures = await adminService.getFeeStructures();
+    res.json(structures);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const bulkGenerateFees = async (req, res) => {
+  try {
+    const { program, semester } = req.body;
+    const result = await adminService.generateBulkFees(program, semester);
+    await adminService.logAction({
+      userId: req.user.id,
+      action: 'BULK_GENERATE_FEES',
+      details: `Generated ${result.generatedCount} fee records for ${program} (${semester})`,
+      ipAddress: req.ip
+    });
+    res.json({ message: `Successfully generated ${result.generatedCount} fee records.`, ...result });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const createFeeStructure = async (req, res) => {
+  try {
+    const structure = await adminService.createFeeStructure(req.body);
+    await adminService.logAction({
+      userId: req.user.id,
+      action: 'CREATE_FEE_STRUCTURE',
+      target: structure.structure_id,
+      details: `Created fee structure: ${structure.category} for ${structure.program} (${structure.semester})`,
+      ipAddress: req.ip
+    });
+    res.status(201).json(structure);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const deleteFeeStructure = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await adminService.deleteFeeStructure(id);
+    await adminService.logAction({
+      userId: req.user.id,
+      action: 'DELETE_FEE_STRUCTURE',
+      target: id,
+      details: `Deleted fee structure ID: ${id}`,
+      severity: 'warning',
+      ipAddress: req.ip
+    });
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

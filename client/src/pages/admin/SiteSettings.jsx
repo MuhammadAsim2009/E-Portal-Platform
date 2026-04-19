@@ -1,3 +1,4 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { 
@@ -7,15 +8,14 @@ import {
   Coins, MapPin, Phone, Mail as MailIcon, AlertTriangle,
   Lock, CheckCircle2, XCircle
 } from 'lucide-react';
-
 const TABS = [
   { id: 'general', label: 'General', icon: Globe },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'email', label: 'Email SMTP', icon: Mail },
   { id: 'security', label: 'Security', icon: Shield },
 ];
-
 const SiteSettings = () => {
+  usePageTitle('Site Settings');
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -23,11 +23,9 @@ const SiteSettings = () => {
   const [toast, setToast] = useState({ show: false, type: '', msg: '' });
   const [testEmail, setTestEmail] = useState('');
   const [testingEmail, setTestingEmail] = useState(false);
-
   useEffect(() => {
     fetchSettings();
   }, []);
-
   const fetchSettings = async () => {
     try {
       const res = await api.get('/admin/settings');
@@ -38,12 +36,10 @@ const SiteSettings = () => {
       setLoading(false);
     }
   };
-
   const showToast = (type, msg) => {
     setToast({ show: true, type, msg });
     setTimeout(() => setToast({ show: false, type: '', msg: '' }), 4000);
   };
-
   const handleUpdate = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -57,7 +53,6 @@ const SiteSettings = () => {
       setSaving(false);
     }
   };
-
   const sendTestEmail = async () => {
     if (!testEmail) return showToast('error', 'Please provide a valid recipient address.');
     setTestingEmail(true);
@@ -73,13 +68,11 @@ const SiteSettings = () => {
       setTestingEmail(false);
     }
   };
-
   if (loading) return (
     <div className="flex items-center justify-center min-h-[400px]">
       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
     </div>
   );
-
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       {/* Header */}
@@ -108,7 +101,6 @@ const SiteSettings = () => {
           </button>
         </div>
       </div>
-
       {/* Tabs Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Navigation Sidebar */}
@@ -132,11 +124,9 @@ const SiteSettings = () => {
             </button>
           ))}
         </div>
-
         {/* Content Area */}
         <div className="lg:col-span-9 bg-white border border-slate-200/60 rounded-[32px] shadow-sm overflow-hidden min-h-[600px] flex flex-col translate-y-0 hover:-translate-y-1 transition-all duration-500">
           <form id="settings-form" onSubmit={handleUpdate} className="flex-1 p-8 md:p-12 space-y-12">
-            
             {/* Tab: General */}
             {activeTab === 'general' && (
               <div className="space-y-10 animate-in slide-in-from-right-4 duration-500">
@@ -165,7 +155,6 @@ const SiteSettings = () => {
                          </div>
                       </div>
                    </div>
-
                    <div className="space-y-4">
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                         <Smartphone size={14} className="text-amber-500" /> Browser Favicon
@@ -187,7 +176,6 @@ const SiteSettings = () => {
                       </div>
                    </div>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Portal Brand Name</label>
@@ -216,7 +204,6 @@ const SiteSettings = () => {
                       className="w-full px-5 py-4 bg-slate-50 border border-slate-100 focus:border-indigo-500/30 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl text-[13px] font-bold text-slate-900 resize-none"
                     />
                   </div>
-                  
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 flex items-center gap-2">
                       <Languages size={12} /> Registry Language
@@ -231,7 +218,6 @@ const SiteSettings = () => {
                       <option value="ar">Arabic (Gulf)</option>
                     </select>
                   </div>
-
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 flex items-center gap-2">
                       <Coins size={12} /> System Currency
@@ -247,7 +233,6 @@ const SiteSettings = () => {
                     </select>
                   </div>
                 </div>
-
                 <div className="pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-8">
                    {/* Contact Section */}
                    <div className="space-y-6">
@@ -269,7 +254,6 @@ const SiteSettings = () => {
                         />
                       </div>
                    </div>
-
                    {/* Operation Status */}
                    <div className="space-y-6">
                       <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-900 flex items-center gap-2">
@@ -299,7 +283,6 @@ const SiteSettings = () => {
                 </div>
               </div>
             )}
-
             {/* Tab: Appearance */}
             {activeTab === 'appearance' && (
               <div className="space-y-12 animate-in slide-in-from-right-4 duration-500">
@@ -341,7 +324,6 @@ const SiteSettings = () => {
                       </div>
                    </div>
                 </div>
-
                 <div className="space-y-6">
                   <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-900">Typography & Interface</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -371,7 +353,6 @@ const SiteSettings = () => {
                      </div>
                   </div>
                 </div>
-
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Custom CSS Architecture</label>
                   <textarea 
@@ -384,7 +365,6 @@ const SiteSettings = () => {
                 </div>
               </div>
             )}
-
             {/* Tab: Email */}
             {activeTab === 'email' && (
               <div className="space-y-12 animate-in slide-in-from-right-4 duration-500">
@@ -414,7 +394,6 @@ const SiteSettings = () => {
                    </div>
                    <Mail size={120} className="absolute -bottom-6 -right-6 text-white/5 rotate-12" />
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">SMTP Host Endpoint</label>
@@ -475,7 +454,6 @@ const SiteSettings = () => {
                 </div>
               </div>
             )}
-
             {/* Tab: Security */}
             {activeTab === 'security' && (
               <div className="space-y-12 animate-in slide-in-from-right-4 duration-500">
@@ -486,7 +464,6 @@ const SiteSettings = () => {
                       </div>
                       <h3 className="text-xl font-black text-rose-900">Access Control</h3>
                       <p className="text-rose-600/70 text-sm font-bold">Configure password complexity and session timeouts for administrative users.</p>
-                      
                       <div className="space-y-4 pt-4">
                          <label className="flex items-center justify-between p-4 bg-white/50 rounded-2xl border border-rose-100 cursor-pointer">
                             <span className="text-[12px] font-black uppercase tracking-widest text-rose-800">Enforce MFA</span>
@@ -498,14 +475,12 @@ const SiteSettings = () => {
                          </label>
                       </div>
                    </div>
-
                    <div className="p-8 bg-emerald-50 border border-emerald-100 rounded-[32px] space-y-4">
                       <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-200">
                          <UserCheck size={24} />
                       </div>
                       <h3 className="text-xl font-black text-emerald-900">Session Integrity</h3>
                       <p className="text-emerald-600/70 text-sm font-bold">Manage persistent identity tokens and concurrent administrative access.</p>
-                      
                       <div className="space-y-4 pt-4">
                          <div className="space-y-2">
                            <label className="text-[10px] font-black uppercase tracking-widest text-emerald-800">Session Expiry (Minutes)</label>
@@ -525,11 +500,9 @@ const SiteSettings = () => {
                 </div>
               </div>
             )}
-
           </form>
         </div>
       </div>
-
       {/* Notifications Toast */}
       {toast.show && (
         <div className={`fixed bottom-8 right-8 flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-8 duration-500 z-50 ${
@@ -548,5 +521,4 @@ const SiteSettings = () => {
     </div>
   );
 };
-
 export default SiteSettings;

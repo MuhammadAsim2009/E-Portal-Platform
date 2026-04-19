@@ -23,12 +23,25 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     // Only attempt refresh on 401, and not on the refresh/login routes themselves
+    const isAuthRoute = 
+      originalRequest.url.includes('/auth/refresh') || 
+      originalRequest.url.includes('/auth/login') ||
+      originalRequest.url.includes('/auth/register') ||
+      originalRequest.url.includes('/auth/verify-mfa');
+
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
-      !originalRequest.url.includes('/auth/refresh') &&
-      !originalRequest.url.includes('/auth/login')
+      !isAuthRoute
     ) {
+      // Don't even try to refresh if we are already on the login page or MFA page
+      const currentPath = window.location.pathname;
+      const isPublicPage = ['/login', '/register', '/mfa/verify'].some(p => currentPath.startsWith(p));
+
+      if (isPublicPage) {
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         // Queue additional requests while a refresh is in progress
         return new Promise((resolve, reject) => {
@@ -48,9 +61,9 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError);
         isRefreshing = false;
-        // Refresh failed — only redirect if not already on login page
-        const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/login/';
-        if (!isLoginPage) {
+        
+        // Refresh failed — redirect to login if not already there
+        if (!isPublicPage) {
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);

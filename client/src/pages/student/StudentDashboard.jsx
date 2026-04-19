@@ -1,3 +1,4 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
@@ -31,7 +32,6 @@ import {
   Megaphone,
   Pin,
   X
-
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, Cell
@@ -39,9 +39,7 @@ import {
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast, Toaster } from 'react-hot-toast';
-
 // --- Sub-components ---
-
 const DashboardCard = ({ title, value, icon, color = "blue", subtitle }) => (
   <div className="glass-card p-6 rounded-2xl animate-in fade-in zoom-in duration-500">
     <div className="flex items-center justify-between mb-2">
@@ -54,7 +52,6 @@ const DashboardCard = ({ title, value, icon, color = "blue", subtitle }) => (
     <p className="text-2xl font-bold text-slate-800 mt-1">{value}</p>
   </div>
 );
-
 const AttendanceGauge = ({ percentage, course }) => {
   const getColor = (p) => {
     if (p >= 85) return 'text-emerald-500';
@@ -76,14 +73,12 @@ const AttendanceGauge = ({ percentage, course }) => {
     </div>
   );
 };
-
 // --- Main Component ---
-
 const StudentDashboard = () => {
+  usePageTitle('Student Dashboard');
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
-
   useEffect(() => {
     const path = location.pathname.split('/').pop();
     if (['explore', 'courses', 'assignments', 'academic', 'finance'].includes(path)) {
@@ -92,8 +87,6 @@ const StudentDashboard = () => {
       setActiveTab('overview');
     }
   }, [location]);
-
-
   const switchTab = (tab) => {
     setActiveTab(tab);
     if (tab === 'overview') {
@@ -102,9 +95,10 @@ const StudentDashboard = () => {
       navigate(`/student/${tab}`);
     }
   };
-
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
+  const [swappingFrom, setSwappingFrom] = useState(null); // { section_id, course_code }
+  const [activeAnnouncement, setActiveAnnouncement] = useState(null);
   const [availableCourses, setAvailableCourses] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [notifications, setNotifications] = useState([
@@ -112,13 +106,13 @@ const StudentDashboard = () => {
   ]);
   const [showNotifs, setShowNotifs] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
   // Interactive Flows State
   const [showSubmissionModal, setShowSubmissionModal] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(null);
+  const [paymentGateway, setPaymentGateway] = useState('JazzCash');
   const [submissionFile, setSubmissionFile] = useState(null);
   const [conflictError, setConflictError] = useState(null);
-
-
+  const [gradePredictions, setGradePredictions] = useState({}); // { section_id: grade_point }
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -137,23 +131,36 @@ const StudentDashboard = () => {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     fetchData();
   }, []);
-
   const handleEnroll = async (course) => {
+    // Proactive check for overdue fees to improve UX
+    const hasOverdue = (dashboardData?.fees || []).some(f => f.status === 'pending' && new Date(f.due_date) < new Date());
+    if (hasOverdue) {
+      toast.error('Registration Blocked: Please settle outstanding dues before enrolling.');
+      return;
+    }
     setConflictError(null);
     try {
-      const res = await api.post('/student/enroll', { sectionId: course.section_id });
-      toast.success(res.data.message || 'Successfully enrolled!');
+      if (swappingFrom) {
+        const res = await api.post('/student/swap', { 
+          oldSectionId: swappingFrom.section_id, 
+          newSectionId: course.section_id 
+        });
+        toast.success(res.data.message || 'Course swapped successfully!');
+        setSwappingFrom(null);
+        setActiveTab('courses');
+      } else {
+        const res = await api.post('/student/enroll', { sectionId: course.section_id });
+        toast.success(res.data.message || 'Successfully enrolled!');
+      }
       fetchData(); // Refresh data
     } catch (err) {
       setConflictError(err.response?.data?.message || 'Enrollment failed');
       toast.error(err.response?.data?.message || 'Enrollment failed');
     }
   };
-
   const handleDrop = async (course) => {
     if (!window.confirm(`Are you sure you want to drop ${course.course_code}?`)) return;
     try {
@@ -164,15 +171,12 @@ const StudentDashboard = () => {
       toast.error(err.response?.data?.message || 'Failed to drop course');
     }
   };
-
   const handleSubmission = async (e) => {
     e.preventDefault();
     if (!submissionFile || !showSubmissionModal) return;
-    
     const formData = new FormData();
     formData.append('file', submissionFile);
     formData.append('assignmentId', showSubmissionModal.assignment_id);
-
     try {
       const res = await api.post('/student/assignments/submit', formData, {
         headers: {
@@ -188,40 +192,159 @@ const StudentDashboard = () => {
       toast.error(err.response?.data?.message || 'Failed to submit assignment');
     }
   };
-
-
+  const handlePayment = async () => {
+    if (!showPaymentModal) return;
+    try {
+      const transactionId = `TXN-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+      await api.post('/student/payments', {
+        fee_id: showPaymentModal.fee_id,
+        amount: showPaymentModal.net_amount,
+        transaction_id: transactionId,
+        payment_method: paymentGateway,
+        receipt_url: 'pending_verification' // In a real app, this would be a file URL or gateway response
+      });
+      toast.success(`Payment initiated! Please wait for system confirmation. Txn ID: ${transactionId}`);
+      setShowPaymentModal(null);
+      fetchData();
+    } catch (err) {
+      console.error('Payment error:', err);
+      toast.error('Payment failed. Please try again.');
+    }
+  };
+  const handleDownloadReceipt = (fee) => {
+    const doc = new jsPDF();
+    const student = dashboardData?.studentInfo;
+    // Premium Header
+    doc.setFillColor(15, 23, 42); // Slate 900
+    doc.rect(0, 0, 210, 60, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont(undefined, 'bold');
+    doc.text('OFFICIAL PAYMENT RECEIPT', 20, 30);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`DATE: ${new Date().toLocaleDateString()}`, 20, 45);
+    doc.text(`REF: ${fee.fee_id.substr(0, 8).toUpperCase()}`, 20, 50);
+    // Body
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(12);
+    doc.text('STUDENT INFORMATION', 20, 80);
+    doc.line(20, 82, 190, 82);
+    doc.setFontSize(10);
+    doc.text(`NAME: ${student?.full_name}`, 20, 92);
+    doc.text(`PROGRAM: ${student?.program || 'N/A'}`, 20, 99);
+    doc.text(`SEMESTER: ${fee.semester || 'N/A'}`, 20, 106);
+    autoTable(doc, {
+      startY: 120,
+      head: [['DESCRIPTION', 'TYPE', 'BASE AMOUNT', 'DISCOUNT', 'NET TOTAL']],
+      body: [[
+        fee.semester || 'Academic Fee',
+        fee.fee_type || 'General',
+        `$${fee.amount}`,
+        `-$${fee.discount_amount || 0}`,
+        `$${fee.net_amount}`
+      ]],
+      theme: 'striped',
+      headStyles: { fillStyle: [99, 102, 241], fontSize: 10, fontStyle: 'bold' }
+    });
+    const finalY = (doc).lastAutoTable.finalY + 20;
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text(`STATUS: SETTLED / PAID`, 20, finalY);
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'italic');
+    doc.text('This is a computer generated document and does not require a physical signature.', 20, 280);
+    doc.save(`Receipt_${fee.fee_id.substr(0, 8)}.pdf`);
+    toast.success("Receipt downloaded successfully!");
+  };
+  const handleDownloadAcademicReport = () => {
+    const doc = new jsPDF();
+    const student = dashboardData?.studentInfo;
+    const enrolled = dashboardData?.enrolled || [];
+    const attendance = dashboardData?.attendance || [];
+    const trendData = dashboardData?.trendData || [];
+    // Premium Header
+    doc.setFillColor(15, 23, 42); // Slate 900
+    doc.rect(0, 0, 210, 60, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont(undefined, 'bold');
+    doc.text('OFFICIAL ACADEMIC REPORT', 24, 30);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`E-PORTAL SYSTEM • ${new Date().toLocaleDateString()}`, 24, 45);
+    // Profile Section
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('STUDENT PROFILE', 24, 80);
+    doc.line(24, 82, 186, 82);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Full Name: ${student?.full_name}`, 24, 92);
+    doc.text(`Student ID: ${student?.student_id}`, 24, 99);
+    doc.text(`Program: ${student?.program}`, 120, 92);
+    doc.text(`Semester: ${student?.semester}`, 120, 99);
+    doc.text(`Current GPA: ${student?.gpa}`, 24, 106);
+    // Enrollment Table
+    autoTable(doc, {
+      startY: 120,
+      head: [['COURSE CODE', 'TITLE', 'CREDITS', 'INSTRUCTOR']],
+      body: enrolled.map(c => [c.course_code, c.title, c.credit_hours, c.instructor_name || 'Staff']),
+      theme: 'grid',
+      headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
+      styles: { fontSize: 9 }
+    });
+    // Attendance Summary
+    const finalY = (doc).lastAutoTable.finalY + 20;
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('ATTENDANCE PERFORMANCE', 24, finalY);
+    doc.line(24, finalY + 2, 186, finalY + 2);
+    autoTable(doc, {
+      startY: finalY + 10,
+      head: [['COURSE', 'ATTENDANCE %', 'TOTAL CLASSES', 'STATUS']],
+      body: attendance.map(a => [
+        a.course, 
+        `${a.percentage}%`, 
+        a.total_days, 
+        a.percentage >= 75 ? 'GOOD' : 'WARNING'
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' }
+    });
+    const reportY = (doc).lastAutoTable.finalY + 30;
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text('This document is a certified digital export of academic records from the E-Portal Platform.', 105, 280, { align: 'center' });
+    doc.save(`Transcript_${student?.student_id || 'Student'}.pdf`);
+    toast.success("Academic report exported successfully!");
+  };
   const handleDownloadTimetable = () => {
     const doc = new jsPDF();
     const student = dashboardData?.studentInfo;
     const enrolled = dashboardData?.enrolled || [];
-    
     // Header Styling
     doc.setFillColor(99, 102, 241); // Indigo 500
     doc.rect(0, 0, 210, 40, 'F');
-    
     doc.setFontSize(24);
     doc.setTextColor(255, 255, 255);
     doc.text('ACADEMIC TIMETABLE', 14, 25);
-    
     doc.setFontSize(10);
     doc.text('E-PORTAL STUDENT MANAGEMENT SYSTEM', 14, 33);
-    
     // Student Info Section
     doc.setTextColor(30, 41, 59);
     doc.setFontSize(12);
     doc.setFont(undefined, 'bold');
     doc.text('STUDENT INFORMATION', 14, 55);
-    
     doc.setFont(undefined, 'normal');
     doc.setFontSize(10);
     doc.text(`Name: ${student?.full_name || student?.name || 'N/A'}`, 14, 63);
     doc.text(`Student ID: ${student?.student_id || 'N/A'}`, 14, 68);
     doc.text(`Program: ${student?.program || 'N/A'}`, 14, 73);
     doc.text(`Semester: ${student?.semester || 'N/A'}`, 14, 78);
-    
     doc.text(`Issued On: ${new Date().toLocaleDateString()}`, 140, 63);
     doc.text(`Status: Active Enrollment`, 140, 68);
-
     // Sorting Logic for Schedule
     const daysOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const sortedEnrolled = [...enrolled].sort((a, b) => {
@@ -230,7 +353,6 @@ const StudentDashboard = () => {
       if (dayA !== dayB) return dayA - dayB;
       return (a.schedule_time || '').localeCompare(b.schedule_time || '');
     });
-
     const tableData = sortedEnrolled.map(course => [
       course.course_code,
       course.title,
@@ -238,7 +360,6 @@ const StudentDashboard = () => {
       course.room || 'TBD',
       `${course.credit_hours}.0`
     ]);
-
     autoTable(doc, {
       head: [['CODE', 'COURSE TITLE', 'SCHEDULE (DAY/TIME)', 'VENUE', 'CREDITS']],
       body: tableData,
@@ -267,7 +388,6 @@ const StudentDashboard = () => {
       },
       margin: { top: 85 }
     });
-
     // Footer
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
@@ -282,80 +402,49 @@ const StudentDashboard = () => {
       );
       doc.text(`Page ${i} of ${pageCount}`, 200, 285, { align: 'right' });
     }
-
     doc.save(`Timetable_${student?.student_id || 'Student'}.pdf`);
     toast.success('Timetable generated successfully!');
   };
-
-  const handleDownloadReceipt = (fee) => {
-    const doc = new jsPDF();
-    const student = dashboardData?.studentInfo;
-    
-    // Header styling
-    doc.setFillColor(16, 185, 129); // Emerald 500
-    doc.rect(0, 0, 210, 40, 'F');
-    
-    doc.setFontSize(24);
-    doc.setTextColor(255, 255, 255);
-    doc.text('PAYMENT RECEIPT', 14, 25);
-    
-    doc.setFontSize(10);
-    doc.text('OFFICIAL ACADEMIC FEE CLEARANCE', 14, 33);
-    
-    // Receipt Details
-    doc.setTextColor(30, 41, 59);
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
-    doc.text('TRANSACTION SUMMARY', 14, 55);
-    
-    doc.setFont(undefined, 'normal');
-    doc.setFontSize(10);
-    doc.text(`Receipt No: RCT-${fee.fee_id}-${Date.now().toString().slice(-4)}`, 14, 63);
-    doc.text(`Semester: ${fee.semester}`, 14, 68);
-    doc.text(`Fee Type: ${fee.fee_type || 'Tuition Fee'}`, 14, 73);
-    doc.text(`Status: FULLY SETTLED`, 14, 78);
-    
-    doc.text(`Student Name: ${student?.full_name || student?.name || 'N/A'}`, 120, 63);
-    doc.text(`Student ID: ${student?.student_id || 'N/A'}`, 120, 68);
-    doc.text(`Payment Date: ${new Date().toLocaleDateString()}`, 120, 73);
-
-    const tableBody = [
-      ['Gross Amount', `$${parseFloat(fee.amount).toLocaleString()}`],
-      ['Scholarship / Financial Aid', `-$${parseFloat(fee.discount_amount || 0).toLocaleString()}`],
-      ['Late Payment Penalty', '$0.00'],
-      ['Tax / Service Charges', 'Included']
-    ];
-
-    autoTable(doc, {
-      head: [['DESCRIPTION', 'AMOUNT (USD)']],
-      body: tableBody,
-      startY: 90,
-      theme: 'grid',
-      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold' },
-      columnStyles: {
-        1: { halign: 'right', fontStyle: 'bold' }
-      },
-      foot: [['NET TOTAL PAID', `$${parseFloat(fee.net_amount).toLocaleString()}`]],
-      footStyles: { fillColor: [51, 65, 85], textColor: [255, 255, 255], fontSize: 12, fontStyle: 'bold', halign: 'right' }
-    });
-
-    // Seal Placeholder
-    doc.setDrawColor(16, 185, 129);
-    doc.setLineWidth(0.5);
-    doc.circle(170, 200, 20, 'S');
-    doc.setFontSize(8);
-    doc.text('PAID', 170, 200, { align: 'center' });
-    doc.text('VERIFIED', 170, 205, { align: 'center' });
-
-    // Footer
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text('Thank you for your prompt payment. This generated document serves as an official proof of clearance.', 14, 280);
-    
-    doc.save(`Receipt_${fee.semester}_${student?.student_id}.pdf`);
-    toast.success('Payment receipt generated!');
+  const handleExportICS = (course) => {
+    const { title, course_code, section_name, instructor_name, room, schedule_time } = course;
+    // Mapping days to RRULE format
+    const dayMap = { 
+      'Mon': 'MO', 'Tue': 'TU', 'Wed': 'WE', 
+      'Thu': 'TH', 'Fri': 'FR', 'Sat': 'SA', 'Sun': 'SU' 
+    };
+    // schedule_time format is typically "Mon/Wed 09:00 - 10:30" or similar
+    const [daysPart, timePart] = (schedule_time || '').split(' ');
+    const days = daysPart ? daysPart.split('/').map(d => dayMap[d]).filter(Boolean).join(',') : '';
+    const [startRaw, endRaw] = (timePart || '08:00-09:00').split('-');
+    const startStr = startRaw ? startRaw.replace(/:/g, '') + '00' : '080000';
+    const endStr = endRaw ? endRaw.replace(/:/g, '') + '00' : '090000';
+    const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const startDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//E-Portal//Student Timetable//EN',
+      'BEGIN:VEVENT',
+      `UID:${course.section_id}@eportal.edu`,
+      `DTSTAMP:${now}`,
+      `DTSTART;TZID=Asia/Karachi:${startDate}T${startStr}`,
+      `DTEND;TZID=Asia/Karachi:${startDate}T${endStr}`,
+      days ? `RRULE:FREQ=WEEKLY;BYDAY=${days}` : '',
+      `SUMMARY:${course_code} - ${title} (${section_name || 'A'})`,
+      `DESCRIPTION:Instructor: ${instructor_name || 'TBD'}\\nSection: ${section_name || 'A'}`,
+      `LOCATION:${room || 'TBD'}`,
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].filter(Boolean).join('\r\n');
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = `${course_code}_Schedule.ics`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('ICS calendar exported!');
   };
-
   if (loading || !dashboardData) {
     return (
       <div className="flex flex-col items-center justify-center h-[70vh]">
@@ -367,59 +456,10 @@ const StudentDashboard = () => {
       </div>
     );
   }
-
   const { studentInfo, enrolled, assignments, attendance, fees, unpaidFees, trendData } = dashboardData;
-
   return (
     <div className="max-w-[1400px] mx-auto space-y-8 pb-10 relative">
       <Toaster position="top-right" />
-      
-      {/* Submission Modal */}
-      {showSubmissionModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl premium-shadow border border-slate-100 animate-in zoom-in-95 duration-200">
-            <h3 className="text-2xl font-bold text-slate-900 mb-2">Submit Assignment</h3>
-            <p className="text-slate-500 mb-6 font-medium">{showSubmissionModal.title} ({showSubmissionModal.course_code})</p>
-            
-            <form onSubmit={handleSubmission} className="space-y-6">
-              <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center hover:border-indigo-400 transition-all group relative cursor-pointer">
-                <input 
-                  type="file" 
-                  className="absolute inset-0 opacity-0 cursor-pointer" 
-                  onChange={(e) => setSubmissionFile(e.target.files[0])}
-                  required
-                />
-                <div className="flex flex-col items-center">
-                  <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
-                    <Upload size={32} />
-                  </div>
-                  <p className="font-bold text-slate-700">
-                    {submissionFile ? submissionFile.name : 'Click or drag files to upload'}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-2">PDF, DOCX, ZIP (Max 25MB)</p>
-                </div>
-              </div>
-              
-              <div className="flex gap-3">
-                <button 
-                  type="button"
-                  onClick={() => { setShowSubmissionModal(null); setSubmissionFile(null); }}
-                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
-                >
-                  Confirm Submission
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -428,7 +468,6 @@ const StudentDashboard = () => {
           </h1>
           <p className="text-slate-500 mt-1">Here is what's happening with your studies today.</p>
         </div>
-        
         <div className="flex items-center gap-3">
           <div className="relative">
             <button 
@@ -442,7 +481,6 @@ const StudentDashboard = () => {
                 </span>
               )}
             </button>
-            
             {showNotifs && (
               <div className="absolute right-0 mt-3 w-80 glass-card rounded-2xl z-50 overflow-hidden premium-shadow">
                 <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white/50">
@@ -473,7 +511,6 @@ const StudentDashboard = () => {
           </div>
         </div>
       </div>
-
       {/* Contextual Banner */}
       {unpaidFees > 0 && activeTab !== 'finance' && (
         <div className="bg-rose-50 border border-rose-100 p-5 rounded-3xl flex items-center justify-between animate-in slide-in-from-top-4 duration-700 transition-all border-l-4 border-l-rose-500 shadow-sm">
@@ -494,7 +531,6 @@ const StudentDashboard = () => {
           </button>
         </div>
       )}
-
       {/* Tab Content */}
       <div className="space-y-8 min-h-[500px]">
         {activeTab === 'overview' && (
@@ -530,7 +566,6 @@ const StudentDashboard = () => {
                 subtitle="Outstanding" 
               />
             </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Analytics: GPA Trend */}
               <div className="lg:col-span-2 glass-card p-10 rounded-[2.5rem] relative overflow-hidden">
@@ -546,8 +581,8 @@ const StudentDashboard = () => {
                     </span>
                   </div>
                 </div>
-                <div className="h-[320px] w-full relative z-10">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div key={activeTab} className="h-[320px] w-full relative z-10" style={{ minHeight: '320px' }}>
+                  <ResponsiveContainer width="100%" height="100%" debounce={50}>
                     <AreaChart data={trendData}>
                       <defs>
                         <linearGradient id="colorGpa" x1="0" y1="0" x2="0" y2="1">
@@ -576,7 +611,6 @@ const StudentDashboard = () => {
                   </ResponsiveContainer>
                 </div>
               </div>
-
               {/* Attendance View */}
               <div className="glass-card p-10 rounded-[2.5rem]">
                 <div className="flex items-center justify-between mb-8">
@@ -592,7 +626,6 @@ const StudentDashboard = () => {
                 </div>
               </div>
             </div>
-
             {/* Quick Upload Section */}
             <div className="glass-card p-10 rounded-[2.5rem] relative overflow-hidden">
                <div className="flex items-center justify-between mb-8 relative z-10">
@@ -612,7 +645,6 @@ const StudentDashboard = () => {
                     All Assignments <ChevronRight size={16} />
                   </button>
                </div>
-
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
                   {assignments.filter(a => a.status === 'Pending').slice(0, 3).length > 0 ? assignments.filter(a => a.status === 'Pending').slice(0, 3).map((a) => (
                     <div 
@@ -640,9 +672,7 @@ const StudentDashboard = () => {
                   )}
                </div>
             </div>
-
             {/* Recent Announcements Widget */}
-
             <div className="glass-card p-10 rounded-[2.5rem] relative overflow-hidden">
                <div className="flex items-center justify-between mb-8 relative z-10">
                   <div className="flex items-center gap-4">
@@ -661,7 +691,6 @@ const StudentDashboard = () => {
                     View All <ChevronRight size={16} />
                   </button>
                </div>
-
                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
                   {announcements.slice(0, 3).length > 0 ? announcements.slice(0, 3).map((a, idx) => (
                     <div 
@@ -693,7 +722,6 @@ const StudentDashboard = () => {
             </div>
           </>
         )}
-
         {activeTab === 'explore' && (
           <div className="glass-card p-10 rounded-[2.5rem] animate-in slide-in-from-right-4 duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-10">
@@ -702,7 +730,26 @@ const StudentDashboard = () => {
                 <p className="text-slate-500 font-medium mt-1">Discover new opportunities and register for upcoming modules.</p>
               </div>
             </div>
-
+            {/* Swap Mode Banner */}
+            {swappingFrom && (
+              <div className="mb-8 p-6 bg-indigo-600 rounded-[2rem] flex items-center justify-between text-white shadow-2xl shadow-indigo-200 animate-in slide-in-from-top-4 duration-500">
+                <div className="flex items-center gap-5">
+                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
+                    <RefreshCw size={24} className="animate-spin-slow" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black tracking-tight">Swap Mode Active</h3>
+                    <p className="text-indigo-100 font-bold text-sm">Select a new section to replace <span className="underline decoration-indigo-300 underline-offset-4">{swappingFrom.course_code}</span></p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSwappingFrom(null)}
+                  className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl font-black text-xs uppercase tracking-widest transition-all"
+                >
+                  Cancel Swap
+                </button>
+              </div>
+            )}
             {/* Conflict Display */}
             {conflictError && (
               <div className="mb-8 p-5 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-4 text-rose-800 animate-in shake duration-500">
@@ -711,7 +758,6 @@ const StudentDashboard = () => {
                 <button onClick={() => setConflictError(null)} className="ml-auto text-rose-400 hover:text-rose-600"><X size={20} /></button>
               </div>
             )}
-
             {/* Search & Filters */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
               <div className="md:col-span-2 relative">
@@ -728,7 +774,6 @@ const StudentDashboard = () => {
                 <option>All Departments</option>
               </select>
             </div>
-
             {/* Course Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {availableCourses
@@ -740,7 +785,6 @@ const StudentDashboard = () => {
                 .map(course => {
                   const isEnrolled = enrolled.some(e => e.section_id === course.section_id);
                   const isFull = course.current_seats >= course.max_seats;
-                  
                   return (
                     <div key={course.section_id} className={`p-8 bg-white border rounded-[2rem] transition-all flex flex-col justify-between group h-full shadow-sm hover:shadow-2xl ${isEnrolled ? 'border-indigo-100 bg-indigo-50/20' : 'border-slate-100 hover:border-indigo-300'}`}>
                       <div>
@@ -756,7 +800,6 @@ const StudentDashboard = () => {
                               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Available</span>
                            </div>
                         </div>
-
                         <h4 className="text-lg font-bold text-slate-800 leading-snug mb-6 group-hover:text-indigo-600 transition-colors uppercase">{course.title}</h4>
                         <div className="space-y-4 mb-8">
                            <p className="text-sm font-bold text-slate-600 flex items-center gap-3">
@@ -769,7 +812,6 @@ const StudentDashboard = () => {
                            </p>
                         </div>
                       </div>
-
                       <button 
                         onClick={() => !isEnrolled && !isFull && handleEnroll(course)}
                         disabled={isEnrolled || isFull}
@@ -789,9 +831,7 @@ const StudentDashboard = () => {
             </div>
           </div>
         )}
-
         {/* --- slide --- */}
-
         {activeTab === 'courses' && (
           <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
              <div className="glass-card p-10 rounded-[2.5rem]">
@@ -807,7 +847,6 @@ const StudentDashboard = () => {
                     <Download size={20} /> Export Timetable PDF
                   </button>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {enrolled.map(course => (
                     <div key={course.section_id} className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100 hover:bg-white hover:border-indigo-200 hover:shadow-2xl transition-all group">
@@ -821,7 +860,6 @@ const StudentDashboard = () => {
                        </div>
                        <h3 className="text-xl font-bold text-slate-900 mb-2">{course.title}</h3>
                        <p className="text-xs font-black text-indigo-600 mb-6 tracking-widest uppercase">{course.course_code}</p>
-                       
                        <div className="space-y-4 pt-6 border-t border-slate-200/60">
                           <div className="flex items-center gap-3">
                              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
@@ -834,7 +872,6 @@ const StudentDashboard = () => {
                              <span className="text-xs font-bold">{course.schedule_time || 'TBD'}</span>
                           </div>
                        </div>
-
                        <div className="mt-8 flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button className="flex-1 py-3 bg-white text-slate-700 font-bold rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors text-sm">Course Page</button>
                           <button 
@@ -844,10 +881,23 @@ const StudentDashboard = () => {
                           >
                             <X size={18} />
                           </button>
+                          <button 
+                            onClick={() => { setSwappingFrom(course); setActiveTab('explore'); }}
+                            className="p-3 bg-white text-amber-600 rounded-xl border border-slate-200 hover:bg-amber-50 hover:border-amber-100 transition-all"
+                            title="Swap Course"
+                          >
+                            <RefreshCw size={18} />
+                          </button>
+                          <button 
+                            onClick={() => handleExportICS(course)}
+                            className="p-3 bg-white text-indigo-600 rounded-xl border border-slate-200 hover:bg-indigo-50 hover:border-indigo-100 transition-all"
+                            title="Export to Calendar (.ics)"
+                          >
+                            <Calendar size={18} />
+                          </button>
                        </div>
                     </div>
                   ))}
-
                   {enrolled.length === 0 && (
                     <div className="col-span-full p-20 text-center bg-slate-50 rounded-[2.5rem] border border-dashed border-slate-200">
                        <p className="text-slate-400 font-bold">You are not enrolled in any courses yet.</p>
@@ -863,8 +913,6 @@ const StudentDashboard = () => {
              </div>
           </div>
         )}
-
-
         {activeTab === 'assignments' && (
           <div className="space-y-8 animate-in slide-in-from-right-4 duration-500 pb-10">
              <div className="glass-card p-10 rounded-[2.5rem]">
@@ -886,8 +934,6 @@ const StudentDashboard = () => {
                     <Upload size={20} /> Submit Assignment
                   </button>
                 </div>
-
-
                 <div className="space-y-5">
                   {assignments.length > 0 ? assignments.map(a => (
                     <div key={a.assignment_id} className="p-8 bg-slate-50 border border-slate-100 rounded-[2rem] flex flex-col lg:flex-row lg:items-center justify-between gap-8 transition-all hover:bg-white hover:border-indigo-200 hover:shadow-2xl hover:-translate-y-1">
@@ -907,14 +953,12 @@ const StudentDashboard = () => {
                           <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">{a.course_code} • Marks: {a.max_marks}</p>
                         </div>
                       </div>
-                      
                       <div className="flex flex-col lg:items-end">
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Deadline</span>
                         <div className={`flex items-center gap-2 font-black text-lg ${new Date(a.deadline) < new Date() ? 'text-rose-600' : 'text-slate-700'}`}>
                            <Calendar size={20} /> {new Date(a.deadline).toLocaleDateString()}
                         </div>
                       </div>
-
                       <div className="flex gap-3">
                         <button 
                           onClick={() => setShowSubmissionModal(a)}
@@ -935,9 +979,7 @@ const StudentDashboard = () => {
                     </div>
                   )}
                 </div>
-
              </div>
-
              {/* Graded Items */}
              <div className="glass-card p-10 rounded-[2.5rem]">
                 <h2 className="text-2xl font-bold text-slate-800 mb-10">Submissions & Feedback</h2>
@@ -979,11 +1021,28 @@ const StudentDashboard = () => {
              </div>
           </div>
         )}
-
         {activeTab === 'academic' && (
-           <div className="space-y-8 animate-in slide-in-from-right-4 duration-500 pb-10">
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="glass-card p-10 rounded-[2.5rem]">
+          <div className="space-y-10 animate-in slide-in-from-right-4 duration-500 pb-10">
+            {/* Academic Header */}
+            <div className="glass-card p-10 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-8 border-none bg-gradient-to-br from-indigo-600 to-violet-700 text-white shadow-2xl shadow-indigo-200">
+              <div className="flex items-center gap-8">
+                <div className="w-24 h-24 bg-white/20 rounded-[2rem] flex items-center justify-center backdrop-blur-md shadow-inner border border-white/20">
+                  <Award size={48} className="text-white drop-shadow-lg" />
+                </div>
+                <div>
+                  <h2 className="text-4xl font-black tracking-tight mb-2">Academic Roadmap</h2>
+                  <p className="text-indigo-100 font-bold text-lg opacity-90">Track your scholastic evolution and performance metrics.</p>
+                </div>
+              </div>
+              <button 
+                onClick={handleDownloadAcademicReport}
+                className="px-8 py-5 bg-white text-indigo-700 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all shadow-2xl active:scale-95 flex items-center gap-3"
+              >
+                <Download size={20} /> Download Transcript
+              </button>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+               <div className="glass-card p-10 rounded-[2.5rem]">
                   <h2 className="text-2xl font-bold text-slate-800 mb-8">Performance Snapshot</h2>
                   <div className="space-y-8">
                      <div className="p-8 bg-slate-900 rounded-[2rem] flex items-center justify-between text-white relative overflow-hidden group shadow-2xl shadow-indigo-100">
@@ -1001,7 +1060,6 @@ const StudentDashboard = () => {
                      <p className="text-slate-500 text-sm italic font-medium">This snapshot includes all graded records up to current semester. For certified inquiries, use the request button below.</p>
                   </div>
                 </div>
-
                 <div className="glass-card p-10 rounded-[2.5rem]">
                    <div className="flex items-center justify-between mb-8">
                      <h2 className="text-2xl font-bold text-slate-800">Program Info</h2>
@@ -1035,9 +1093,66 @@ const StudentDashboard = () => {
                    </button>
                 </div>
              </div>
+             {/* GPA Predictor - The 'WOW' Factor */}
+             <div className="glass-card p-10 rounded-[2.5rem] mt-10 border-indigo-100 bg-indigo-50/10">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                      <TrendingUp className="text-indigo-600" /> GPA Forecasting
+                    </h2>
+                    <p className="text-slate-500 font-bold text-xs uppercase tracking-widest mt-1">Project your cumulative success</p>
+                  </div>
+                  <div className="px-6 py-3 bg-indigo-600 rounded-[1.5rem] text-white flex flex-col items-center shadow-xl shadow-indigo-100">
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-80">Projected GPA</span>
+                    <span className="text-2xl font-black">
+                      {(() => {
+                        const currentGpa = parseFloat(studentInfo.gpa || 0);
+                        const currentCredits = enrolled.reduce((s, c) => s + (c.credit_hours || 3), 0);
+                        const historicalCredits = 60; // Mocked historical credits weight
+                        let totalPoints = (currentGpa * historicalCredits);
+                        let totalCredits = historicalCredits;
+                        enrolled.forEach(c => {
+                          const gp = gradePredictions[c.section_id] || 4.0; // Default to prediction or A
+                          totalPoints += (gp * c.credit_hours);
+                          totalCredits += c.credit_hours;
+                        });
+                        return (totalPoints / totalCredits).toFixed(2);
+                      })()}
+                    </span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {enrolled.map(course => (
+                    <div key={course.section_id} className="p-6 bg-white border border-slate-100 rounded-3xl shadow-sm hover:border-indigo-200 transition-all">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{course.course_code}</p>
+                      <h4 className="font-bold text-slate-800 mb-4 line-clamp-1">{course.title}</h4>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-slate-500">Target Grade:</span>
+                        <select 
+                          className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-bold text-indigo-600 outline-none"
+                          onChange={(e) => setGradePredictions({...gradePredictions, [course.section_id]: parseFloat(e.target.value)})}
+                          defaultValue="4.0"
+                        >
+                          <option value="4.0">A (4.0)</option>
+                          <option value="3.7">A- (3.7)</option>
+                          <option value="3.3">B+ (3.3)</option>
+                          <option value="3.0">B (3.0)</option>
+                          <option value="2.7">B- (2.7)</option>
+                          <option value="2.3">C+ (2.3)</option>
+                          <option value="2.0">C (2.0)</option>
+                          <option value="1.0">D (1.0)</option>
+                          <option value="0.0">F (0.0)</option>
+                        </select>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                 <button className="w-full mt-10 py-5 bg-slate-900 text-white rounded-[1.5rem] font-bold flex items-center justify-center gap-3 shadow-2xl shadow-slate-200 active:scale-95 transition-all">
+                    <Download size={22} /> Request Official Certified Transcript
+                 </button>
+              </div>
            </div>
         )}
-
         {activeTab === 'finance' && (
           <div className="space-y-8 animate-in slide-in-from-right-4 duration-500 pb-10">
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1092,7 +1207,10 @@ const StudentDashboard = () => {
                                    <Download size={20} />
                                  </button>
                                ) : f.status === 'pending' && (
-                                 <button className="py-3 px-6 bg-indigo-600 text-white rounded-[1.5rem] text-[10px] font-black tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-indigo-100">
+                                 <button 
+                                   onClick={() => setShowPaymentModal(f)}
+                                   className="py-3 px-6 bg-indigo-600 text-white rounded-[1.5rem] text-[10px] font-black tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-indigo-100"
+                                 >
                                    PAY NOW
                                  </button>
                                )}
@@ -1103,7 +1221,6 @@ const StudentDashboard = () => {
                     </table>
                   </div>
                 </div>
-
                 <div className="space-y-6">
                    <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white shadow-2xl shadow-indigo-200">
                       <div className="flex items-center gap-3 mb-8">
@@ -1111,7 +1228,6 @@ const StudentDashboard = () => {
                          <h3 className="font-bold text-2xl">Digital Wallet</h3>
                       </div>
                       <p className="text-sm text-slate-400 font-medium mb-10 leading-relaxed">Secured via 256-bit encryption. Choose your gateway for instant clearance.</p>
-                      
                       <div className="space-y-3">
                          <button className="w-full flex items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all group text-left">
                             <div className="flex items-center gap-4">
@@ -1134,8 +1250,136 @@ const StudentDashboard = () => {
           </div>
         )}
       </div>
+      {/* Submission Modal */}
+      {showSubmissionModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-xl overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+             <div className="p-10">
+                <div className="flex justify-between items-start mb-8">
+                   <div>
+                      <h3 className="text-3xl font-bold text-slate-900 leading-tight">Post Submission</h3>
+                      <p className="text-slate-500 font-medium">Upload assignment for <span className="text-indigo-600 font-black">{showSubmissionModal.course_code}</span></p>
+                   </div>
+                   <button onClick={() => { setShowSubmissionModal(null); setSubmissionFile(null); }} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                      <X size={24} className="text-slate-400" />
+                   </button>
+                </div>
+                <div className="bg-slate-50 rounded-3xl p-8 mb-8 border border-slate-100">
+                   <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm border border-slate-100">
+                         <FileText size={24} />
+                      </div>
+                      <span className="font-bold text-slate-800">{showSubmissionModal.title}</span>
+                   </div>
+                   <div className="flex justify-between text-xs font-black tracking-widest text-slate-400">
+                      <span>MAX MARKS: {showSubmissionModal.max_marks}</span>
+                      <span className={new Date(showSubmissionModal.deadline) < new Date() ? "text-rose-500" : "text-emerald-500"}>
+                        DEADLINE: {new Date(showSubmissionModal.deadline).toLocaleDateString()}
+                      </span>
+                   </div>
+                </div>
+                <form onSubmit={handleSubmission}>
+                   <div 
+                     className={`border-2 border-dashed rounded-[2rem] p-12 text-center transition-all ${
+                        submissionFile ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/20'
+                     }`}
+                     onDragOver={(e) => e.preventDefault()}
+                     onDrop={(e) => {
+                        e.preventDefault();
+                        setSubmissionFile(e.dataTransfer.files[0]);
+                     }}
+                   >
+                      <input 
+                        type="file" 
+                        id="file-upload" 
+                        hidden 
+                        onChange={(e) => setSubmissionFile(e.target.files[0])}
+                      />
+                      <label htmlFor="file-upload" className="cursor-pointer">
+                         <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4 transition-all ${
+                            submissionFile ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                         }`}>
+                            {submissionFile ? <CheckCircle size={32} /> : <Upload size={32} />}
+                         </div>
+                         <p className="text-slate-800 font-bold text-lg">{submissionFile ? submissionFile.name : 'Choose file or drag & drop'}</p>
+                         <p className="text-slate-500 text-sm mt-1 font-medium italic">Format: PDF, DOCX, ZIP (Max 10MB)</p>
+                      </label>
+                   </div>
+                   <div className="mt-10 flex gap-4">
+                      <button 
+                        type="button"
+                        onClick={() => { setShowSubmissionModal(null); setSubmissionFile(null); }}
+                        className="flex-1 py-4 px-6 bg-slate-50 text-slate-600 font-bold rounded-2xl hover:bg-slate-100 transition-all"
+                      >
+                         Discard
+                      </button>
+                      <button 
+                        type="submit"
+                        disabled={!submissionFile}
+                        className="flex-[2] py-4 px-6 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xl shadow-indigo-100"
+                      >
+                         Submit assignment
+                      </button>
+                   </div>
+                </form>
+             </div>
+          </div>
+        </div>
+      )}
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-xl overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+             <div className="p-10">
+                <div className="flex justify-between items-start mb-8">
+                   <div>
+                      <h3 className="text-3xl font-bold text-slate-900 leading-tight">Clear Dues</h3>
+                      <p className="text-slate-500 font-medium">Payment for <span className="text-indigo-600 font-black">{showPaymentModal.semester}</span></p>
+                   </div>
+                   <button onClick={() => setShowPaymentModal(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                      <X size={24} className="text-slate-400" />
+                   </button>
+                </div>
+                <div className="bg-slate-900 rounded-[2rem] p-8 text-white mb-10 relative overflow-hidden">
+                   <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full -mr-16 -mt-16 blur-3xl" />
+                   <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Total Outstanding</p>
+                   <p className="text-5xl font-black">${showPaymentModal.net_amount}</p>
+                   <div className="mt-6 flex items-center gap-3 text-[10px] font-black tracking-widest opacity-60">
+                      <CheckCircle size={14} /> SECURED SSL TRANSACTION
+                   </div>
+                </div>
+                <div className="space-y-4 mb-10">
+                   <p className="text-sm font-black text-slate-400 uppercase tracking-widest">Select Gateway</p>
+                   <div className="grid grid-cols-2 gap-4">
+                      {['JazzCash', 'EasyPaisa'].map(gateway => (
+                        <button 
+                          key={gateway}
+                          onClick={() => setPaymentGateway(gateway)}
+                          className={`p-6 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${
+                            paymentGateway === gateway ? 'border-indigo-600 bg-indigo-50/50' : 'border-slate-100 hover:border-slate-200 bg-slate-50'
+                          }`}
+                        >
+                           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black italic shadow-lg ${
+                              gateway === 'JazzCash' ? 'bg-rose-500' : 'bg-emerald-500'
+                           }`}>
+                              {gateway[0]}
+                           </div>
+                           <span className="font-bold text-slate-800 text-sm">{gateway} Hub</span>
+                        </button>
+                      ))}
+                   </div>
+                </div>
+                <button 
+                   onClick={handlePayment}
+                   className="w-full py-5 bg-indigo-600 text-white rounded-3xl font-black text-lg hover:bg-indigo-700 transition-all active:scale-[0.98] shadow-2xl shadow-indigo-100 flex items-center justify-center gap-3"
+                >
+                   <CreditCard size={24} /> Confirm & Pay Now
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-
 export default StudentDashboard;

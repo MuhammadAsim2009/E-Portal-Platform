@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, BookOpen, Megaphone, Calendar, BarChart3,
   LogOut, Menu, X, ChevronRight, Shield, Bell, Search, Settings,
-  GraduationCap, Briefcase, User as UserIcon, CreditCard
+  GraduationCap, Briefcase, User as UserIcon, CreditCard, DollarSign
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import api from '../services/api';
@@ -25,6 +25,7 @@ const navGroups = [
       { to: '/admin/courses', icon: BookOpen, label: 'Courses' },
       { to: '/admin/timetable', icon: Calendar, label: 'Timetable' },
       { to: '/admin/payments', icon: CreditCard, label: 'Payments' },
+      { to: '/admin/fees-config', icon: DollarSign, label: 'Fee Matrix' },
     ]
   },
   {
@@ -178,7 +179,7 @@ const AdminLayout = () => {
               onClick={() => navigate('/admin/notifications')}
               className="relative w-10 h-10 flex items-center justify-center rounded-2xl text-slate-500 hover:bg-slate-100 transition-all group"
             >
-              <Bell size={20} className="group-hover:rotate-12 transition-transform" />
+              <Bell size={20} className="transition-transform" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1 bg-rose-500 border-2 border-white rounded-full text-white text-[10px] font-black flex items-center justify-center animate-in zoom-in duration-300 shadow-sm shadow-rose-200">
                   {unreadCount > 99 ? '99+' : unreadCount}

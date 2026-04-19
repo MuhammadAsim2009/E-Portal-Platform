@@ -1,3 +1,4 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import { useState, useEffect } from 'react';
 import { 
   Search, Filter, Download as DownloadIcon, MoreVertical, 
@@ -8,8 +9,9 @@ import api from '../../services/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Eye, Printer, X, FileText } from 'lucide-react';
-
+import { toast } from 'react-hot-toast';
 const PaymentManagement = () => {
+  usePageTitle('Payment Management');
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -19,7 +21,8 @@ const PaymentManagement = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [waiverModal, setWaiverModal] = useState({ isOpen: false, id: null, status: '' });
   const [justification, setJustification] = useState('');
-
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
   const fetchPayments = async () => {
     try {
       const res = await api.get('/admin/payments');
@@ -30,11 +33,9 @@ const PaymentManagement = () => {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     fetchPayments();
   }, []);
-
   const handleStatusUpdate = async (id, status, justificationText = null) => {
     setActionLoading(id);
     try {
@@ -48,23 +49,34 @@ const PaymentManagement = () => {
       setActionLoading(null);
     }
   };
-
+  const handleBulkGenerate = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    setBulkProcessing(true);
+    try {
+      const res = await api.post('/admin/fees/bulk-generate', data);
+      toast.success(res.data.message);
+      setShowBulkModal(false);
+      fetchPayments();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Bulk generation failed');
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
   const handleExportPDF = () => {
     setIsExporting(true);
     try {
       const doc = new jsPDF();
-      
       // Institutional Header
       doc.setFillColor(15, 23, 42);
       doc.rect(0, 0, 210, 30, 'F');
-      
       doc.setFontSize(20);
       doc.setTextColor(255, 255, 255);
       doc.text('INSTITUTIONAL PAYMENT LEDGER', 14, 20);
-      
       doc.setFontSize(10);
       doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 27);
-
       const tableData = filteredPayments.map(p => [
         p.transaction_id || 'N/A',
         p.student_name,
@@ -73,7 +85,6 @@ const PaymentManagement = () => {
         new Date(p.payment_date).toLocaleDateString(),
         p.status.toUpperCase()
       ]);
-
       autoTable(doc, {
         startY: 40,
         head: [['TX ID', 'STUDENT', 'FEE TYPE', 'AMOUNT', 'DATE', 'STATUS']],
@@ -81,7 +92,6 @@ const PaymentManagement = () => {
         headStyles: { fillColor: [15, 23, 42] },
         styles: { fontSize: 8 }
       });
-
       doc.save(`EPortal_Payments_${new Date().getTime()}.pdf`);
     } catch (err) {
       console.error('PDF Export failed:', err);
@@ -89,7 +99,6 @@ const PaymentManagement = () => {
       setIsExporting(false);
     }
   };
-
   const handlePrintInvoice = (payment) => {
     const printWindow = window.open('', '_blank');
     const content = `
@@ -121,25 +130,21 @@ const PaymentManagement = () => {
             <div>INSTITUTIONAL FEE VOUCHER</div>
             <div>${new Date(payment.payment_date).toLocaleString()}</div>
           </div>
-          
           <div class="row"><span class="label">TXID:</span> <span>${payment.transaction_id || 'N/A'}</span></div>
           <div class="row"><span class="label">STUDENT:</span> <span>${payment.student_name}</span></div>
           <div class="row"><span class="label">EMAIL:</span> <span>${payment.student_email}</span></div>
           <div class="row"><span class="label">SEMESTER:</span> <span>${payment.semester}</span></div>
           <div class="row"><span class="label">TYPE:</span> <span>${payment.fee_type || 'General Fee'}</span></div>
           <div class="row"><span class="label">METHOD:</span> <span>${payment.payment_method}</span></div>
-          
           <div class="row total">
             <span>AMOUNT PAID:</span>
             <span>Rs. ${parseFloat(payment.amount_paid).toLocaleString()}</span>
           </div>
-
           <div class="footer">
             <div style="font-weight: bold">STATUS: ${payment.status.toUpperCase()}</div>
             <div style="margin-top: 10px">This is a computer generated receipt.</div>
             <div>Thank you for using E-Portal.</div>
           </div>
-
           <script>
             window.onload = function() {
               window.print();
@@ -152,28 +157,24 @@ const PaymentManagement = () => {
     printWindow.document.write(content);
     printWindow.document.close();
   };
-
   const statusColors = {
     pending: 'bg-amber-50 text-amber-600 border-amber-100',
     accepted: 'bg-emerald-50 text-emerald-600 border-emerald-100',
     rejected: 'bg-rose-50 text-rose-600 border-rose-100',
     waived: 'bg-indigo-50 text-indigo-600 border-indigo-100'
   };
-
   const filteredPayments = payments.filter(p => {
     const matchesSearch = p.student_name.toLowerCase().includes(search.toLowerCase()) || 
                           p.transaction_id?.toLowerCase().includes(search.toLowerCase());
     const matchesFilter = filterStatus === 'all' || p.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
-
   if (loading) return (
     <div className="p-12 flex flex-col items-center justify-center min-h-[60vh] space-y-4">
       <div className="w-12 h-12 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin" />
       <p className="text-slate-400 font-bold text-xs tracking-widest uppercase">Syncing Financial Stream...</p>
     </div>
   );
-
   return (
     <div className="space-y-8 pb-12">
       {/* Header */}
@@ -187,6 +188,13 @@ const PaymentManagement = () => {
         </div>
         <div className="flex items-center gap-3">
           <button 
+            onClick={() => setShowBulkModal(true)}
+            className="flex items-center gap-2.5 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold text-[13px] hover:bg-slate-50 active:scale-[0.98] transition-all shadow-sm"
+          >
+            <Layers size={16} className="text-indigo-500" />
+            Bulk Invoicing
+          </button>
+          <button 
             onClick={handleExportPDF}
             disabled={isExporting}
             className="flex items-center gap-2.5 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-[13px] hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50"
@@ -196,7 +204,6 @@ const PaymentManagement = () => {
           </button>
         </div>
       </div>
-
       {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
@@ -213,7 +220,6 @@ const PaymentManagement = () => {
           </div>
         ))}
       </div>
-
       {/* Toolbar */}
       <div className="bg-white border border-slate-200 rounded-3xl p-4 flex flex-col md:flex-row items-center gap-4 shadow-sm">
         <div className="relative flex-1 group w-full">
@@ -238,7 +244,6 @@ const PaymentManagement = () => {
           ))}
         </div>
       </div>
-
       {/* Table */}
       <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -352,7 +357,6 @@ const PaymentManagement = () => {
           </table>
         </div>
       </div>
-
       {/* Invoice Modal */}
       {selectedPayment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -376,7 +380,6 @@ const PaymentManagement = () => {
                     {selectedPayment.status}
                  </span>
               </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-8">
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tx ID</p>
@@ -403,14 +406,12 @@ const PaymentManagement = () => {
                   <p className="text-sm font-bold text-slate-900">{selectedPayment.payment_method}</p>
                 </div>
               </div>
-
               {selectedPayment.waiver_justification && (
                 <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100/50">
                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">Administrative Justification</p>
                    <p className="text-sm font-medium text-slate-700 leading-relaxed italic">"{selectedPayment.waiver_justification}"</p>
                 </div>
               )}
-
               <div className="pt-6">
                 <button 
                   onClick={() => handlePrintInvoice(selectedPayment)}
@@ -440,7 +441,6 @@ const PaymentManagement = () => {
                     <p className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-widest">Administrative Audit Required</p>
                  </div>
               </div>
-
               <div className="space-y-4">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Justification Text</label>
                 <textarea 
@@ -450,7 +450,6 @@ const PaymentManagement = () => {
                   className="w-full h-32 px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl text-sm font-bold text-slate-900 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition-all outline-none resize-none placeholder:text-slate-300"
                 />
               </div>
-
               <div className="grid grid-cols-2 gap-4 pt-2">
                 <button 
                   onClick={() => setWaiverModal({ isOpen: false, id: null, status: '' })}
@@ -471,8 +470,65 @@ const PaymentManagement = () => {
         </div>
       </div>
       )}
+      {/* Bulk Fee Generation Modal */}
+      {showBulkModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+           <div className="bg-white rounded-[3rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-white/20">
+              <div className="p-10">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-16 h-16 bg-slate-900 text-white rounded-[2rem] flex items-center justify-center shadow-2xl shadow-slate-200 rotate-12">
+                    <Layers size={32} />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">Bulk Invoicing</h2>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global Semester Billing Engine</p>
+                  </div>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-8 border-dashed">
+                  <p className="text-[11px] font-medium text-slate-500 leading-relaxed italic">
+                    This engine will generate fee records for all active students in the target program based on the current Fee Matrix.
+                  </p>
+                </div>
+                <form onSubmit={handleBulkGenerate} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Target Program</label>
+                    <select name="program" required className="w-full px-5 py-3.5 bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 rounded-2xl text-[13px] font-bold text-slate-900 outline-none transition-all appearance-none tracking-tight">
+                      {['BSCS', 'BBA', 'BSIT', 'MCS', 'MBA'].map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Academic Semester</label>
+                    <select name="semester" required className="w-full px-5 py-3.5 bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 rounded-2xl text-[13px] font-bold text-slate-900 outline-none transition-all appearance-none tracking-tight">
+                      {['Fall 2024', 'Spring 2024', 'Fall 2023'].map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex gap-4 pt-4 border-t border-slate-100">
+                    <button 
+                      type="button" 
+                      onClick={() => setShowBulkModal(false)}
+                      className="flex-1 py-4 text-slate-400 font-black text-[11px] uppercase tracking-widest hover:text-slate-600 transition-colors"
+                    >
+                      Dismiss
+                    </button>
+                    <button 
+                      type="submit"
+                      disabled={bulkProcessing}
+                      className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl active:scale-95 disabled:opacity-50"
+                    >
+                      {bulkProcessing ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Processing Lifecycle...
+                        </div>
+                      ) : 'Generate & Dispatch Invoices'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
-
 export default PaymentManagement;

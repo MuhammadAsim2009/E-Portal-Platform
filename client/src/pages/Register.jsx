@@ -1,9 +1,10 @@
+import usePageTitle from '../hooks/usePageTitle';
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, Mail, Lock, User, Eye, EyeOff, AlertCircle, CreditCard, Calendar, Phone, Users } from 'lucide-react';
 import api from '../services/api.js';
-
 const Register = () => {
+  usePageTitle('Register');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -18,16 +19,13 @@ const Register = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-
     try {
       const response = await api.post('/auth/register', formData);
       if (response.status === 201) {
@@ -39,10 +37,8 @@ const Register = () => {
       setIsLoading(false);
     }
   };
-
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans">
-      
       {/* Left side: Premium Image Banner */}
       <div className="relative hidden w-full lg:block lg:w-1/2 overflow-hidden">
         <div className="absolute inset-0 bg-primary-900/40 z-10 mix-blend-multiply"></div>
@@ -68,11 +64,9 @@ const Register = () => {
           </p>
         </div>
       </div>
-
       {/* Right side: Modern Form */}
       <div className="flex flex-col justify-center w-full px-6 py-12 lg:w-1/2 sm:px-12 lg:px-24 xl:px-32 relative">
         <div className="w-full max-w-md mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          
           <div className="space-y-3">
             <div className="w-12 h-12 bg-primary-50 rounded-2xl flex items-center justify-center mb-6 lg:hidden border border-primary-100">
                <UserPlus className="w-6 h-6 text-primary-600" />
@@ -84,7 +78,6 @@ const Register = () => {
               Enter your details to register as a new student.
             </p>
           </div>
-
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="p-4 bg-red-50/50 backdrop-blur-sm border border-red-200 rounded-2xl flex items-start gap-3">
@@ -92,7 +85,6 @@ const Register = () => {
                 <p className="text-sm text-red-700 font-medium">{error}</p>
               </div>
             )}
-
             <div className="space-y-5">
               <div className="space-y-1.5">
                 <label htmlFor="name" className="block text-sm font-semibold text-slate-700">
@@ -114,7 +106,6 @@ const Register = () => {
                   />
                 </div>
               </div>
-
               <div className="space-y-1.5">
                 <label htmlFor="email" className="block text-sm font-semibold text-slate-700">
                   University Email
@@ -135,7 +126,6 @@ const Register = () => {
                   />
                 </div>
               </div>
-
               <div className="space-y-1.5">
                 <label htmlFor="password" className="block text-sm font-semibold text-slate-700">
                   Password
@@ -167,7 +157,6 @@ const Register = () => {
                   </button>
                 </div>
               </div>
-
               {/* Extra Student Profile Fields */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -190,7 +179,6 @@ const Register = () => {
                     />
                   </div>
                 </div>
-
                 <div className="space-y-1.5">
                   <label htmlFor="contact_number" className="block text-sm font-semibold text-slate-700">
                     Contact Number
@@ -212,7 +200,6 @@ const Register = () => {
                   </div>
                 </div>
               </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label htmlFor="date_of_birth" className="block text-sm font-semibold text-slate-700">
@@ -233,7 +220,6 @@ const Register = () => {
                     />
                   </div>
                 </div>
-
                 <div className="space-y-1.5">
                   <label htmlFor="gender" className="block text-sm font-semibold text-slate-700">
                     Gender
@@ -258,7 +244,6 @@ const Register = () => {
                 </div>
               </div>
             </div>
-
             <button
               type="submit"
               disabled={isLoading}
@@ -274,7 +259,6 @@ const Register = () => {
               )}
             </button>
           </form>
-
           <p className="text-center font-medium text-slate-500 text-sm">
             Already have an account?{' '}
             <Link to="/login" className="font-semibold text-primary-600 hover:text-primary-700 transition-colors">
@@ -286,5 +270,4 @@ const Register = () => {
     </div>
   );
 };
-
 export default Register;

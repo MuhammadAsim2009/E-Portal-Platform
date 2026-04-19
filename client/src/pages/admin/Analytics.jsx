@@ -1,3 +1,4 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { 
@@ -23,8 +24,8 @@ import {
 } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-
 const Analytics = () => {
+  usePageTitle('Analytics');
   const [data, setData] = useState({ 
     stats: { totalRevenue: 0, collectionRate: 0, pendingAmount: 0 }, 
     incomePerCourse: [] 
@@ -32,9 +33,7 @@ const Analytics = () => {
   const [loading, setLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [search, setSearch] = useState('');
-
   const [revenueTimeframe, setRevenueTimeframe] = useState('Week');
-
   const fetchAnalytics = async () => {
     try {
       const res = await api.get('/admin/analytics');
@@ -45,35 +44,27 @@ const Analytics = () => {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     fetchAnalytics();
   }, []);
-
   const handleExportPDF = () => {
     setIsExporting(true);
-    
     // Simulate processing
     setTimeout(() => {
       try {
         const doc = new jsPDF();
-        
         // Premium Header
         doc.setFillColor(79, 70, 229); // Indigo 600
         doc.rect(0, 0, 210, 40, 'F');
-        
         doc.setFontSize(24);
         doc.setTextColor(255, 255, 255);
         doc.text('INSTITUTIONAL PERFORMANCE REPORT', 14, 25);
-        
         doc.setFontSize(10);
         doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 33);
-        
         // Key Metrics Section
         doc.setTextColor(15, 23, 42);
         doc.setFontSize(14);
         doc.text('I. FINANCIAL KPI SUMMARY', 14, 55);
-        
         autoTable(doc, {
           startY: 60,
           head: [['METRIC TYPE', 'QUANTITATIVE VALUE', 'STATUS']],
@@ -86,18 +77,15 @@ const Analytics = () => {
           headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' },
           styles: { fontSize: 10, cellPadding: 5 }
         });
-        
         // Course Performance Section
         doc.setFontSize(14);
         doc.text('II. ACADEMIC UNIT YIELD ANALYSIS', 14, doc.lastAutoTable.finalY + 20);
-        
         const tableData = data.incomePerCourse.map(item => [
           item.course_code,
           item.title,
           item.enrolled_students,
           `Rs ${parseFloat(item.total_income).toLocaleString()}`
         ]);
-        
         autoTable(doc, {
           startY: doc.lastAutoTable.finalY + 25,
           head: [['COURSE ID', 'CURRICULUM TITLE', 'ENROLLMENT', 'GROSS YIELD']],
@@ -106,7 +94,6 @@ const Analytics = () => {
           headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255] },
           styles: { fontSize: 9 }
         });
-
         // Footer
         const pageCount = doc.internal.getNumberOfPages();
         for(let i = 1; i <= pageCount; i++) {
@@ -115,7 +102,6 @@ const Analytics = () => {
           doc.setTextColor(150);
           doc.text(`Page ${i} of ${pageCount} - Confidential E-Portal Intelligence`, 14, 285);
         }
-        
         doc.save(`EPortal_Analytics_${new Date().getTime()}.pdf`);
       } catch (err) {
         console.error(err);
@@ -124,7 +110,6 @@ const Analytics = () => {
       }
     }, 1500);
   };
-
   const handleExportCSV = () => {
     const headers = ['Course Code', 'Title', 'Enrolled Students', 'Total Income'];
     const rows = data.incomePerCourse.map(item => [
@@ -133,11 +118,9 @@ const Analytics = () => {
       item.enrolled_students,
       parseFloat(item.total_income)
     ]);
-
     let csvContent = "data:text/csv;charset=utf-8," 
       + headers.join(",") + "\n"
       + rows.map(e => e.join(",")).join("\n");
-
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -146,7 +129,6 @@ const Analytics = () => {
     link.click();
     document.body.removeChild(link);
   };
-
   const revenueData = (data.stats.revenueTrend && data.stats.revenueTrend.length > 0) 
     ? data.stats.revenueTrend 
     : (revenueTimeframe === 'Week' ? [
@@ -163,27 +145,22 @@ const Analytics = () => {
         { name: 'Week 3', revenue: 0 },
         { name: 'Week 4', revenue: 0 },
       ]);
-
   const distributionData = data.incomePerCourse.slice(0, 5).map((item, idx) => ({
     name: item.title,
     value: parseInt(item.enrolled_students),
     color: ['#6366f1', '#c084fc', '#2dd4bf', '#f59e0b', '#fb7185'][idx % 5]
   }));
-
   const filteredData = data.incomePerCourse.filter(item => 
     item.title.toLowerCase().includes(search.toLowerCase()) || 
     item.course_code.toLowerCase().includes(search.toLowerCase())
   );
-
   if (loading) return (
     <div className="p-12 flex flex-col items-center justify-center min-h-[60vh] space-y-4">
       <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
       <p className="text-slate-400 font-bold text-sm tracking-widest uppercase">Aggregating Institutional Data...</p>
     </div>
   );
-
   const hasIncomeData = data.incomePerCourse.length > 0;
-
   return (
     <div className="space-y-12">
       {/* Header */}
@@ -195,7 +172,6 @@ const Analytics = () => {
             Performance velocity and financial diagnostics.
           </p>
         </div>
-        
         <div className="flex items-center gap-3">
           <button 
             onClick={handleExportCSV}
@@ -218,7 +194,6 @@ const Analytics = () => {
           </button>
         </div>
       </div>
-
       {/* Primary KPI Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {[
@@ -241,7 +216,6 @@ const Analytics = () => {
           </div>
         ))}
       </div>
-
       {/* Visualization Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Revenue Trend Chart */}
@@ -310,7 +284,6 @@ const Analytics = () => {
             )}
           </div>
         </div>
-
         {/* Department Distribution Pie */}
         <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between mb-6">
@@ -362,7 +335,6 @@ const Analytics = () => {
           </div>
         </div>
       </div>
-
       {/* Data Table Layer */}
       <div className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm">
         <div className="p-10 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-8">
@@ -386,7 +358,6 @@ const Analytics = () => {
             />
           </div>
         </div>
-        
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -447,6 +418,4 @@ const Analytics = () => {
     </div>
   );
 };
-
 export default Analytics;
-

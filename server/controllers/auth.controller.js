@@ -1,5 +1,6 @@
 import * as userService from '../services/user.service.js';
 import * as authService from '../services/auth.service.js';
+import { sendEmail } from '../services/email.service.js';
 import { logAction, createNotification } from '../services/admin.service.js';
 
 /**
@@ -90,6 +91,24 @@ export const login = async (req, res) => {
 
     // Check MFA status (Placeholder for next iteration)
     if (user.mfa_enabled) {
+      const code = await authService.generateMFACode(user.user_id);
+      
+      await sendEmail({
+        to: user.email,
+        subject: 'E-Portal Login Verification Code',
+        text: `Your verification code is: ${code}. It expires in 10 minutes.`,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #333;">Verification Code</h2>
+            <p>Your verification code for E-Portal is:</p>
+            <div style="font-size: 32px; font-weight: bold; padding: 10px; background: #f4f4f4; border-radius: 5px; display: inline-block; letter-spacing: 5px;">
+              ${code}
+            </div>
+            <p style="color: #666; margin-top: 20px;">This code will expire in 10 minutes.</p>
+          </div>
+        `
+      });
+
       return res.status(200).json({ 
         message: 'MFA REQUIRED', 
         userId: user.user_id 
@@ -132,6 +151,58 @@ export const login = async (req, res) => {
 };
 
 /**
+ * Verify MFA code and generate session
+ */
+export const verifyMFA = async (req, res) => {
+  try {
+    const { userId, code } = req.body;
+
+    const user = await userService.findUserById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const isValid = await authService.verifyMFACode(userId, code);
+    if (!isValid) {
+      return res.status(401).json({ message: 'Invalid or expired verification code.' });
+    }
+
+    // Generate Tokens
+    const { accessToken, refreshToken } = authService.generateTokens(user);
+
+    // Set Cookies (Secure, HttpOnly)
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 1000 // 1 hour
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    res.status(200).json({
+      message: 'MFA Verified! Login successful!',
+      user: { id: user.user_id, name: user.name, email: user.email, role: user.role }
+    });
+
+    await logAction({
+      userId: user.user_id,
+      action: 'MFA_VERIFIED',
+      details: `MFA successful for ${user.email}`,
+      ipAddress: req.ip
+    });
+  } catch (error) {
+    console.error('MFA Verify error:', error);
+    res.status(500).json({ message: 'Internal server error during MFA verification.' });
+  }
+};
+
+/**
  * Logout user by clearing cookies
  */
 export const logout = (req, res) => {
@@ -141,16 +212,31 @@ export const logout = (req, res) => {
 };
 
 /**
- * Get current session user
+ * Get current session user — Silently handles non-authenticated state
  */
 export const getMe = async (req, res) => {
   try {
-    const user = await userService.findUserById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ message: 'User session no longer valid.' });
+    const token = req.cookies?.accessToken || req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(200).json({ authenticated: false, user: null });
     }
-    res.status(200).json({ user });
+
+    let decoded;
+    try {
+      decoded = authService.verifyAccessToken(token);
+    } catch {
+      return res.status(200).json({ authenticated: false, user: null });
+    }
+
+    const user = await userService.findUserById(decoded.id);
+    if (!user) {
+      return res.status(200).json({ authenticated: false, user: null });
+    }
+
+    res.status(200).json({ authenticated: true, user });
   } catch (error) {
+    console.error('getMe error:', error);
     res.status(500).json({ message: 'Error retrieving user session.' });
   }
 };
@@ -201,14 +287,14 @@ export const contactAdmin = async (req, res) => {
     const { title, message, priority = 'medium' } = req.body;
     
     await logAction({
-      userId: req.user.user_id,
+      userId: req.user.id,
       action: 'CONTACT_ADMIN',
       details: `User sent a message to Admin: ${title}`,
       ipAddress: req.ip
     });
 
     await createNotification({
-      userId: req.user.user_id,
+      userId: req.user.id,
       title: `User Message: ${title}`,
       message: message,
       type: 'message',

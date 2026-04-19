@@ -40,15 +40,16 @@ export const getDashboardStats = async () => {
       `)
     ]);
 
+    const totalStudentsCount = parseInt(studentsRes.rows[0].count || 0);
     const totalStats = {
-      totalUsers: parseInt(usersRes.rows[0].count),
-      totalStudents: parseInt(studentsRes.rows[0].count),
-      totalFaculty: parseInt(facultyRes.rows[0].count),
-      activeCourses: parseInt(coursesRes.rows[0].count),
-      activeEnrollments: parseInt(enrollmentsRes.rows[0].count),
+      totalUsers: parseInt(usersRes.rows[0].count || 0),
+      totalStudents: totalStudentsCount,
+      totalFaculty: parseInt(facultyRes.rows[0].count || 0),
+      activeCourses: parseInt(coursesRes.rows[0].count || 0),
+      activeEnrollments: parseInt(enrollmentsRes.rows[0].count || 0),
       departmentDistribution: deptDistribution.rows.map(d => ({
-        dept: d.dept,
-        students: Math.round((parseInt(d.count) / Math.max(1, parseInt(facultyRes.rows[0].count))) * 100),
+        dept: d.dept || 'General',
+        students: totalStudentsCount > 0 ? Math.round((parseInt(d.count || 0) / totalStudentsCount) * 100) : 0,
         color: '#6366f1'
       })),
       activities: recentLogs.rows.map(l => ({
@@ -56,13 +57,13 @@ export const getDashboardStats = async () => {
         user: l.user_name || 'System',
         action: l.action,
         time: l.created_at,
-        status: 'Logged',
+        severity: l.severity || 'info', 
         color: l.severity === 'critical' ? 'bg-rose-500' : 'bg-emerald-500'
       })),
       enrollmentTrend: trendRes.rows.map(r => ({
         month: r.month,
-        active: parseInt(r.active),
-        new: Math.floor(parseInt(r.active) * 0.3)
+        active: parseInt(r.active || 0),
+        new: Math.floor(parseInt(r.active || 0) * 0.3)
       }))
     };
     return totalStats;
@@ -154,8 +155,73 @@ export const markNotificationRead = async (id) => {
 };
 
 export const getUnreadNotificationCount = async () => {
-  const res = await db.query(`SELECT COUNT(*) as count FROM notifications WHERE is_read = false`);
-  return parseInt(res.rows[0].count);
+  try {
+    const res = await db.query(`SELECT COUNT(*) as count FROM notifications WHERE is_read = false`);
+    return parseInt(res.rows[0].count);
+  } catch (err) {
+    console.error('Failed to fetch unread notification count:', err.message);
+    return 0;
+  }
+};
+
+// ─────────────────────── BULK ENROLLMENT ───────────────────────
+
+export const createBulkUsers = async (usersData, adminId) => {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const results = { successful: [], failed: [] };
+
+    for (const userData of usersData) {
+      try {
+        const { name, email, role, password, ...profileData } = userData;
+        
+        // 1. Create Core User
+        const userRes = await client.query(
+          `INSERT INTO users (name, email, role, password, registration_status, is_active)
+           VALUES ($1, $2, $3, $4, 'approved', true) 
+           RETURNING user_id`,
+          [name, email.toLowerCase(), role, password || 'Student123!'] // Default password if not provided
+        );
+        const userId = userRes.rows[0].user_id;
+
+        // 2. Create Profile
+        if (role === 'student') {
+          await client.query(
+            `INSERT INTO students (user_id, dob, gender, address) VALUES ($1, $2, $3, $4)`,
+            [userId, profileData.dob || null, profileData.gender || null, profileData.address || null]
+          );
+        } else if (role === 'faculty') {
+          await client.query(
+            `INSERT INTO faculty (user_id, department, designation) VALUES ($1, $2, $3)`,
+            [userId, profileData.department || null, profileData.designation || null]
+          );
+        }
+
+        results.successful.push({ email, name });
+      } catch (err) {
+        results.failed.push({ email: userData.email, reason: err.message });
+      }
+    }
+
+    if (results.successful.length > 0) {
+      await logAction({
+        userId: adminId,
+        action: 'BATCH_ENROLLMENT',
+        target: 'USERS',
+        details: `Batch enrolled ${results.successful.length} users successfully. ${results.failed.length} failed.`,
+        severity: 'info'
+      });
+    }
+
+    await client.query('COMMIT');
+    return results;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 };
 
 // ─────────────────────── USER MANAGEMENT ───────────────────────
@@ -188,7 +254,7 @@ export const getAllUsers = async ({ role, page = 1, limit = 15 }) => {
        FROM users u
        LEFT JOIN students s ON u.user_id = s.user_id
        LEFT JOIN faculty f ON u.user_id = f.user_id
-       ${mainWhereClause.replace(/role/g, 'u.role')}
+       ${mainWhereClause.replace(/\brole\b/g, 'u.role')}
        ORDER BY u.created_at DESC
        LIMIT $1 OFFSET $2`,
       params
@@ -330,37 +396,43 @@ export const getAllCourses = async () => {
        ORDER BY c.created_at DESC`
     );
     return res.rows;
-  } catch {
-    return [
-      { course_id: '1', course_code: 'CS-101', title: 'Introduction to Computing', credit_hours: 3, department: 'Computer Science', is_active: true, total_sections: 2, total_enrolled: 45 },
-      { course_id: '2', course_code: 'MA-201', title: 'Calculus II', credit_hours: 3, department: 'Mathematics', is_active: true, total_sections: 1, total_enrolled: 30 },
-      { course_id: '3', course_code: 'EN-101', title: 'Academic Writing', credit_hours: 2, department: 'English', is_active: true, total_sections: 3, total_enrolled: 72 },
-    ];
+  } catch (err) {
+    console.error('Database Error in getAllCourses:', err);
+    throw err;
   }
 };
 
-export const createCourse = async ({ course_code, title, credit_hours, department, description, max_seats }) => {
+export const createCourse = async (data) => {
   try {
+    const { course_code, title, credit_hours, department, description, max_seats } = data;
     const res = await db.query(
       `INSERT INTO courses (course_code, title, credit_hours, department, description, max_seats)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [course_code, title, credit_hours, department, description, max_seats || 40]
+      [course_code, title, credit_hours, department, description, (max_seats !== undefined && max_seats !== null) ? max_seats : 50]
     );
     return res.rows[0];
   } catch (err) {
+    console.error('Error in createCourse service:', err.message);
     throw new Error(err.message);
   }
 };
 
 export const updateCourse = async (courseId, data) => {
-  const { course_code, title, credit_hours, department, description, max_seats, is_active } = data;
-  const res = await db.query(
-    `UPDATE courses 
-     SET course_code = $1, title = $2, credit_hours = $3, department = $4, description = $5, max_seats = $6, is_active = $7
-     WHERE course_id = $8 RETURNING *`,
-    [course_code, title, credit_hours, department, description, max_seats, is_active, courseId]
-  );
-  return res.rows[0];
+  try {
+    const { course_code, title, credit_hours, department, description, is_active, max_seats } = data;
+    // Default is_active to true if not provided to prevent PG errors
+    const activeStatus = is_active !== undefined ? is_active : true;
+    const res = await db.query(
+      `UPDATE courses 
+       SET course_code = $1, title = $2, credit_hours = $3, department = $4, description = $5, is_active = $6, max_seats = $7
+       WHERE course_id = $8 RETURNING *`,
+      [course_code, title, credit_hours, department, description, activeStatus, (max_seats !== undefined && max_seats !== null) ? max_seats : 50, courseId]
+    );
+    return res.rows[0];
+  } catch (err) {
+    console.error(`Error updating course ${courseId}:`, err.message);
+    throw err;
+  }
 };
 
 export const deleteCourse = async (courseId) => {
@@ -383,7 +455,7 @@ export const getAllSections = async () => {
     return res.rows;
   } catch (err) {
     console.error('Get Sections Error:', err);
-    return [];
+    throw err;
   }
 };
 
@@ -398,7 +470,7 @@ export const getAllFaculty = async () => {
     return res.rows;
   } catch (err) {
     console.error('Get Faculty Error:', err);
-    return [];
+    throw err;
   }
 };
 
@@ -536,8 +608,8 @@ export const getAnnouncements = async () => {
     return res.rows;
   } catch {
     return [
-      { announcement_id: '1', title: 'Mid-term Exam Schedule Released', body: 'Please check the portal for your individual schedules.', category: 'Academic', target_role: 'student', is_pinned: true, created_at: new Date() },
-      { announcement_id: '2', title: 'Library Extended Hours', body: 'Library will remain open during exam week (24/7).', category: 'General', target_role: 'all', is_pinned: false, created_at: new Date() },
+      { announcement_id: '550e8400-e29b-41d4-a716-446655440101', title: 'Mid-term Exam Schedule Released', body: 'Please check the portal for your individual schedules.', category: 'Academic', target_role: 'student', is_pinned: true, created_at: new Date() },
+      { announcement_id: '550e8400-e29b-41d4-a716-446655440102', title: 'Library Extended Hours', body: 'Library will remain open during exam week (24/7).', category: 'General', target_role: 'all', is_pinned: false, created_at: new Date() },
     ];
   }
 };
@@ -754,4 +826,77 @@ export const updateSiteSettings = async (settings) => {
   
   await Promise.all(queries);
   return getSiteSettings();
+};
+
+// ─────────────────────── FEE STRUCTURES ───────────────────────
+
+export const generateBulkFees = async (program, semester) => {
+  // 1. Get structures for this program/semester
+  const structuresRes = await db.query(
+    'SELECT * FROM fee_structures WHERE program = $1 AND semester = $2 AND is_active = true',
+    [program, semester]
+  );
+  const structures = structuresRes.rows;
+  if (structures.length === 0) {
+    throw new Error(`No active fee structure found for ${program} — ${semester}. Please create a fee structure first.`);
+  }
+
+  // 2. Get all active students in this program
+  const studentsRes = await db.query(
+    `SELECT student_id FROM students 
+     WHERE status = 'active' AND (program = $1 OR program IS NULL)`,
+    [program]
+  );
+  const students = studentsRes.rows;
+  if (students.length === 0) {
+    throw new Error(`No active students found. Please ensure students are enrolled and their program is set.`);
+  }
+
+  // 3. Insert fee records, skip duplicates gracefully per-row
+  let generatedCount = 0;
+  const insertPromises = [];
+  for (const student of students) {
+    for (const structure of structures) {
+      insertPromises.push(
+        db.query(
+          `INSERT INTO fees (student_id, amount, semester, fee_type, due_date, status, discount_amount)
+           VALUES ($1, $2, $3, $4, CURRENT_DATE + INTERVAL '15 days', 'pending', 0)
+           ON CONFLICT (student_id, semester, fee_type) DO NOTHING`,
+          [student.student_id, structure.amount, semester, structure.category]
+        ).then(r => {
+          if (r.rowCount > 0) generatedCount++;
+        }).catch(() => {
+          // Skip rows that fail due to constraint issues — already billed
+        })
+      );
+    }
+  }
+
+  await Promise.all(insertPromises);
+
+  return {
+    generatedCount,
+    totalStudents: students.length,
+    skipped: (students.length * structures.length) - generatedCount
+  };
+};
+
+export const getFeeStructures = async () => {
+  const res = await db.query('SELECT * FROM fee_structures ORDER BY created_at DESC');
+  return res.rows;
+};
+
+export const createFeeStructure = async (data) => {
+  const { program, semester, category, amount } = data;
+  const res = await db.query(
+    `INSERT INTO fee_structures (program, semester, category, amount)
+     VALUES ($1, $2, $3, $4) RETURNING *`,
+    [program, semester, category, amount]
+  );
+  return res.rows[0];
+};
+
+export const deleteFeeStructure = async (id) => {
+  await db.query('DELETE FROM fee_structures WHERE structure_id = $1', [id]);
+  return { success: true };
 };

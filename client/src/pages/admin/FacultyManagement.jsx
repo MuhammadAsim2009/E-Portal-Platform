@@ -1,3 +1,4 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import {
@@ -7,12 +8,10 @@ import {
   Users, UserCheck2, UserMinus, GraduationCap,
   BookOpen, Award
 } from 'lucide-react';
-
 const statusStyles = {
   active:   'bg-emerald-50 text-emerald-700 ring-emerald-200',
   inactive: 'bg-rose-50 text-rose-700 ring-rose-200',
 };
-
 const StatCard = ({ icon: Icon, label, value, color }) => (
   <div className="bg-white rounded-2xl border border-slate-200 p-6 flex items-center gap-5 shadow-sm hover:shadow-md transition-all group">
     <div className={`w-14 h-14 rounded-2xl ${color} flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform`}>
@@ -24,28 +23,24 @@ const StatCard = ({ icon: Icon, label, value, color }) => (
     </div>
   </div>
 );
-
 const FacultyManagement = () => {
+  usePageTitle('Faculty Management');
   const [faculty, setFaculty]         = useState([]);
   const [total, setTotal]             = useState(0);
   const [page, setPage]               = useState(1);
   const [search, setSearch]           = useState('');
   const [loading, setLoading]         = useState(true);
   const [togglingId, setTogglingId]   = useState(null);
-
   // Add Single
   const [showAddModal, setShowAddModal]     = useState(false);
   const [showPassword, setShowPassword]     = useState(false);
   const [addLoading, setAddLoading]         = useState(false);
-
   // Edit / Delete
   const [showEditModal, setShowEditModal]       = useState(false);
   const [selectedFaculty, setSelectedFaculty]   = useState(null);
   const [facultyToDelete, setFacultyToDelete]   = useState(null);
   const [errorModal, setErrorModal]             = useState(null);
-
   const limit = 12;
-
   const fetchFaculty = async () => {
     setLoading(true);
     try {
@@ -55,13 +50,9 @@ const FacultyManagement = () => {
     } catch (err) { console.error(err); setFaculty([]); setTotal(0); }
     finally { setLoading(false); }
   };
-
   useEffect(() => { fetchFaculty(); }, [page]);
-
   const activeCount   = faculty.filter(f => f.is_active).length;
   const inactiveCount = faculty.filter(f => !f.is_active).length;
-
-
   /* ── CRUD handlers ── */
   const handleAddFaculty = async (e) => {
     e.preventDefault();
@@ -84,7 +75,6 @@ const FacultyManagement = () => {
       setErrorModal({ title: 'Failed to Add Faculty', message: err.response?.data?.message || 'An error occurred.' });
     } finally { setAddLoading(false); }
   };
-
   const handleToggle = async (userId) => {
     setTogglingId(userId);
     try {
@@ -93,7 +83,6 @@ const FacultyManagement = () => {
     } catch { setFaculty(prev => prev.map(f => f.user_id === userId ? { ...f, is_active: !f.is_active } : f)); }
     finally { setTogglingId(null); }
   };
-
   const handleUpdateFaculty = async (e) => {
     e.preventDefault();
     try {
@@ -102,7 +91,6 @@ const FacultyManagement = () => {
       setShowEditModal(false); fetchFaculty();
     } catch { console.error('Update failed'); }
   };
-
   const handleDeleteFaculty = async () => {
     if (!facultyToDelete) return;
     try {
@@ -114,14 +102,11 @@ const FacultyManagement = () => {
       setErrorModal({ title: 'Deletion Failed', message: msg });
     }
   };
-
   const filtered   = search ? faculty.filter(f => f.name.toLowerCase().includes(search.toLowerCase()) || f.email.toLowerCase().includes(search.toLowerCase())) : faculty;
   const totalPages = Math.ceil(total / limit);
-
   return (
     <>
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
-
         {/* ── Header ── */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div>
@@ -143,14 +128,12 @@ const FacultyManagement = () => {
             </button>
           </div>
         </div>
-
         {/* ── Stat Cards ── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           <StatCard icon={Users}      label="Total Faculty"   value={total}         color="bg-gradient-to-br from-violet-500 to-purple-600" />
           <StatCard icon={UserCheck2} label="Active Staff"    value={activeCount}   color="bg-gradient-to-br from-emerald-500 to-teal-500" />
           <StatCard icon={UserMinus}  label="Suspended"       value={inactiveCount} color="bg-gradient-to-br from-rose-500 to-pink-500" />
         </div>
-
         {/* ── Search ── */}
         <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3 flex items-center gap-4 shadow-sm">
           <Search size={18} className="text-slate-400 shrink-0" />
@@ -159,7 +142,6 @@ const FacultyManagement = () => {
             className="flex-1 bg-transparent outline-none text-[13px] font-medium text-slate-700 placeholder-slate-400" />
           {search && <button onClick={() => setSearch('')} className="text-slate-400 hover:text-slate-700 text-xs font-bold transition-colors">Clear</button>}
         </div>
-
         {/* ── Table ── */}
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-8 py-6 border-b border-slate-100">
@@ -256,7 +238,6 @@ const FacultyManagement = () => {
           </div>
         </div>
       </div>
-
       {/* ══════════════════════════════════════════
           ADD SINGLE FACULTY MODAL
       ══════════════════════════════════════════ */}
@@ -277,7 +258,6 @@ const FacultyManagement = () => {
                 <X size={18} />
               </button>
             </div>
-
             <form onSubmit={handleAddFaculty} className="px-8 pt-6 pb-8 space-y-4 max-h-[70vh] overflow-y-auto scrollbar-hide">
               {/* Name */}
               <div className="space-y-1.5">
@@ -285,7 +265,6 @@ const FacultyManagement = () => {
                 <input name="name" required placeholder="e.g. Dr. Ahmed Ali"
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 focus:ring-4 focus:ring-violet-500/5 font-medium text-[13px] outline-none transition-all" />
               </div>
-
               {/* Email + Password */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -305,7 +284,6 @@ const FacultyManagement = () => {
                   </div>
                 </div>
               </div>
-
               {/* Department + Designation */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -319,21 +297,18 @@ const FacultyManagement = () => {
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 focus:ring-4 focus:ring-violet-500/5 font-medium text-[13px] outline-none transition-all" />
                 </div>
               </div>
-
               {/* Contact */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Contact Number</label>
                 <input name="contact_number" type="tel" placeholder="+92 300 0000000"
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 focus:ring-4 focus:ring-violet-500/5 font-medium text-[13px] outline-none transition-all" />
               </div>
-
               {/* Qualifications */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Qualifications</label>
                 <textarea name="qualifications" placeholder="e.g. PhD in Machine Learning, MS in Software Engineering" rows={2}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 focus:ring-4 focus:ring-violet-500/5 font-medium text-[13px] outline-none transition-all resize-none" />
               </div>
-
               {/* Buttons */}
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => { setShowAddModal(false); setShowPassword(false); }}
@@ -348,8 +323,6 @@ const FacultyManagement = () => {
           </div>
         </div>
       )}
-
-
       {/* ── Edit Modal ── */}
       {showEditModal && selectedFaculty && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
@@ -362,7 +335,6 @@ const FacultyManagement = () => {
               </div>
               <button onClick={() => setShowEditModal(false)} className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"><X size={18} /></button>
             </div>
-            
             <form onSubmit={handleUpdateFaculty} className="px-8 py-6 space-y-4 max-h-[70vh] overflow-y-auto scrollbar-hide">
               {/* Name */}
               <div className="space-y-1.5">
@@ -371,7 +343,6 @@ const FacultyManagement = () => {
                   onChange={e => setSelectedFaculty({ ...selectedFaculty, name: e.target.value })}
                   required className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 font-medium text-[13px] outline-none" />
               </div>
-
               {/* Email */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Email Address</label>
@@ -379,7 +350,6 @@ const FacultyManagement = () => {
                   onChange={e => setSelectedFaculty({ ...selectedFaculty, email: e.target.value })}
                   required className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 font-medium text-[13px] outline-none" />
               </div>
-
               {/* Department + Designation */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -395,7 +365,6 @@ const FacultyManagement = () => {
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 font-medium text-[13px] outline-none" />
                 </div>
               </div>
-
               {/* Contact */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Contact Number</label>
@@ -403,7 +372,6 @@ const FacultyManagement = () => {
                   onChange={e => setSelectedFaculty({ ...selectedFaculty, contact_number: e.target.value })}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 font-medium text-[13px] outline-none" />
               </div>
-
               {/* Qualifications */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Qualifications</label>
@@ -411,7 +379,6 @@ const FacultyManagement = () => {
                   onChange={e => setSelectedFaculty({ ...selectedFaculty, qualifications: e.target.value })}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 font-medium text-[13px] outline-none resize-none" />
               </div>
-
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 px-5 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-[13px] hover:bg-slate-200 transition-all">Cancel</button>
                 <button type="submit" className="flex-[2] px-5 py-3 bg-violet-600 text-white rounded-xl font-bold text-[13px] hover:bg-violet-700 transition-all shadow-lg shadow-violet-600/20">Save Changes</button>
@@ -420,7 +387,6 @@ const FacultyManagement = () => {
           </div>
         </div>
       )}
-
       {/* ── Delete Modal ── */}
       {facultyToDelete && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
@@ -438,7 +404,6 @@ const FacultyManagement = () => {
           </div>
         </div>
       )}
-
       {/* ── Error Modal ── */}
       {errorModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
@@ -454,5 +419,4 @@ const FacultyManagement = () => {
     </>
   );
 };
-
 export default FacultyManagement;

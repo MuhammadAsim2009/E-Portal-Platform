@@ -57,8 +57,12 @@ const useAuthStore = create((set, get) => ({
     try {
       set({ loading: true });
       const response = await api.get('/auth/me');
-      set({ user: response.data.user, isAuthenticated: true, loading: false });
-      get().startInactivityTimer();
+      if (response.data.authenticated) {
+        set({ user: response.data.user, isAuthenticated: true, loading: false });
+        get().startInactivityTimer();
+      } else {
+        set({ user: null, isAuthenticated: false, loading: false });
+      }
     } catch (error) {
       set({ user: null, isAuthenticated: false, loading: false });
     }
@@ -70,6 +74,11 @@ const useAuthStore = create((set, get) => ({
   login: async (email, password) => {
     try {
       const response = await api.post('/auth/login', { email, password });
+      
+      if (response.data.message === 'MFA REQUIRED') {
+        return { success: false, mfaRequired: true, userId: response.data.userId };
+      }
+
       set({ user: response.data.user, isAuthenticated: true });
       get().startInactivityTimer();
       return { success: true, user: response.data.user, message: response.data.message };
@@ -77,6 +86,23 @@ const useAuthStore = create((set, get) => ({
       return {
         success: false,
         message: error.response?.data?.message || 'Login failed. Please try again.'
+      };
+    }
+  },
+
+  /**
+   * Verify MFA code and finalize login
+   */
+  verifyMFA: async (userId, code) => {
+    try {
+      const response = await api.post('/auth/verify-mfa', { userId, code });
+      set({ user: response.data.user, isAuthenticated: true });
+      get().startInactivityTimer();
+      return { success: true, user: response.data.user };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || 'MFA verification failed.'
       };
     }
   },

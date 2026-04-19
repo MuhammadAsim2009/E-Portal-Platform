@@ -8,6 +8,7 @@ CREATE TABLE users (
   email VARCHAR(150) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   role VARCHAR(20) CHECK (role IN ('student', 'faculty', 'admin')) NOT NULL,
+  registration_status VARCHAR(20) DEFAULT 'pending' CHECK (registration_status IN ('pending', 'approved', 'rejected')),
   is_active BOOLEAN DEFAULT true,
   mfa_enabled BOOLEAN DEFAULT false,
   created_at TIMESTAMP DEFAULT NOW()
@@ -114,7 +115,8 @@ CREATE TABLE fees (
   status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('paid', 'pending', 'waived')),
   discount_amount DECIMAL(10,2) DEFAULT 0,
   waiver_justification TEXT,
-  notes TEXT
+  notes TEXT,
+  CONSTRAINT fees_student_semester_type_unique UNIQUE (student_id, semester, fee_type)
 );
 
 CREATE TABLE payments (
@@ -126,6 +128,17 @@ CREATE TABLE payments (
   transaction_id VARCHAR(100),
   payment_method VARCHAR(50),
   receipt_url TEXT
+);
+
+CREATE TABLE IF NOT EXISTS fee_structures (
+  structure_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  program VARCHAR(100) NOT NULL,
+  semester VARCHAR(20) NOT NULL,
+  category VARCHAR(100) NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (

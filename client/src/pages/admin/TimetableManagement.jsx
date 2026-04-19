@@ -1,3 +1,4 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { 
@@ -20,8 +21,8 @@ import {
   UserMinus,
   Download as DownloadIcon
 } from 'lucide-react';
-
 const TimetableManagement = () => {
+  usePageTitle('Timetable Management');
   const [sections, setSections] = useState([]);
   const [faculty, setFaculty] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,20 +40,16 @@ const TimetableManagement = () => {
   const [eligibleStudents, setEligibleStudents] = useState([]);
   const [enrollLoading, setEnrollLoading] = useState(false);
   const [studentToRemove, setStudentToRemove] = useState(null);
-
   const showToast = (type, msg) => {
     setToast({ show: true, type, msg });
     setTimeout(() => setToast(prev => ({ ...prev, show: false })), 5000);
   };
-
   const toggleDay = (day) => {
     setSelectedDays(prev => 
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
     );
   };
-
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
   const fetchSections = async () => {
     try {
       const res = await api.get('/admin/sections');
@@ -61,7 +58,6 @@ const TimetableManagement = () => {
       console.error(err);
     }
   };
-
   const fetchFaculty = async () => {
     try {
       const res = await api.get('/admin/faculty');
@@ -70,7 +66,6 @@ const TimetableManagement = () => {
       console.error(err);
     }
   };
-
   const fetchCourses = async () => {
     try {
       const res = await api.get('/admin/courses');
@@ -81,30 +76,25 @@ const TimetableManagement = () => {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     fetchSections();
     fetchFaculty();
     fetchCourses();
   }, []);
-
   const handleUpdate = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     data.day_of_week = selectedDays.join(', ');
-
     if (data.start_time >= data.end_time) {
       setTimeError('End time must be after start time');
       return;
     }
     setTimeError('');
-
     if (selectedDays.length === 0) {
       showToast('error', 'Select at least one day');
       return;
     }
-    
     try {
       await api.patch(`/admin/sections/${selectedSection.section_id}`, data);
       showToast('success', 'Schedule updated successfully');
@@ -114,24 +104,20 @@ const TimetableManagement = () => {
       showToast('error', err.response?.data?.message || 'Update failed');
     }
   };
-
   const handleCreate = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     data.day_of_week = selectedDays.join(', ');
-
     if (data.start_time >= data.end_time) {
       setTimeError('End time must be after start time');
       return;
     }
     setTimeError('');
-
     if (selectedDays.length === 0) {
       showToast('error', 'Select at least one day');
       return;
     }
-    
     try {
       await api.post('/admin/sections', data);
       showToast('success', 'New entry created successfully');
@@ -141,7 +127,6 @@ const TimetableManagement = () => {
       showToast('error', err.response?.data?.message || 'Creation failed');
     }
   };
-
   const handleDelete = async () => {
     try {
       await api.delete(`/admin/sections/${selectedSection.section_id}`);
@@ -152,7 +137,6 @@ const TimetableManagement = () => {
       showToast('error', err.response?.data?.message || 'Deletion failed');
     }
   };
-
   const fetchEligibleStudents = async (id) => {
     try {
       const res = await api.get(`/admin/sections/${id}/eligible-students`);
@@ -161,7 +145,6 @@ const TimetableManagement = () => {
       console.error('Fetch Eligible Students Error:', err);
     }
   };
-
   const fetchStudents = async (id) => {
     try {
       const res = await api.get(`/admin/sections/${id}/students`);
@@ -171,7 +154,6 @@ const TimetableManagement = () => {
       console.error('Fetch Students Error:', err);
     }
   };
-
   const handleEnroll = async (e) => {
     e.preventDefault();
     setEnrollLoading(true);
@@ -188,7 +170,6 @@ const TimetableManagement = () => {
       setEnrollLoading(false);
     }
   };
-
   const handleRemoveStudent = async () => {
     if (!studentToRemove) return;
     try {
@@ -202,28 +183,21 @@ const TimetableManagement = () => {
       setStudentToRemove(null);
     }
   };
-
   const handleExportICS = () => {
     if (!selectedSection) return;
-    
     const { course_title, course_code, section_name, faculty_name, room, day_of_week, start_time, end_time } = selectedSection;
-    
     // Mapping days to RRULE format
     const dayMap = { 
       'Monday': 'MO', 'Tuesday': 'TU', 'Wednesday': 'WE', 
       'Thursday': 'TH', 'Friday': 'FR', 'Saturday': 'SA', 'Sunday': 'SU' 
     };
-    
     const byDay = day_of_week ? day_of_week.split(', ').map(d => dayMap[d]).join(',') : '';
-    
     // Create ICS content
     const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     const startStr = start_time ? start_time.replace(/:/g, '') + '00' : '080000';
     const endStr = end_time ? end_time.replace(/:/g, '') + '00' : '090000';
-    
     // We assume the semester starts today for the sake of the export
     const startDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    
     const icsContent = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
@@ -240,7 +214,6 @@ const TimetableManagement = () => {
       'END:VEVENT',
       'END:VCALENDAR'
     ].join('\r\n');
-
     const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
     const link = document.createElement('a');
     link.href = window.URL.createObjectURL(blob);
@@ -249,18 +222,15 @@ const TimetableManagement = () => {
     link.click();
     document.body.removeChild(link);
   };
-
   const filteredSections = sections.filter(s => 
     s.course_code.toLowerCase().includes(search.toLowerCase()) || 
     s.course_title.toLowerCase().includes(search.toLowerCase())
   );
-
   const metrics = {
     total: sections.length,
     unassigned: sections.filter(s => !s.faculty_id).length,
     occupancy: Math.round((sections.reduce((acc, s) => acc + (s.current_seats || 0), 0) / sections.reduce((acc, s) => acc + (s.max_seats || 0), 1)) * 100)
   };
-
   return (
     <div className="space-y-12 animate-in fade-in duration-700 relative">
       {/* Toast Notification */}
@@ -274,14 +244,12 @@ const TimetableManagement = () => {
             <div className="flex-shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
               {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
             </div>
-            
             <div className="flex-1">
               <p className="text-[13px] font-medium opacity-80 uppercase tracking-wider mb-0.5">
                 {toast.type === 'success' ? 'Success' : 'Attention Needed'}
               </p>
               <p className="text-sm font-semibold leading-tight">{toast.msg}</p>
             </div>
-
             <button 
               onClick={() => setToast({ ...toast, show: false })} 
               className="p-2 hover:bg-white/10 rounded-lg transition-colors group"
@@ -314,7 +282,6 @@ const TimetableManagement = () => {
           <Plus size={18} /> Add Time Table
         </button>
       </div>
-
       <div className="flex flex-wrap items-center gap-4">
         {[
           { label: 'Sections', val: metrics.total, icon: <Users size={16} />, color: 'indigo' },
@@ -327,7 +294,6 @@ const TimetableManagement = () => {
             emerald: 'bg-emerald-50/50 border-emerald-100 text-emerald-600'
           };
           const colors = colorMap[stat.color] || colorMap.indigo;
-          
           return (
             <div key={i} className={`${colors} px-5 py-4 rounded-2xl border min-w-[150px] shadow-sm`}>
               <div className="flex items-center justify-between mb-3">
@@ -339,7 +305,6 @@ const TimetableManagement = () => {
           );
         })}
       </div>
-
       <div className="bg-white border border-slate-200 rounded-2xl p-3 flex flex-col md:flex-row items-center gap-3 shadow-sm">
         <div className="relative flex-1 w-full group">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
@@ -352,7 +317,6 @@ const TimetableManagement = () => {
           />
         </div>
       </div>
-
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredSections.map((section) => (
@@ -368,14 +332,12 @@ const TimetableManagement = () => {
                 </button>
               )}
             </div>
-
             <div className="space-y-6">
               <div>
                 <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mb-1">{section.course_code}</div>
                 <h3 className="text-lg font-bold text-slate-900 line-clamp-1">{section.course_title}</h3>
                 <div className="text-slate-400 font-semibold text-[11px] mt-0.5">Section {section.section_name}</div>
               </div>
-
               <div className="space-y-4 pt-4 border-t border-slate-50">
                 <div className="flex items-center gap-3 text-slate-600">
                   <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
@@ -386,7 +348,6 @@ const TimetableManagement = () => {
                     <div className="font-bold text-sm">{section.faculty_name || 'Unassigned'}</div>
                   </div>
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex items-center gap-3 text-slate-600">
                     <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
@@ -410,7 +371,6 @@ const TimetableManagement = () => {
                   </div>
                 </div>
               </div>
-
               <button 
                 onClick={() => { 
                   setSelectedSection(section); 
@@ -421,7 +381,6 @@ const TimetableManagement = () => {
               >
                 <Eye size={16} /> View Details
               </button>
-
               <div className="grid grid-cols-2 gap-3">
                 <button 
                   onClick={() => { 
@@ -448,7 +407,6 @@ const TimetableManagement = () => {
           </div>
         ))}
       </div>
-
       {/* Edit Modal */}
       {showEditModal && selectedSection && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
@@ -482,7 +440,6 @@ const TimetableManagement = () => {
                   ))}
                 </div>
               </div>
-
               <div className="space-y-2">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Assign Faculty</label>
                 <div className="relative">
@@ -500,7 +457,6 @@ const TimetableManagement = () => {
                   <ChevronRight size={16} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Assigned Room</label>
@@ -522,7 +478,6 @@ const TimetableManagement = () => {
                   </div>
                 </div>
               </div>
-              
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Start Time</label>
@@ -548,7 +503,6 @@ const TimetableManagement = () => {
                   {timeError && <p className="text-[10px] font-bold text-rose-500 mt-1.5 ml-1 animate-in fade-in slide-in-from-top-1 text-center">{timeError}</p>}
                 </div>
               </div>
- 
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-semibold text-[13px] hover:bg-slate-200 transition-all">Cancel</button>
                 <button type="submit" className="flex-[2] px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold text-[13px] hover:bg-slate-800 transition-all shadow-sm">Save Schedule</button>
@@ -587,7 +541,6 @@ const TimetableManagement = () => {
                   <ChevronRight size={16} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
                 </div>
               </div>
- 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Section Name</label>
@@ -615,7 +568,6 @@ const TimetableManagement = () => {
                   </div>
                 </div>
               </div>
-
                <div className="space-y-3">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Schedule Days</label>
                 <div className="flex flex-wrap gap-2">
@@ -635,7 +587,6 @@ const TimetableManagement = () => {
                   ))}
                 </div>
               </div>
- 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Assigned Room</label>
@@ -668,7 +619,6 @@ const TimetableManagement = () => {
                   </div>
                 </div>
               </div>
- 
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-semibold text-[13px] hover:bg-slate-200 transition-all">Cancel</button>
                 <button type="submit" className="flex-[2] px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold text-[13px] hover:bg-slate-800 transition-all shadow-sm">Save Entry</button>
@@ -701,7 +651,6 @@ const TimetableManagement = () => {
               </div>
               <button onClick={() => setShowViewModal(false)} className="p-2 hover:bg-slate-200 rounded-xl transition-colors"><X size={20} className="text-slate-400" /></button>
             </div>
-
             <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar text-left">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[
@@ -717,7 +666,6 @@ const TimetableManagement = () => {
                   </div>
                 ))}
               </div>
-
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -726,7 +674,6 @@ const TimetableManagement = () => {
                   </h3>
                   <div className="text-[11px] font-bold text-slate-400 italic">Capacity: {selectedSection.current_seats}/{selectedSection.max_seats}</div>
                 </div>
-
                 <form onSubmit={handleEnroll} className="flex gap-2">
                   <div className="relative flex-1">
                     <UserPlus size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -751,7 +698,6 @@ const TimetableManagement = () => {
                     {enrollLoading ? 'Adding...' : <><Plus size={16} /> Enroll</>}
                   </button>
                 </form>
-
                 <div className="grid grid-cols-1 gap-2 mt-4">
                   {sectionStudents.length > 0 ? (
                     sectionStudents.map((s, idx) => (
@@ -788,7 +734,6 @@ const TimetableManagement = () => {
           </div>
         </div>
       )}
-
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedSection && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
@@ -820,7 +765,6 @@ const TimetableManagement = () => {
           </div>
         </div>
       )}
-
       {/* Remove Student Confirmation Modal */}
       {studentToRemove && selectedSection && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
@@ -855,5 +799,4 @@ const TimetableManagement = () => {
     </div>
   );
 };
-
 export default TimetableManagement;

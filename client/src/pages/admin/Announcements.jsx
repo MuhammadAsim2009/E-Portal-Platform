@@ -1,3 +1,4 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { 
@@ -5,10 +6,8 @@ import {
   Clock, Target, Tag, Calendar, User, Users, Shield, Mail,
   ArrowRight, Search, Zap, MoreHorizontal, BellRing, Trash2, Pencil
 } from 'lucide-react';
-
 const TARGET_ROLES = ['all', 'student', 'faculty', 'admin', 'individual'];
 const CATEGORIES = ['Academic', 'General', 'Exam', 'Event', 'Alert'];
-
 const targetStyles = {
   all: 'bg-indigo-50 text-indigo-700 border-indigo-100',
   student: 'bg-sky-50 text-sky-700 border-sky-100',
@@ -16,7 +15,6 @@ const targetStyles = {
   admin: 'bg-emerald-50 text-emerald-700 border-emerald-100',
   individual: 'bg-rose-50 text-rose-700 border-rose-100',
 };
-
 const categoryStyles = {
   Exam: 'bg-rose-600 text-white shadow-rose-600/30',
   Academic: 'bg-indigo-600 text-white shadow-indigo-600/30',
@@ -24,8 +22,8 @@ const categoryStyles = {
   Event: 'bg-sky-600 text-white shadow-sky-600/30',
   Alert: 'bg-amber-600 text-white shadow-amber-600/30',
 };
-
 const Announcements = () => {
+  usePageTitle('Announcements');
   const [loading, setLoading] = useState(true);
   const [list, setList] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -42,12 +40,10 @@ const Announcements = () => {
     is_pinned: false, send_email: false
   });
   const [users, setUsers] = useState([]);
-
   const showToast = (type, msg) => {
     setToast({ show: true, type, msg });
     setTimeout(() => setToast({ show: false, type: '', msg: '' }), 5000);
   };
-
   const fetchAnnouncements = async () => {
     setLoading(true);
     try {
@@ -63,7 +59,6 @@ const Announcements = () => {
       setTimeout(() => setLoading(false), 500);
     }
   };
-
   const fetchUsers = async () => {
     try {
       const res = await api.get('/admin/users');
@@ -72,12 +67,10 @@ const Announcements = () => {
       console.error("Failed to load users for individual selection");
     }
   };
-
   useEffect(() => { 
     fetchAnnouncements(); 
     fetchUsers();
   }, []);
-
   const handleCreate = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -99,7 +92,6 @@ const Announcements = () => {
       setSubmitting(false);
     }
   };
-
   const handleEdit = (a) => {
     setForm({
       title: a.title,
@@ -114,7 +106,6 @@ const Announcements = () => {
     setEditingId(a.announcement_id);
     setShowModal(true);
   };
-
   const resetForm = () => {
     setForm({ 
       title: '', body: '', category: 'Academic', 
@@ -123,7 +114,6 @@ const Announcements = () => {
     });
     setEditingId(null);
   };
-
   const handleDelete = async () => {
     if (!confirmDelete) return;
     try {
@@ -136,7 +126,6 @@ const Announcements = () => {
       showToast('error', 'Failed to delete announcement.');
     }
   };
-
   const filteredList = list.filter(a => {
     const matchesSearch = a.title.toLowerCase().includes(search.toLowerCase()) || 
                           a.body.toLowerCase().includes(search.toLowerCase());
@@ -149,7 +138,6 @@ const Announcements = () => {
     if (!a.is_pinned && b.is_pinned) return 1;
     return new Date(b.created_at) - new Date(a.created_at);
   });
-
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700 relative">
       {/* Toast Notification */}
@@ -163,14 +151,12 @@ const Announcements = () => {
             <div className="flex-shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
               {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
             </div>
-            
             <div className="flex-1">
               <p className="text-[13px] font-medium opacity-80 uppercase tracking-wider mb-0.5">
                 {toast.type === 'success' ? 'Success' : 'Attention Needed'}
               </p>
               <p className="text-sm font-semibold leading-tight">{toast.msg}</p>
             </div>
-
             <button 
               onClick={() => setToast({ ...toast, show: false })} 
               className="p-2 hover:bg-white/10 rounded-lg transition-colors group"
@@ -181,7 +167,6 @@ const Announcements = () => {
           <div className="absolute bottom-0 left-0 h-1 rounded-full bg-white/30 animate-progress origin-left" style={{ animationDuration: '5000ms' }}></div>
         </div>
       )}
-
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
         <div>
@@ -200,7 +185,6 @@ const Announcements = () => {
           <Plus size={18} /> New Announcement
         </button>
       </div>
-
       {/* Feed Filter Bar */}
       <div className="bg-white border border-slate-200 rounded-2xl p-3 flex flex-col md:flex-row items-center gap-3 shadow-sm">
         <div className="relative flex-1 w-full group">
@@ -227,7 +211,6 @@ const Announcements = () => {
           ))}
         </div>
       </div>
-
       {/* Announcements List */}
       <div className="grid grid-cols-1 gap-6">
         {loading ? (
@@ -272,7 +255,6 @@ const Announcements = () => {
                     {new Date(a.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                   </div>
                 </div>
-
                 <div className="flex items-center gap-2 shrink-0">
                   {a.is_pinned && (
                     <div className="bg-amber-100 text-amber-600 p-2 rounded-lg shadow-sm border border-amber-200">
@@ -299,7 +281,6 @@ const Announcements = () => {
                   </button>
                 </div>
               </div>
- 
               <div className="max-w-4xl space-y-2">
                 <h3 className="text-xl lg:text-2xl font-bold text-slate-900 tracking-tight group-hover:text-indigo-600 transition-colors">
                   {a.title}
@@ -308,7 +289,6 @@ const Announcements = () => {
                   {a.body}
                 </p>
               </div>
- 
               <div className="mt-8 pt-6 border-t border-slate-50 flex items-center justify-between">
                 <div className="flex items-center gap-6">
                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -328,7 +308,6 @@ const Announcements = () => {
           ))
         )}
       </div>
-
       {/* Publication Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 transition-all">
@@ -351,7 +330,6 @@ const Announcements = () => {
                 <X size={18} />
               </button>
             </div>
-
             {/* Modal Body */}
             <div className="p-8 overflow-y-auto max-h-[80vh] scrollbar-hide">
               <form onSubmit={handleCreate} className="space-y-6">
@@ -366,7 +344,6 @@ const Announcements = () => {
                     className="w-full px-5 py-4 bg-slate-50 border border-slate-100 focus:border-indigo-500/30 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl text-[13px] font-bold text-slate-900 transition-all placeholder:text-slate-300"
                   />
                 </div>
-
                 {/* Category & Target Audience */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -394,7 +371,6 @@ const Announcements = () => {
                     </select>
                   </div>
                 </div>
-
                 {/* Individual Recipient Search (if selected) */}
                 {form.target_role === 'individual' && (
                   <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
@@ -414,7 +390,6 @@ const Announcements = () => {
                     </select>
                   </div>
                 )}
-
                 {/* Body Content */}
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Message Content</label>
@@ -427,7 +402,6 @@ const Announcements = () => {
                     className="w-full px-5 py-4 bg-slate-50 border border-slate-100 focus:border-indigo-500/30 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl text-[13px] font-bold text-slate-900 transition-all resize-none placeholder:text-slate-300 min-h-[160px]"
                   />
                 </div>
-
                 {/* Date & Priority */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -441,7 +415,6 @@ const Announcements = () => {
                       className="w-full px-5 py-4 bg-slate-50 border border-slate-100 focus:border-indigo-500/30 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl text-[13px] font-bold text-slate-900 transition-all"
                     />
                   </div>
-
                   <div className="space-y-2 flex flex-col">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 opacity-0 select-none ml-1">Pin</label>
                     <div className="flex items-center gap-4 px-5 bg-amber-50 rounded-2xl border border-amber-100/50 h-[58px]">
@@ -461,7 +434,6 @@ const Announcements = () => {
                     </div>
                   </div>
                 </div>
-
                 {/* Email Broadcast Toggle */}
                 <div className="pt-2">
                   <label className="flex items-center gap-4 px-5 py-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50 transition-all hover:bg-indigo-50 cursor-pointer">
@@ -483,7 +455,6 @@ const Announcements = () => {
                     </div>
                   </label>
                 </div>
-
                 {/* Footer Actions */}
                 <div className="pt-4 flex gap-3">
                   <button 
@@ -519,7 +490,6 @@ const Announcements = () => {
               >
                 <X size={20} />
               </button>
-
               <div className="relative z-10 space-y-4 pr-12 lg:pr-0">
                 <div className="flex items-center gap-3">
                   <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm ${categoryStyles[selectedAnnouncement.category]}`}>
@@ -550,7 +520,6 @@ const Announcements = () => {
                 </div>
               </div>
             </div>
-
             {/* Modal Body */}
             <div className="p-10 lg:p-14 overflow-y-auto max-h-[50vh] bg-white scrollbar-hide">
               <div className="prose prose-slate max-w-none">
@@ -559,7 +528,6 @@ const Announcements = () => {
                 </p>
               </div>
             </div>
-
             {/* Modal Footer */}
             <div className="p-8 border-t border-slate-50 bg-slate-50/50 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -617,5 +585,4 @@ const Announcements = () => {
     </div>
   );
 };
-
 export default Announcements;

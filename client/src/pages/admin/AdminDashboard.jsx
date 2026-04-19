@@ -1,3 +1,4 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import {
@@ -9,14 +10,12 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, BarChart, Bar, Cell
 } from 'recharts';
-
 const enrollmentTrend = [
   { month: 'Sep', active: 42, new: 12 }, { month: 'Oct', active: 68, new: 26 },
   { month: 'Nov', active: 75, new: 15 }, { month: 'Dec', active: 55, new: 8 },
   { month: 'Jan', active: 88, new: 33 }, { month: 'Feb', active: 95, new: 22 },
   { month: 'Mar', active: 102, new: 18 }, { month: 'Apr', active: 87, new: 10 },
 ];
-
 const deptData = [
   { dept: 'CS', students: 48, color: '#6366f1' }, 
   { dept: 'Math', students: 30, color: '#8b5cf6' },
@@ -24,7 +23,6 @@ const deptData = [
   { dept: 'Physics', students: 18, color: '#f43f5e' },
   { dept: 'Business', students: 35, color: '#f59e0b' },
 ];
-
 const StatCard = ({ icon: Icon, label, value, trend, isPositive, color }) => (
   <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-300 group">
     <div className="flex items-start justify-between mb-4">
@@ -44,12 +42,11 @@ const StatCard = ({ icon: Icon, label, value, trend, isPositive, color }) => (
     </div>
   </div>
 );
-
 const AdminDashboard = () => {
+  usePageTitle('Admin Dashboard');
   const [stats, setStats] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const activities = [
     { id: 1, user: 'Sarah Connor', action: 'New Student Registration', time: '12m ago', status: 'Verified', color: 'bg-emerald-500' },
     { id: 2, user: 'Dr. Alan Smith', action: 'Course Content Update', time: '45m ago', status: 'Published', color: 'bg-indigo-500' },
@@ -57,7 +54,6 @@ const AdminDashboard = () => {
     { id: 4, user: 'Dr. Ellie Sattler', action: 'Faculty Assignment', time: '5h ago', status: 'Pending', color: 'bg-amber-500' },
     { id: 5, user: 'John Doe', action: 'Profile Information Updated', time: '8h ago', status: 'Verified', color: 'bg-emerald-500' },
   ];
-
   useEffect(() => {
     const fetchAll = async () => {
       try {
@@ -80,7 +76,6 @@ const AdminDashboard = () => {
     };
     fetchAll();
   }, []);
-
   if (loading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -93,7 +88,6 @@ const AdminDashboard = () => {
       </div>
     );
   }
-
   return (
     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-1000">
       {/* Welcome Header */}
@@ -106,7 +100,6 @@ const AdminDashboard = () => {
           </p>
         </div>
       </div>
-
       {/* Primary Stat Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         <StatCard icon={Users} label="Total Platform Users" value={stats?.totalUsers} trend="12.5%" isPositive={true} color="bg-indigo-600 text-indigo-600" />
@@ -114,7 +107,6 @@ const AdminDashboard = () => {
         <StatCard icon={UserCheck} label="Active Faculty" value={stats?.totalFaculty} trend="2.1%" isPositive={false} color="bg-rose-500 text-rose-600" />
         <StatCard icon={BookOpen} label="Published Courses" value={stats?.activeCourses} trend="14.8%" isPositive={true} color="bg-emerald-500 text-emerald-600" />
       </div>
-
       {/* Main Insights Layer */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Trend Area Chart */}
@@ -135,7 +127,6 @@ const AdminDashboard = () => {
               </div>
             </div>
           </div>
-          
           <div className="h-72 w-full mt-4 flex items-center justify-center">
             {stats?.enrollmentTrend?.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -194,7 +185,6 @@ const AdminDashboard = () => {
             )}
           </div>
         </div>
-
         {/* Small Data Panel */}
         <div className="flex flex-col gap-6">
           <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm relative overflow-hidden group">
@@ -227,7 +217,6 @@ const AdminDashboard = () => {
           </div>
         </div>
       </div>
-
       {/* Announcements Feed Dashboard Layer */}
       <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between mb-8">
@@ -239,7 +228,6 @@ const AdminDashboard = () => {
             <Filter size={14} /> Full Audit Log
           </button>
         </div>
-        
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -286,5 +274,4 @@ const AdminDashboard = () => {
     </div>
   );
 };
-
 export default AdminDashboard;

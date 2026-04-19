@@ -16,6 +16,7 @@ router.get('/announcements', studentCtrl.getAnnouncements);
 router.get('/courses/available', studentCtrl.getAvailableCourses);
 router.post('/enroll', studentCtrl.enrollModule);
 router.post('/drop', studentCtrl.dropModule);
+router.post('/swap', studentCtrl.swapModule);
 router.post('/payments', studentCtrl.submitPayment);
 router.post('/assignments/submit', uploadAssignment.single('file'), studentCtrl.submitAssignment);
 

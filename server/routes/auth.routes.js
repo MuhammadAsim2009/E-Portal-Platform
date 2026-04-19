@@ -7,12 +7,13 @@ const router = express.Router();
 // Public routes
 router.post('/register', authController.register);
 router.post('/login', authController.login);
+router.post('/verify-mfa', authController.verifyMFA);
 router.post('/logout', authController.logout);
 router.post('/refresh', authController.refreshAccessToken);
+router.get('/me', authController.getMe); // Check session silently
 
 // Protected routes
 router.use(authenticateJWT);
-router.get('/me', authController.getMe);
 router.post('/contact-admin', authController.contactAdmin);
 
 export default router;

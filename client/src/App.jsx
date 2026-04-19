@@ -11,6 +11,7 @@ import FacultyLayout from './components/FacultyLayout';
 // Auth pages
 import Login from './pages/Login';
 import Register from './pages/Register';
+import MFAVerify from './pages/MFAVerify';
 
 // Student pages
 import StudentDashboard from './pages/student/StudentDashboard';
@@ -29,12 +30,14 @@ import PaymentManagement from './pages/admin/PaymentManagement';
 import Analytics from './pages/admin/Analytics';
 import AdminNotifications from './pages/admin/AdminNotifications';
 import SiteSettings from './pages/admin/SiteSettings';
+import FeeStructureManagement from './pages/admin/FeeStructureManagement';
 
 // Faculty pages
 import FacultyDashboard from './pages/faculty/FacultyDashboard';
 import MyCourses from './pages/faculty/MyCourses';
 import GradeBook from './pages/faculty/GradeBook';
 import AttendancePage from './pages/faculty/AttendancePage';
+import AssignmentManagement from './pages/faculty/AssignmentManagement';
 
 function App() {
   const initAuth = useAuthStore((state) => state.initAuth);
@@ -49,6 +52,7 @@ function App() {
         {/* ── Public ── */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/mfa/verify" element={<MFAVerify />} />
 
         {/* ── Student Module ── */}
         <Route
@@ -90,6 +94,7 @@ function App() {
           <Route path="analytics" element={<Analytics />} />
           <Route path="notifications" element={<AdminNotifications />} />
           <Route path="settings" element={<SiteSettings />} />
+          <Route path="fees-config" element={<FeeStructureManagement />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 
@@ -106,6 +111,7 @@ function App() {
           <Route path="courses" element={<MyCourses />} />
           <Route path="gradebook" element={<GradeBook />} />
           <Route path="attendance" element={<AttendancePage />} />
+          <Route path="assignments" element={<AssignmentManagement />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 

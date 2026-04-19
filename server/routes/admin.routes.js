@@ -35,9 +35,13 @@ import {
   markNotificationAsRead,
   getPayments,
   updatePaymentStatus,
-  getSettings,
   updateSettings,
-  testEmail
+  testEmail,
+  getFeeStructures,
+  createFeeStructure,
+  deleteFeeStructure,
+  bulkGenerateFees,
+  getSettings
 } from '../controllers/admin.controller.js';
 
 const router = Router();
@@ -95,5 +99,11 @@ router.delete('/announcements/:id', deleteAnnouncement);
 router.get('/settings', getSettings);
 router.patch('/settings', updateSettings);
 router.post('/settings/test-email', testEmail);
+
+// Fee Structures
+router.get('/fee-structures', getFeeStructures);
+router.post('/fee-structures', createFeeStructure);
+router.delete('/fee-structures/:id', deleteFeeStructure);
+router.post('/fees/bulk-generate', bulkGenerateFees);
 
 export default router;

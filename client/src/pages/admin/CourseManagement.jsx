@@ -1,3 +1,4 @@
+import usePageTitle from '../../hooks/usePageTitle';
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { 
@@ -5,8 +6,8 @@ import {
   Layers, Users, Star, MoreHorizontal, GraduationCap, Clock,
   Hash, ChevronRight, LayoutGrid, Trash2, Edit3, Trash, Power
 } from 'lucide-react';
-
 const CourseManagement = () => {
+  usePageTitle('Course Management');
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -20,16 +21,13 @@ const CourseManagement = () => {
   const [editingId, setEditingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-
   const [toastTimer, setToastTimer] = useState(null);
-
   const showToast = (type, msg) => {
     if (toastTimer) clearTimeout(toastTimer);
     setToast({ show: true, type, msg });
     const timer = setTimeout(() => setToast({ show: false, type: '', msg: '' }), 5000);
     setToastTimer(timer);
   };
-
   const fetchCourses = async () => {
     setLoading(true);
     try {
@@ -37,18 +35,16 @@ const CourseManagement = () => {
       setCourses(res.data);
     } catch {
       setCourses([
-        { course_id: '1', course_code: 'CS-101', title: 'Introduction to Computing', credit_hours: 3, department: 'Computer Science', is_active: true, total_sections: 2, total_enrolled: 45 },
-        { course_id: '2', course_code: 'MA-201', title: 'Calculus II', credit_hours: 3, department: 'Mathematics', is_active: true, total_sections: 1, total_enrolled: 30 },
-        { course_id: '3', course_code: 'EN-101', title: 'Academic Writing', credit_hours: 2, department: 'English', is_active: true, total_sections: 3, total_enrolled: 72 },
-        { course_id: '4', course_code: 'PH-101', title: 'General Physics I', credit_hours: 4, department: 'Physics', is_active: true, total_sections: 2, total_enrolled: 38 },
+        { course_id: '550e8400-e29b-41d4-a716-446655440001', course_code: 'CS-101', title: 'Introduction to Computing', credit_hours: 3, department: 'Computer Science', is_active: true, total_sections: 2, total_enrolled: 45 },
+        { course_id: '550e8400-e29b-41d4-a716-446655440002', course_code: 'MA-201', title: 'Calculus II', credit_hours: 3, department: 'Mathematics', is_active: true, total_sections: 1, total_enrolled: 30 },
+        { course_id: '550e8400-e29b-41d4-a716-446655440003', course_code: 'EN-101', title: 'Academic Writing', credit_hours: 2, department: 'English', is_active: true, total_sections: 3, total_enrolled: 72 },
+        { course_id: '550e8400-e29b-41d4-a716-446655440004', course_code: 'PH-101', title: 'General Physics I', credit_hours: 4, department: 'Physics', is_active: true, total_sections: 2, total_enrolled: 38 },
       ]);
     } finally {
       setTimeout(() => setLoading(false), 500);
     }
   };
-
   useEffect(() => { fetchCourses(); }, []);
-
   const handleCreate = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -64,7 +60,6 @@ const CourseManagement = () => {
       setSubmitting(false);
     }
   };
-
   const handleUpdate = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -80,12 +75,10 @@ const CourseManagement = () => {
       setSubmitting(false);
     }
   };
-
   const resetForm = () => {
     setEditingId(null);
     setForm({ course_code: '', title: '', credit_hours: 3, department: '', description: '', max_seats: 50 });
   };
-
   const handleEdit = (course) => {
     setForm({
       course_code: course.course_code,
@@ -99,7 +92,6 @@ const CourseManagement = () => {
     setEditingId(course.course_id);
     setShowEditModal(true);
   };
-
   const handleDelete = async (id) => {
     try {
       await api.delete(`/admin/courses/${id}`);
@@ -109,14 +101,12 @@ const CourseManagement = () => {
       showToast('error', 'Failed to delete course');
     }
   };
-
   const filtered = search
     ? courses.filter(c =>
         c.title.toLowerCase().includes(search.toLowerCase()) ||
         c.course_code.toLowerCase().includes(search.toLowerCase()) ||
         c.department?.toLowerCase().includes(search.toLowerCase()))
     : courses;
-
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700 relative">
       {/* Toast Notification */}
@@ -130,14 +120,12 @@ const CourseManagement = () => {
             <div className="flex-shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
               {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
             </div>
-            
             <div className="flex-1">
               <p className="text-[13px] font-medium opacity-80 uppercase tracking-wider mb-0.5">
                 {toast.type === 'success' ? 'Success' : 'Attention Needed'}
               </p>
               <p className="text-sm font-semibold leading-tight">{toast.msg}</p>
             </div>
-
             <button 
               onClick={() => setToast({ ...toast, show: false })} 
               className="p-2 hover:bg-white/10 rounded-lg transition-colors group"
@@ -148,7 +136,6 @@ const CourseManagement = () => {
           <div className={`absolute bottom-0 left-0 h-1 rounded-full bg-white/30 animate-progress origin-left`} style={{ animationDuration: '5000ms' }}></div>
         </div>
       )}
-
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
         <div>
@@ -167,7 +154,6 @@ const CourseManagement = () => {
           <Plus size={18} /> New Curriculum Course
         </button>
       </div>
-
       {/* Filter Bar */}
       <div className="bg-white border border-slate-200 rounded-2xl p-3 flex flex-col md:flex-row items-center gap-3 shadow-sm">
         <div className="relative flex-1 w-full group">
@@ -189,7 +175,6 @@ const CourseManagement = () => {
            </button>
         </div>
       </div>
-
       {/* Course Grid */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
@@ -232,11 +217,9 @@ const CourseManagement = () => {
                    {course.is_active ? 'Active' : 'Inactive'}
                 </div>
               </div>
-
               <h3 className="text-xl font-bold text-slate-900 mb-2 leading-snug group-hover:text-indigo-600 transition-colors brand-font">
                 {course.title}
               </h3>
-              
               <div className="flex flex-wrap gap-3 mb-8">
                 <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
                   <GraduationCap size={14} className="text-slate-400" />
@@ -247,7 +230,6 @@ const CourseManagement = () => {
                   {course.credit_hours} CH
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-4 pb-6 border-b border-slate-100">
                 <div className="space-y-1">
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Enrolled</p>
@@ -264,7 +246,6 @@ const CourseManagement = () => {
                   </p>
                 </div>
               </div>
-
               {/* Action Buttons at the bottom */}
               <div className="mt-6 flex items-center gap-3">
                 <button 
@@ -284,7 +265,6 @@ const CourseManagement = () => {
           ))}
         </div>
       )}
-
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[200] flex items-center justify-center p-6 animate-in fade-in duration-300">
@@ -316,7 +296,6 @@ const CourseManagement = () => {
            </div>
         </div>
       )}
-
       {/* Add Course Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-6 transition-all">
@@ -335,7 +314,6 @@ const CourseManagement = () => {
                 <X size={20} />
               </button>
             </div>
-
             <div className="flex-1 overflow-y-auto p-8 scrollbar-hide">
               <form onSubmit={handleCreate} className="space-y-6">
                 <div className="grid grid-cols-2 gap-6">
@@ -345,7 +323,7 @@ const CourseManagement = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Credit Hours</label>
-                    <input required type="number" min={1} max={6} value={form.credit_hours} onChange={e => setForm({...form, credit_hours: parseInt(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[13px] font-medium" />
+                    <input required type="number" min={1} max={6} value={form.credit_hours || ''} onChange={e => setForm({...form, credit_hours: e.target.value === '' ? '' : parseInt(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[13px] font-medium" />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -359,7 +337,7 @@ const CourseManagement = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Max Seats</label>
-                    <input required type="number" min={1} value={form.max_seats} onChange={e => setForm({...form, max_seats: parseInt(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[13px] font-medium" />
+                    <input required type="number" min={1} value={form.max_seats || ''} onChange={e => setForm({...form, max_seats: e.target.value === '' ? '' : parseInt(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[13px] font-medium" />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -377,7 +355,6 @@ const CourseManagement = () => {
           </div>
         </div>
       )}
-
       {/* Edit Course Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-6 transition-all">
@@ -396,7 +373,6 @@ const CourseManagement = () => {
                 <X size={20} />
               </button>
             </div>
-
             <div className="flex-1 overflow-y-auto p-8 scrollbar-hide">
               <form onSubmit={handleUpdate} className="space-y-6">
                 <div className="grid grid-cols-2 gap-6">
@@ -406,7 +382,7 @@ const CourseManagement = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Credit Hours</label>
-                    <input required type="number" min={1} max={6} value={form.credit_hours} onChange={e => setForm({...form, credit_hours: parseInt(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[13px] font-medium" />
+                    <input required type="number" min={1} max={6} value={form.credit_hours || ''} onChange={e => setForm({...form, credit_hours: e.target.value === '' ? '' : parseInt(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[13px] font-medium" />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -420,7 +396,7 @@ const CourseManagement = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Max Seats</label>
-                    <input required type="number" min={1} value={form.max_seats} onChange={e => setForm({...form, max_seats: parseInt(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[13px] font-medium" />
+                    <input required type="number" min={1} value={form.max_seats || ''} onChange={e => setForm({...form, max_seats: e.target.value === '' ? '' : parseInt(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[13px] font-medium" />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -471,5 +447,4 @@ const CourseManagement = () => {
     </div>
   );
 };
-
 export default CourseManagement;
