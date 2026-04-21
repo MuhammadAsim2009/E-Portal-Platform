@@ -40,6 +40,7 @@ const TimetableManagement = () => {
   const [eligibleStudents, setEligibleStudents] = useState([]);
   const [enrollLoading, setEnrollLoading] = useState(false);
   const [studentToRemove, setStudentToRemove] = useState(null);
+  const [isActionLoading, setIsActionLoading] = useState(false);
   const showToast = (type, msg) => {
     setToast({ show: true, type, msg });
     setTimeout(() => setToast(prev => ({ ...prev, show: false })), 5000);
@@ -95,6 +96,8 @@ const TimetableManagement = () => {
       showToast('error', 'Select at least one day');
       return;
     }
+    if (isActionLoading) return;
+    setIsActionLoading(true);
     try {
       await api.patch(`/admin/sections/${selectedSection.section_id}`, data);
       showToast('success', 'Schedule updated successfully');
@@ -102,6 +105,8 @@ const TimetableManagement = () => {
       fetchSections();
     } catch (err) {
       showToast('error', err.response?.data?.message || 'Update failed');
+    } finally {
+      setIsActionLoading(false);
     }
   };
   const handleCreate = async (e) => {
@@ -118,6 +123,8 @@ const TimetableManagement = () => {
       showToast('error', 'Select at least one day');
       return;
     }
+    if (isActionLoading) return;
+    setIsActionLoading(true);
     try {
       await api.post('/admin/sections', data);
       showToast('success', 'New entry created successfully');
@@ -125,6 +132,8 @@ const TimetableManagement = () => {
       fetchSections();
     } catch (err) {
       showToast('error', err.response?.data?.message || 'Creation failed');
+    } finally {
+      setIsActionLoading(false);
     }
   };
   const handleDelete = async () => {
@@ -156,8 +165,18 @@ const TimetableManagement = () => {
   };
   const handleEnroll = async (e) => {
     e.preventDefault();
-    setEnrollLoading(true);
+    if (isActionLoading) return;
     const student_id = e.target.student_id.value;
+    if (!student_id) return;
+    // Capacity guard â€” use course max_seats
+    const courseMaxSeats = courses.find(c => c.course_id === selectedSection.course_id)?.max_seats
+      || selectedSection.max_seats;
+    if (courseMaxSeats && sectionStudents.length >= Number(courseMaxSeats)) {
+      showToast('error', `Section is full. Maximum capacity is ${courseMaxSeats} students.`);
+      return;
+    }
+    setIsActionLoading(true);
+    setEnrollLoading(true);
     try {
       await api.post(`/admin/sections/${selectedSection.section_id}/enroll`, { student_id });
       showToast('success', 'Student enrolled successfully');
@@ -167,6 +186,7 @@ const TimetableManagement = () => {
     } catch (err) {
       showToast('error', err.response?.data?.message || 'Enrollment failed');
     } finally {
+      setIsActionLoading(false);
       setEnrollLoading(false);
     }
   };
@@ -226,38 +246,34 @@ const TimetableManagement = () => {
     s.course_code.toLowerCase().includes(search.toLowerCase()) || 
     s.course_title.toLowerCase().includes(search.toLowerCase())
   );
+  const totalEnrolled = sections.reduce((acc, s) => acc + (s.current_seats || 0), 0);
+  const totalCapacity = sections.reduce((acc, s) => acc + (s.max_seats || 0), 0);
   const metrics = {
     total: sections.length,
     unassigned: sections.filter(s => !s.faculty_id).length,
-    occupancy: Math.round((sections.reduce((acc, s) => acc + (s.current_seats || 0), 0) / sections.reduce((acc, s) => acc + (s.max_seats || 0), 1)) * 100)
+    occupancy: totalCapacity > 0 ? Math.round((totalEnrolled / totalCapacity) * 100) : 0,
+    totalEnrolled,
+    totalCapacity
   };
   return (
     <div className="space-y-12 animate-in fade-in duration-700 relative">
-      {/* Toast Notification */}
+      {/* Toast Notification â€” single source of truth */}
       {toast.show && (
-        <div className="fixed top-8 right-8 z-[100] animate-in fade-in slide-in-from-right-8 duration-500">
-          <div className={`flex items-center gap-4 pl-4 pr-3 py-3 rounded-2xl shadow-2xl border backdrop-blur-md min-w-[320px] ${
-            toast.type === 'success' 
-              ? 'bg-emerald-500/95 border-emerald-400/50 text-white' 
-              : 'bg-rose-500/95 border-rose-400/50 text-white'
-          }`}>
-            <div className="flex-shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-              {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
-            </div>
-            <div className="flex-1">
-              <p className="text-[13px] font-medium opacity-80 uppercase tracking-wider mb-0.5">
-                {toast.type === 'success' ? 'Success' : 'Attention Needed'}
-              </p>
-              <p className="text-sm font-semibold leading-tight">{toast.msg}</p>
-            </div>
-            <button 
-              onClick={() => setToast({ ...toast, show: false })} 
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors group"
-            >
-              <X size={16} className="opacity-60 group-hover:opacity-100" />
-            </button>
+        <div className={`fixed top-8 right-8 z-[200] flex items-center gap-4 pl-4 pr-6 py-4 rounded-[2rem] shadow-2xl animate-in slide-in-from-right-10 duration-500 ${
+          toast.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
+        }`}>
+          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border border-white/30 shrink-0">
+            {toast.type === 'success' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
           </div>
-          <div className={`absolute bottom-0 left-0 h-1 rounded-full bg-white/30 animate-progress origin-left`} style={{ animationDuration: '5000ms' }}></div>
+          <div className="flex-1 min-w-[180px]">
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-80 leading-none mb-1">
+              {toast.type === 'success' ? 'SUCCESS' : 'ATTENTION'}
+            </p>
+            <p className="text-sm font-bold tracking-tight leading-tight">{toast.msg}</p>
+          </div>
+          <button onClick={() => setToast({ ...toast, show: false })} className="p-2 hover:bg-white/10 rounded-xl transition-all">
+            <X size={20} />
+          </button>
         </div>
       )}
       {/* Header */}
@@ -282,28 +298,43 @@ const TimetableManagement = () => {
           <Plus size={18} /> Add Time Table
         </button>
       </div>
-      <div className="flex flex-wrap items-center gap-4">
-        {[
-          { label: 'Sections', val: metrics.total, icon: <Users size={16} />, color: 'indigo' },
-          { label: 'Unassigned', val: metrics.unassigned, icon: <AlertCircle size={16} />, color: 'rose' },
-          { label: 'Occupancy', val: `${metrics.occupancy}%`, icon: <CheckCircle2 size={16} />, color: 'emerald' }
-        ].map((stat, i) => {
-          const colorMap = {
-            indigo: 'bg-indigo-50/50 border-indigo-100 text-indigo-600',
-            rose: 'bg-rose-50/50 border-rose-100 text-rose-600',
-            emerald: 'bg-emerald-50/50 border-emerald-100 text-emerald-600'
-          };
-          const colors = colorMap[stat.color] || colorMap.indigo;
-          return (
-            <div key={i} className={`${colors} px-5 py-4 rounded-2xl border min-w-[150px] shadow-sm`}>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{stat.label}</span>
-                <div className="opacity-60">{stat.icon}</div>
-              </div>
-              <div className="text-2xl font-bold text-slate-900 leading-none">{stat.val}</div>
-            </div>
-          );
-        })}
+      {/* Metrics Strip */}
+      <div className="flex flex-wrap items-stretch gap-4">
+        {/* Total Sections */}
+        <div className="bg-indigo-50/50 border border-indigo-100 text-indigo-600 px-5 py-4 rounded-2xl min-w-[150px] shadow-sm flex-1">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active Sections</span>
+            <Users size={16} className="opacity-60" />
+          </div>
+          <div className="text-2xl font-bold text-slate-900 leading-none">{metrics.total}</div>
+          <p className="text-[10px] font-medium text-slate-400 mt-1">scheduled timetable entries</p>
+        </div>
+        {/* Staff Gaps */}
+        <div className="bg-rose-50/50 border border-rose-100 text-rose-600 px-5 py-4 rounded-2xl min-w-[150px] shadow-sm flex-1">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Staff Gaps</span>
+            <AlertCircle size={16} className="opacity-60" />
+          </div>
+          <div className="text-2xl font-bold text-slate-900 leading-none">{metrics.unassigned}</div>
+          <p className="text-[10px] font-medium text-slate-400 mt-1">sections need faculty assigned</p>
+        </div>
+        {/* Enrollment Capacity */}
+        <div className="bg-emerald-50/50 border border-emerald-100 text-emerald-600 px-5 py-4 rounded-2xl min-w-[200px] shadow-sm flex-1">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Seat Utilization</span>
+            <CheckCircle2 size={16} className="opacity-60" />
+          </div>
+          <div className="flex items-end gap-2 mb-2">
+            <div className="text-2xl font-bold text-slate-900 leading-none">{metrics.occupancy}%</div>
+            <div className="text-[11px] font-bold text-slate-400 mb-0.5">{metrics.totalEnrolled} / {metrics.totalCapacity} seats</div>
+          </div>
+          <div className="h-1.5 bg-emerald-100 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-emerald-500 rounded-full transition-all duration-1000"
+              style={{ width: `${metrics.occupancy}%` }}
+            />
+          </div>
+        </div>
       </div>
       <div className="bg-white border border-slate-200 rounded-2xl p-3 flex flex-col md:flex-row items-center gap-3 shadow-sm">
         <div className="relative flex-1 w-full group">
@@ -417,7 +448,7 @@ const TimetableManagement = () => {
               </div>
               <div>
                 <h2 className="text-xl font-bold text-slate-900 tracking-tight leading-tight">Schedule Assembly</h2>
-                <p className="text-slate-500 font-medium text-[13px] mt-0.5">{selectedSection.course_title} • {selectedSection.section_name}</p>
+                <p className="text-slate-500 font-medium text-[13px] mt-0.5">{selectedSection.course_title} â€¢ {selectedSection.section_name}</p>
               </div>
             </div>
             <form onSubmit={handleUpdate} className="space-y-5">
@@ -451,7 +482,7 @@ const TimetableManagement = () => {
                   >
                     <option value="">Select Faculty</option>
                     {faculty.map(f => (
-                      <option key={f.faculty_id} value={f.faculty_id}>{f.name} — {f.department}</option>
+                      <option key={f.faculty_id} value={f.faculty_id}>{f.name} â€” {f.department}</option>
                     ))}
                   </select>
                   <ChevronRight size={16} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
@@ -505,7 +536,9 @@ const TimetableManagement = () => {
               </div>
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-semibold text-[13px] hover:bg-slate-200 transition-all">Cancel</button>
-                <button type="submit" className="flex-[2] px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold text-[13px] hover:bg-slate-800 transition-all shadow-sm">Save Schedule</button>
+                <button type="submit" disabled={isActionLoading} className="flex-[2] px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold text-[13px] hover:bg-slate-800 transition-all shadow-sm disabled:opacity-50">
+                  {isActionLoading ? 'Saving...' : 'Save Schedule'}
+                </button>
               </div>
             </form>
           </div>
@@ -535,7 +568,7 @@ const TimetableManagement = () => {
                   >
                     <option value="">Select Course</option>
                     {courses.filter(c => c.is_active).map(c => (
-                      <option key={c.course_id} value={c.course_id}>{c.course_code} - {c.title}</option>
+                      <option key={c.course_id} value={c.course_id}>{c.title}</option>
                     ))}
                   </select>
                   <ChevronRight size={16} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
@@ -621,7 +654,9 @@ const TimetableManagement = () => {
               </div>
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-semibold text-[13px] hover:bg-slate-200 transition-all">Cancel</button>
-                <button type="submit" className="flex-[2] px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold text-[13px] hover:bg-slate-800 transition-all shadow-sm">Save Entry</button>
+                <button type="submit" disabled={isActionLoading} className="flex-[2] px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold text-[13px] hover:bg-slate-800 transition-all shadow-sm disabled:opacity-50">
+                   {isActionLoading ? 'Saving...' : 'Save Entry'}
+                </button>
               </div>
             </form>
           </div>
@@ -639,10 +674,10 @@ const TimetableManagement = () => {
                 <div>
                   <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-tight">{selectedSection.course_title}</h2>
                   <div className="flex items-center gap-3 mt-1">
-                    <p className="text-indigo-600 font-bold text-sm">Section {selectedSection.section_name} • {selectedSection.course_code}</p>
+                    <p className="text-indigo-600 font-bold text-sm">Section {selectedSection.section_name} â€¢ {selectedSection.course_code}</p>
                     <button 
                       onClick={handleExportICS}
-                      className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-1"
+                      className="px-3 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gradient-to-r hover:from-indigo-600 hover:to-violet-600 hover:text-white hover:border-transparent hover:shadow-lg hover:shadow-indigo-200 transition-all flex items-center gap-1.5 active:scale-95"
                     >
                       <DownloadIcon size={12} /> Export .ics
                     </button>
@@ -672,7 +707,7 @@ const TimetableManagement = () => {
                     Enrolled Students 
                     <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[10px] font-black">{sectionStudents.length}</span>
                   </h3>
-                  <div className="text-[11px] font-bold text-slate-400 italic">Capacity: {selectedSection.current_seats}/{selectedSection.max_seats}</div>
+                  <div className="text-[11px] font-bold text-slate-400 italic">Capacity: {selectedSection.current_seats}/{courses.find(c => c.course_id === selectedSection.course_id)?.max_seats || selectedSection.max_seats || 'N/A'}</div>
                 </div>
                 <form onSubmit={handleEnroll} className="flex gap-2">
                   <div className="relative flex-1">

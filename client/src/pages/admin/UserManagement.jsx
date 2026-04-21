@@ -5,9 +5,9 @@ import {
   Users, Search, ToggleLeft, ToggleRight, 
   ChevronLeft, ChevronRight, Filter, MoreVertical,
   Mail, Calendar, Shield, UserX, UserCheck, Download,
-  Ban, Edit2, Trash2, Eye, EyeOff, ShieldAlert, FileUp, Info, HelpCircle
+  Ban, Edit2, Trash2, Eye, EyeOff, ShieldAlert, FileUp, Info, HelpCircle,
+  CheckCircle2, AlertCircle, X
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 const ROLES = ['all', 'student', 'faculty', 'admin'];
 const roleStyles = {
   student: 'bg-indigo-50 text-indigo-700 border-indigo-100 ring-indigo-500/10',
@@ -34,6 +34,16 @@ const UserManagement = () => {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkFile, setBulkFile] = useState(null);
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  
+  const [toast, setToast] = useState({ show: false, type: '', msg: '' });
+  const [toastTimer, setToastTimer] = useState(null);
+  const showToast = (type, msg) => {
+    if (toastTimer) clearTimeout(toastTimer);
+    setToast({ show: true, type, msg });
+    const timer = setTimeout(() => setToast({ show: false, type: '', msg: '' }), 5000);
+    setToastTimer(timer);
+  };
+
   const limit = 10;
   const fetchUsers = async () => {
     setLoading(true);
@@ -91,21 +101,27 @@ const UserManagement = () => {
       setTogglingId(null);
     }
   };
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const handleUpdateUser = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const res = await api.patch(`/admin/users/${selectedUser.user_id}`, selectedUser);
       setUsers(users.map(u => u.user_id === selectedUser.user_id ? { ...u, ...res.data } : u));
       setShowEditModal(false);
       fetchUsers(); // Refresh to be completely safe
-    } catch { alert('Update failed'); }
+      showToast('success', 'User updated successfully');
+    } catch { showToast('error', 'Update failed'); } finally { setIsSubmitting(false); }
   };
   const handleDeleteUser = async () => {
-    if (!userToDelete) return;
+    if (!userToDelete || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await api.delete(`/admin/users/${userToDelete.user_id}`);
       setUserToDelete(null);
       fetchUsers();
+      showToast('success', 'User deleted successfully');
     } catch (err) {
       const msg = err.response?.data?.message || 'Failed to delete user. Please try again.';
       setUserToDelete(null);
@@ -113,17 +129,20 @@ const UserManagement = () => {
         title: err.response?.status === 409 ? 'Cannot Delete Enrolled Student' : 'Deletion Failed',
         message: msg,
       });
-    }
+    } finally { setIsSubmitting(false); }
   };
   const handleAddUser = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     try {
       await api.post('/admin/users', data);
       setShowAddModal(false);
       fetchUsers();
-    } catch { alert('Creation failed'); }
+      showToast('success', 'User created successfully');
+    } catch { showToast('error', 'Creation failed'); } finally { setIsSubmitting(false); }
   };
   const handleBulkEnroll = async (e) => {
     e.preventDefault();
@@ -139,16 +158,16 @@ const UserManagement = () => {
           return { name, email, role, password, department, is_admin_created: true };
         });
         if (usersToCreate.length === 0) {
-          toast.error('CSV file appears empty or malformed');
+          showToast('error', 'CSV file appears empty or malformed');
           return;
         }
         const res = await api.post('/admin/users/bulk', usersToCreate);
-        toast.success(res.data.message);
+        showToast('success', res.data.message);
         setShowBulkModal(false);
         setBulkFile(null);
         fetchUsers();
       } catch (err) {
-        toast.error(err.response?.data?.message || 'Batch enrollment failed');
+        showToast('error', err.response?.data?.message || 'Batch enrollment failed');
       } finally {
         setBulkProcessing(false);
       }
@@ -162,6 +181,32 @@ const UserManagement = () => {
   const totalPages = Math.ceil(total / limit);
   return (
     <>
+      {toast.show && (
+        <div className="fixed top-8 right-8 z-[100] animate-in fade-in slide-in-from-right-8 duration-500">
+          <div className={`flex items-center gap-4 pl-4 pr-3 py-3 rounded-2xl shadow-2xl border backdrop-blur-md min-w-[320px] ${
+            toast.type === 'success' 
+              ? 'bg-emerald-500/95 border-emerald-400/50 text-white' 
+              : 'bg-rose-500/95 border-rose-400/50 text-white'
+          }`}>
+            <div className="flex-shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
+              {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <div className="flex-1">
+              <p className="text-[13px] font-medium opacity-80 uppercase tracking-wider mb-0.5">
+                {toast.type === 'success' ? 'Success' : 'Attention Needed'}
+              </p>
+              <p className="text-sm font-semibold leading-tight">{toast.msg}</p>
+            </div>
+            <button 
+              onClick={() => setToast({ ...toast, show: false })} 
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors group"
+            >
+              <X size={16} className="opacity-60 group-hover:opacity-100" />
+            </button>
+          </div>
+          <div className={`absolute bottom-0 left-0 h-1 rounded-full bg-white/30 animate-progress origin-left`} style={{ animationDuration: '5000ms' }}></div>
+        </div>
+      )}
       <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
         {/* Header Section */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
@@ -420,12 +465,26 @@ const UserManagement = () => {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Full Name</label>
-                  <input name="name" required className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px]" />
+                  <input name="name" required placeholder="Enter full name (e.g. John Doe)" className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px]" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2 flex-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Work Email</label>
+                    <input name="email" type="email" required placeholder="john.doe@university.edu" className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px]" />
+                  </div>
+                  <div className="space-y-2 flex-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Phone Number</label>
+                    <input name="phone" type="tel" placeholder="+92 300 1234567" className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px]" />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Work Email</label>
-                    <input name="email" type="email" required className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px]" />
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Core Role</label>
+                    <select name="role" required className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px] appearance-none">
+                      <option value="student">Student</option>
+                      <option value="faculty">Faculty</option>
+                      <option value="admin">Administrator</option>
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Password</label>
@@ -434,6 +493,7 @@ const UserManagement = () => {
                         name="password" 
                         type={showPassword ? 'text' : 'password'} 
                         required 
+                        placeholder="••••••••"
                         className="w-full px-5 py-3 pr-12 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px]" 
                       />
                       <button
@@ -447,14 +507,6 @@ const UserManagement = () => {
                     </div>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Core Role</label>
-                  <select name="role" required className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px] appearance-none">
-                    <option value="student">Student</option>
-                    <option value="faculty">Faculty</option>
-                    <option value="admin">Administrator</option>
-                  </select>
-                </div>
               </div>
               <div className="flex gap-4 pt-4">
                 <button 
@@ -462,7 +514,9 @@ const UserManagement = () => {
                   onClick={() => { setShowAddModal(false); setShowPassword(false); }} 
                   className="flex-1 px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-semibold text-[13px] hover:bg-slate-200 transition-all"
                 >Cancel</button>
-                <button type="submit" className="flex-[2] px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold text-[13px] hover:bg-slate-800 transition-all shadow-sm">Add User</button>
+                <button type="submit" disabled={isSubmitting} className="flex-[2] px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold text-[13px] hover:bg-slate-800 transition-all shadow-sm flex items-center justify-center gap-2">
+                  {isSubmitting ? <><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Provisioning...</> : 'Add User'}
+                </button>
               </div>
             </form>
           </div>
@@ -481,16 +535,27 @@ const UserManagement = () => {
                   <input 
                     value={selectedUser.name}
                     onChange={e => setSelectedUser({...selectedUser, name: e.target.value})}
+                    placeholder="Enter full name"
                     required className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px]" 
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Email Address</label>
-                  <input 
-                    value={selectedUser.email}
-                    onChange={e => setSelectedUser({...selectedUser, email: e.target.value})}
-                    type="email" required className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px]" 
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Email Address</label>
+                    <input 
+                      value={selectedUser.email}
+                      onChange={e => setSelectedUser({...selectedUser, email: e.target.value})}
+                      type="email" required placeholder="email@university.edu" className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px]" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Phone Number</label>
+                    <input 
+                      value={selectedUser.phone || ''}
+                      onChange={e => setSelectedUser({...selectedUser, phone: e.target.value})}
+                      type="tel" placeholder="+92 3XX XXXXXXX" className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 font-medium text-[13px]" 
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Core Role</label>
@@ -507,7 +572,9 @@ const UserManagement = () => {
               </div>
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-semibold text-[13px] hover:bg-slate-200 transition-all">Cancel</button>
-                <button type="submit" className="flex-[2] px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold text-[13px] hover:bg-slate-800 transition-all shadow-sm">Save Changes</button>
+                <button type="submit" disabled={isSubmitting} className="flex-[2] px-6 py-3 bg-slate-900 text-white rounded-xl font-semibold text-[13px] hover:bg-slate-800 transition-all shadow-sm flex items-center justify-center gap-2">
+                  {isSubmitting ? <><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</> : 'Save Changes'}
+                </button>
               </div>
             </form>
           </div>
@@ -661,6 +728,37 @@ const UserManagement = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className="fixed top-8 right-8 z-[200] animate-in fade-in slide-in-from-right-8 duration-500">
+          <div className={`flex items-center gap-4 pl-4 pr-3 py-3 rounded-2xl shadow-2xl border backdrop-blur-md min-w-[320px] ${
+            toast.type === 'success' 
+              ? 'bg-emerald-500/95 border-emerald-400/50 text-white' 
+              : 'bg-rose-500/95 border-rose-400/50 text-white'
+          }`}>
+            <div className="flex-shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
+              {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <div className="flex-1">
+              <p className="text-[13px] font-medium opacity-80 uppercase tracking-wider mb-0.5">
+                {toast.type === 'success' ? 'Success' : 'Attention Needed'}
+              </p>
+              <p className="text-[14px] font-bold tracking-tight">
+                {toast.msg}
+              </p>
+            </div>
+            <button 
+              onClick={() => setToast({ ...toast, show: false })}
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors"
+            >
+              <X size={16} />
+            </button>
+            <div className="absolute bottom-0 left-0 h-1 bg-white/20 rounded-full overflow-hidden w-full">
+              <div className="h-full bg-white animate-progress" />
+            </div>
           </div>
         </div>
       )}

@@ -5,7 +5,7 @@ import {
   Bell, Info, AlertTriangle, ShieldCheck, 
   Activity, Clock, Search, Filter, Trash2, 
   ChevronRight, ArrowUpRight, History, Settings,
-  User, Database, CreditCard, BookOpen
+  User, Database, CreditCard, BookOpen, AlertCircle, CheckCircle2, X
 } from 'lucide-react';
 const AdminNotifications = () => {
   usePageTitle('Admin Notifications');
@@ -13,6 +13,11 @@ const AdminNotifications = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('unread'); // 'unread', 'all'
   const [search, setSearch] = useState('');
+  const [toast, setToast] = useState({ show: false, msg: '', type: 'success' });
+  const showToast = (type, msg) => {
+    setToast({ show: true, type, msg });
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 5000);
+  };
   useEffect(() => {
     fetchNotifications();
   }, [activeTab]);
@@ -41,8 +46,10 @@ const AdminNotifications = () => {
       if (activeTab === 'unread') {
         setNotifications(prev => prev.filter(n => n.notification_id !== id));
       }
+      showToast('success', 'Notification marked as read');
     } catch (err) {
       console.error(err);
+      showToast('error', 'Failed to update status');
     }
   };
   const getPriorityStyles = (priority) => {
@@ -211,6 +218,33 @@ const AdminNotifications = () => {
               <Activity size={14} /> End of portal notification feed
             </p>
          </div>
+      )}
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className="fixed top-8 right-8 z-[200] animate-in fade-in slide-in-from-right-8 duration-500">
+          <div className={`flex items-center gap-4 pl-4 pr-3 py-3 rounded-2xl shadow-2xl border backdrop-blur-md min-w-[320px] ${
+            toast.type === 'success' 
+              ? 'bg-emerald-500/95 border-emerald-400/50 text-white' 
+              : 'bg-rose-500/95 border-rose-400/50 text-white'
+          }`}>
+            <div className="flex-shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
+              {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <div className="flex-1">
+              <p className="text-[13px] font-medium opacity-80 uppercase tracking-wider mb-0.5">
+                {toast.type === 'success' ? 'Success' : 'Attention Needed'}
+              </p>
+              <p className="text-sm font-semibold leading-tight">{toast.msg}</p>
+            </div>
+            <button 
+              onClick={() => setToast({ ...toast, show: false })} 
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors group"
+            >
+              <X size={16} className="opacity-60 group-hover:opacity-100" />
+            </button>
+          </div>
+          <div className="absolute bottom-0 left-0 h-1 rounded-full bg-white/30 animate-progress origin-left" style={{ animationDuration: '5000ms' }}></div>
+        </div>
       )}
     </div>
   );

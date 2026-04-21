@@ -3,13 +3,12 @@ import { useState, useEffect } from 'react';
 import { 
   Search, Filter, Download as DownloadIcon, MoreVertical, 
   CheckCircle, XCircle, Clock, DollarSign, User, Calendar,
-  ChevronRight, ArrowUpDown, CreditCard, ChevronDown, CheckCircle2, Layers
+  ChevronRight, ArrowUpDown, CreditCard, ChevronDown, CheckCircle2, Layers,
+  AlertCircle, Eye, Printer, X, FileText
 } from 'lucide-react';
 import api from '../../services/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Eye, Printer, X, FileText } from 'lucide-react';
-import { toast } from 'react-hot-toast';
 const PaymentManagement = () => {
   usePageTitle('Payment Management');
   const [payments, setPayments] = useState([]);
@@ -23,6 +22,18 @@ const PaymentManagement = () => {
   const [justification, setJustification] = useState('');
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [courses, setCourses] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [selectedCourse, setSelectedCourse] = useState('');
+  
+  const [toast, setToast] = useState({ show: false, type: '', msg: '' });
+  const [toastTimer, setToastTimer] = useState(null);
+  const showToast = (type, msg) => {
+    if (toastTimer) clearTimeout(toastTimer);
+    setToast({ show: true, type, msg });
+    const timer = setTimeout(() => setToast({ show: false, type: '', msg: '' }), 5000);
+    setToastTimer(timer);
+  };
   const fetchPayments = async () => {
     try {
       const res = await api.get('/admin/payments');
@@ -35,6 +46,17 @@ const PaymentManagement = () => {
   };
   useEffect(() => {
     fetchPayments();
+    const fetchData = async () => {
+      try {
+        const [cRes, sRes] = await Promise.all([
+          api.get('/admin/courses'),
+          api.get('/admin/sections')
+        ]);
+        setCourses(cRes.data || []);
+        setSections(sRes.data || []);
+      } catch (err) { console.error('Error fetching dropdown data:', err); }
+    };
+    fetchData();
   }, []);
   const handleStatusUpdate = async (id, status, justificationText = null) => {
     setActionLoading(id);
@@ -43,8 +65,9 @@ const PaymentManagement = () => {
       setPayments(payments.map(p => p.payment_id === id ? { ...p, status, waiver_justification: justificationText } : p));
       setWaiverModal({ isOpen: false, id: null, status: '' });
       setJustification('');
+      showToast('success', `Payment status updated to ${status}`);
     } catch (err) {
-      console.error('Error updating payment status:', err);
+      showToast('error', 'Update Failed: System integrity check required.');
     } finally {
       setActionLoading(null);
     }
@@ -56,11 +79,11 @@ const PaymentManagement = () => {
     setBulkProcessing(true);
     try {
       const res = await api.post('/admin/fees/bulk-generate', data);
-      toast.success(res.data.message);
+      showToast('success', res.data.message);
       setShowBulkModal(false);
       fetchPayments();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Bulk generation failed');
+      showToast('error', err.response?.data?.message || 'Bulk generation failed');
     } finally {
       setBulkProcessing(false);
     }
@@ -491,15 +514,26 @@ const PaymentManagement = () => {
                 </div>
                 <form onSubmit={handleBulkGenerate} className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Target Program</label>
-                    <select name="program" required className="w-full px-5 py-3.5 bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 rounded-2xl text-[13px] font-bold text-slate-900 outline-none transition-all appearance-none tracking-tight">
-                      {['BSCS', 'BBA', 'BSIT', 'MCS', 'MBA'].map(p => <option key={p} value={p}>{p}</option>)}
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Target Course</label>
+                    <select 
+                      name="course_id" 
+                      required 
+                      value={selectedCourse}
+                      onChange={(e) => setSelectedCourse(e.target.value)}
+                      className="w-full px-5 py-3.5 bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 rounded-2xl text-[13px] font-bold text-slate-900 outline-none transition-all appearance-none tracking-tight"
+                    >
+                      <option value="">Select Course</option>
+                      {courses.map(c => <option key={c.course_id} value={c.course_id}>{c.title}</option>)}
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Academic Semester</label>
-                    <select name="semester" required className="w-full px-5 py-3.5 bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 rounded-2xl text-[13px] font-bold text-slate-900 outline-none transition-all appearance-none tracking-tight">
-                      {['Fall 2024', 'Spring 2024', 'Fall 2023'].map(s => <option key={s} value={s}>{s}</option>)}
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Academic Section</label>
+                    <select name="section_id" required className="w-full px-5 py-3.5 bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 rounded-2xl text-[13px] font-bold text-slate-900 outline-none transition-all appearance-none tracking-tight">
+                      <option value="">Select Section</option>
+                      {sections
+                        .filter(s => !selectedCourse || s.course_id.toString() === selectedCourse.toString())
+                        .map(s => <option key={s.section_id} value={s.section_id}>{s.section_name}</option>)
+                      }
                     </select>
                   </div>
                   <div className="flex gap-4 pt-4 border-t border-slate-100">
@@ -526,6 +560,33 @@ const PaymentManagement = () => {
                 </form>
               </div>
            </div>
+        </div>
+      )}
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className="fixed top-8 right-8 z-[200] animate-in fade-in slide-in-from-right-8 duration-500">
+          <div className={`flex items-center gap-4 pl-4 pr-3 py-3 rounded-2xl shadow-2xl border backdrop-blur-md min-w-[320px] ${
+            toast.type === 'success' 
+              ? 'bg-emerald-500/95 border-emerald-400/50 text-white' 
+              : 'bg-rose-500/95 border-rose-400/50 text-white'
+          }`}>
+            <div className="flex-shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
+              {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <div className="flex-1">
+              <p className="text-[13px] font-medium opacity-80 uppercase tracking-wider mb-0.5">
+                {toast.type === 'success' ? 'Success' : 'Attention Needed'}
+              </p>
+              <p className="text-sm font-semibold leading-tight">{toast.msg}</p>
+            </div>
+            <button 
+              onClick={() => setToast({ ...toast, show: false })} 
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors group"
+            >
+              <X size={16} className="opacity-60 group-hover:opacity-100" />
+            </button>
+          </div>
+          <div className="absolute bottom-0 left-0 h-1 rounded-full bg-white/30 animate-progress origin-left" style={{ animationDuration: '5000ms' }}></div>
         </div>
       )}
     </div>

@@ -39,6 +39,7 @@ import {
   testEmail,
   getFeeStructures,
   createFeeStructure,
+  updateFeeStructure,
   deleteFeeStructure,
   bulkGenerateFees,
   getSettings
@@ -103,6 +104,7 @@ router.post('/settings/test-email', testEmail);
 // Fee Structures
 router.get('/fee-structures', getFeeStructures);
 router.post('/fee-structures', createFeeStructure);
+router.patch('/fee-structures/:id', updateFeeStructure);
 router.delete('/fee-structures/:id', deleteFeeStructure);
 router.post('/fees/bulk-generate', bulkGenerateFees);
 

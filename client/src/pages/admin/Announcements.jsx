@@ -582,6 +582,37 @@ const Announcements = () => {
           </div>
         </div>
       )}
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className="fixed top-8 right-8 z-[300] animate-in fade-in slide-in-from-right-8 duration-500">
+          <div className={`flex items-center gap-4 pl-4 pr-3 py-3 rounded-2xl shadow-2xl border backdrop-blur-md min-w-[320px] ${
+            toast.type === 'success' 
+              ? 'bg-emerald-500/95 border-emerald-400/50 text-white' 
+              : 'bg-rose-500/95 border-rose-400/50 text-white'
+          }`}>
+            <div className="flex-shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
+              {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <div className="flex-1">
+              <p className="text-[13px] font-medium opacity-80 uppercase tracking-wider mb-0.5">
+                {toast.type === 'success' ? 'Success' : 'Attention Needed'}
+              </p>
+              <p className="text-[14px] font-bold tracking-tight">
+                {toast.msg}
+              </p>
+            </div>
+            <button 
+              onClick={() => setToast({ ...toast, show: false })}
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors"
+            >
+              <X size={16} />
+            </button>
+            <div className="absolute bottom-0 left-0 h-1 bg-white/20 rounded-full overflow-hidden w-full">
+              <div className="h-full bg-white animate-progress" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -14,9 +14,11 @@ import {
   PieChart as PieChartIcon,
   Calendar,
   Layers,
-  CheckCircle2,
   Activity,
-  ChevronRight
+  ChevronRight,
+  AlertCircle,
+  CheckCircle2,
+  X
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -34,6 +36,11 @@ const Analytics = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [search, setSearch] = useState('');
   const [revenueTimeframe, setRevenueTimeframe] = useState('Week');
+  const [toast, setToast] = useState({ show: false, msg: '', type: 'success' });
+  const showToast = (type, msg) => {
+    setToast({ show: true, type, msg });
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 5000);
+  };
   const fetchAnalytics = async () => {
     try {
       const res = await api.get('/admin/analytics');
@@ -103,8 +110,10 @@ const Analytics = () => {
           doc.text(`Page ${i} of ${pageCount} - Confidential E-Portal Intelligence`, 14, 285);
         }
         doc.save(`EPortal_Analytics_${new Date().getTime()}.pdf`);
+        showToast('success', 'PDF Performance Report generated successfully');
       } catch (err) {
         console.error(err);
+        showToast('error', 'Failed to generate PDF');
       } finally {
         setIsExporting(false);
       }
@@ -128,6 +137,7 @@ const Analytics = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    showToast('success', 'CSV Export complete');
   };
   const revenueData = (data.stats.revenueTrend && data.stats.revenueTrend.length > 0) 
     ? data.stats.revenueTrend 
@@ -415,6 +425,33 @@ const Analytics = () => {
           </table>
         </div>
       </div>
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className="fixed top-8 right-8 z-[200] animate-in fade-in slide-in-from-right-8 duration-500">
+          <div className={`flex items-center gap-4 pl-4 pr-3 py-3 rounded-2xl shadow-2xl border backdrop-blur-md min-w-[320px] ${
+            toast.type === 'success' 
+              ? 'bg-emerald-500/95 border-emerald-400/50 text-white' 
+              : 'bg-rose-500/95 border-rose-400/50 text-white'
+          }`}>
+            <div className="flex-shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
+              {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <div className="flex-1">
+              <p className="text-[13px] font-medium opacity-80 uppercase tracking-wider mb-0.5">
+                {toast.type === 'success' ? 'Success' : 'Attention Needed'}
+              </p>
+              <p className="text-sm font-semibold leading-tight">{toast.msg}</p>
+            </div>
+            <button 
+              onClick={() => setToast({ ...toast, show: false })} 
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors group"
+            >
+              <X size={16} className="opacity-60 group-hover:opacity-100" />
+            </button>
+          </div>
+          <div className="absolute bottom-0 left-0 h-1 rounded-full bg-white/30 animate-progress origin-left" style={{ animationDuration: '5000ms' }}></div>
+        </div>
+      )}
     </div>
   );
 };

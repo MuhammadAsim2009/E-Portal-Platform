@@ -197,6 +197,36 @@ export const createAdminUser = async (req, res) => {
       severity: 'info',
       ipAddress: req.ip
     });
+
+    try {
+      await sendEmail({
+        to: email,
+        subject: `Welcome to E-Portal - ${role.charAt(0).toUpperCase() + role.slice(1)} Account Created`,
+        text: `Hello ${name}, your institutional account has been successfully provisioned. Link: ${process.env.CLIENT_URL || 'http://localhost:5173/login'}`,
+        html: `
+          <div style="font-family: 'Inter', system-ui, sans-serif; padding: 40px; background-color: #f8fafc;">
+            <div style="max-width: 600px; margin: 0 auto; bg-color: #ffffff; border-radius: 24px; padding: 40px; border: 1px solid #e2e8f0; shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+              <h2 style="color: #0f172a; font-size: 24px; font-weight: 800; margin-bottom: 16px; tracking: -0.025em;">Welcome to the Portal, ${name}</h2>
+              <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">Your institutional account has been successfully provisioned by the administrator. You can now access your dashboard using the credentials below.</p>
+              
+              <div style="background-color: #f1f5f9; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
+                <p style="margin: 0; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Account Identity</p>
+                <p style="margin: 4px 0 0 0; color: #0f172a; font-size: 16px; font-weight: 600;">${email}</p>
+                <p style="margin: 16px 0 0 0; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Access Role</p>
+                <p style="margin: 4px 0 0 0; color: #4f46e5; font-size: 16px; font-weight: 700; text-transform: capitalize;">${role}</p>
+              </div>
+
+              <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/login" style="display: inline-block; width: 100%; text-align: center; background-color: #0f172a; color: #ffffff; padding: 16px 0; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.025em;">Sign In to Dashboard</a>
+              
+              <p style="margin-top: 32px; color: #94a3b8; font-size: 12px; text-align: center;">If you did not expect this account, please contact the IT helpdesk immediately.</p>
+            </div>
+          </div>
+        `
+      });
+    } catch (emailErr) {
+      console.error('[AdminController] Notification failed for:', email, emailErr);
+    }
+
     res.status(201).json(user);
   } catch (err) {
     console.error(`[AdminController] ${req.route.path} Error:`, err);
@@ -243,6 +273,29 @@ export const bulkCreateUsers = async (req, res) => {
         designation: designation || null,
         qualifications: qualifications || null
       });
+
+      try {
+        await sendEmail({
+          to: email,
+          subject: 'Institutional Account Provisioned',
+          text: `Hello ${name}, your account (${userRole}) has been created. Login at: ${process.env.CLIENT_URL || 'http://localhost:5173/login'}`,
+          html: `
+            <div style="font-family: sans-serif; padding: 30px; border-radius: 15px; border: 1px solid #f1f5f9; background-color: #ffffff;">
+              <h3 style="color: #0f172a;">Account Provisioned</h3>
+              <p style="color: #475569; font-size: 14px;">Your institutional account has been created via bulk import.</p>
+              <div style="padding: 15px; background: #f8fafc; border-radius: 10px; margin: 20px 0;">
+                <p style="margin: 0; font-size: 13px;"><strong>User:</strong> ${name}</p>
+                <p style="margin: 5px 0 0 0; font-size: 13px;"><strong>Email:</strong> ${email}</p>
+                <p style="margin: 5px 0 0 0; font-size: 13px;"><strong>Role:</strong> ${userRole}</p>
+              </div>
+              <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/login" style="color: #4f46e5; font-weight: bold; text-decoration: none;">Link to Dashboard &rarr;</a>
+            </div>
+          `
+        });
+      } catch (e) {
+        console.error('[BulkCreate] Email failed for:', email);
+      }
+      
       results.success.push(email);
     } catch (err) {
       results.failed.push({ email, reason: err.message });
@@ -683,12 +736,13 @@ export const getFeeStructures = async (req, res) => {
 
 export const bulkGenerateFees = async (req, res) => {
   try {
-    const { program, semester } = req.body;
-    const result = await adminService.generateBulkFees(program, semester);
+    const result = await adminService.generateBulkFees(req.body);
+    const { program, semester, course_id, section_id } = req.body;
+    
     await adminService.logAction({
       userId: req.user.id,
       action: 'BULK_GENERATE_FEES',
-      details: `Generated ${result.generatedCount} fee records for ${program} (${semester})`,
+      details: course_id ? `Generated fees for Course ${course_id} Section ${section_id}` : `Generated fees for program ${program} (${semester})`,
       ipAddress: req.ip
     });
     res.json({ message: `Successfully generated ${result.generatedCount} fee records.`, ...result });
@@ -726,6 +780,23 @@ export const deleteFeeStructure = async (req, res) => {
       ipAddress: req.ip
     });
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const updateFeeStructure = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const structure = await adminService.updateFeeStructure(id, req.body);
+    await adminService.logAction({
+      userId: req.user.id,
+      action: 'UPDATE_FEE_STRUCTURE',
+      target: id,
+      details: `Modified fee configuration for ${structure.category}`,
+      ipAddress: req.ip
+    });
+    res.json(structure);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

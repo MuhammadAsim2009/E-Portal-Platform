@@ -1,4 +1,5 @@
 import { query } from '../config/db.js';
+import { sendEmail } from './email.service.js';
 
 const mockUsers = []; // In-memory fallback
 const mockStudents = []; // In-memory fallback
@@ -34,6 +35,28 @@ export const createUser = async ({ name, email, passwordHash, role, cnic, date_o
         reqBody.qualifications || null
       ]);
       user.faculty_id = facRes.rows[0].faculty_id;
+    }
+
+    // Send Notification Email if Admin Created
+    if (status === 'approved') {
+      sendEmail({
+        to: email,
+        subject: 'Welcome to E-Portal Platform',
+        text: `Hello ${name}, your account has been created on E-Portal. Your role is ${role}.`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px;">
+            <h2 style="color: #4f46e5;">Welcome to E-Portal</h2>
+            <p>Hello <strong>${name}</strong>,</p>
+            <p>Your institutional account has been successfully created.</p>
+            <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0;"><strong>Role:</strong> ${role.toUpperCase()}</p>
+              <p style="margin: 4px 0 0 0;"><strong>Email:</strong> ${email}</p>
+            </div>
+            <p>Please login using your credentials.</p>
+            <p style="font-size: 12px; color: #94a3b8; margin-top: 30px;">This is an automated message. Please do not reply.</p>
+          </div>
+        `
+      }).catch(err => console.error('Create User Email Error:', err));
     }
 
     return user;

@@ -6,7 +6,7 @@ import {
   Calendar, UserX, UserCheck, Edit2, Trash2,
   Eye, EyeOff, ShieldAlert, Briefcase, Plus,
   Users, UserCheck2, UserMinus, GraduationCap,
-  BookOpen, Award
+  BookOpen, Award, CheckCircle2, AlertCircle
 } from 'lucide-react';
 const statusStyles = {
   active:   'bg-emerald-50 text-emerald-700 ring-emerald-200',
@@ -38,8 +38,16 @@ const FacultyManagement = () => {
   // Edit / Delete
   const [showEditModal, setShowEditModal]       = useState(false);
   const [selectedFaculty, setSelectedFaculty]   = useState(null);
+  const [updateLoading, setUpdateLoading]       = useState(false);
   const [facultyToDelete, setFacultyToDelete]   = useState(null);
-  const [errorModal, setErrorModal]             = useState(null);
+  const [toast, setToast] = useState({ show: false, type: '', msg: '' });
+  const [toastTimer, setToastTimer] = useState(null);
+  const showToast = (type, msg) => {
+    if (toastTimer) clearTimeout(toastTimer);
+    setToast({ show: true, type, msg });
+    const timer = setTimeout(() => setToast({ show: false, type: '', msg: '' }), 5000);
+    setToastTimer(timer);
+  };
   const limit = 12;
   const fetchFaculty = async () => {
     setLoading(true);
@@ -71,8 +79,9 @@ const FacultyManagement = () => {
     try {
       await api.post('/admin/users', data);
       setShowAddModal(false); setShowPassword(false); e.target.reset(); fetchFaculty();
+      showToast('success', 'Faculty member added successfully');
     } catch (err) {
-      setErrorModal({ title: 'Failed to Add Faculty', message: err.response?.data?.message || 'An error occurred.' });
+      showToast('error', err.response?.data?.message || 'Failed to add faculty');
     } finally { setAddLoading(false); }
   };
   const handleToggle = async (userId) => {
@@ -85,21 +94,30 @@ const FacultyManagement = () => {
   };
   const handleUpdateFaculty = async (e) => {
     e.preventDefault();
+    if (updateLoading) return;
+    setUpdateLoading(true);
     try {
       const res = await api.patch(`/admin/users/${selectedFaculty.user_id}`, selectedFaculty);
       setFaculty(prev => prev.map(f => f.user_id === selectedFaculty.user_id ? { ...f, ...res.data } : f));
-      setShowEditModal(false); fetchFaculty();
-    } catch { console.error('Update failed'); }
+      setShowEditModal(false); 
+      fetchFaculty();
+      showToast('success', 'Profile updated successfully');
+    } catch { 
+      showToast('error', 'Update failed'); 
+    } finally {
+      setUpdateLoading(false);
+    }
   };
   const handleDeleteFaculty = async () => {
     if (!facultyToDelete) return;
     try {
       await api.delete(`/admin/users/${facultyToDelete.user_id}`);
       setFacultyToDelete(null); fetchFaculty();
+      showToast('success', 'Faculty record deleted');
     } catch (err) {
       const msg = err.response?.data?.message || 'Failed to delete.';
       setFacultyToDelete(null);
-      setErrorModal({ title: 'Deletion Failed', message: msg });
+      showToast('error', msg);
     }
   };
   const filtered   = search ? faculty.filter(f => f.name.toLowerCase().includes(search.toLowerCase()) || f.email.toLowerCase().includes(search.toLowerCase())) : faculty;
@@ -183,7 +201,7 @@ const FacultyManagement = () => {
                         </div>
                         <div>
                           <p className="font-bold text-slate-900 text-sm">{f.name}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{f.email}</p>
+                          <p className="text-[10px] text-slate-400 font-bold tracking-wider">{f.email}</p>
                         </div>
                       </div>
                     </td>
@@ -267,7 +285,7 @@ const FacultyManagement = () => {
               </div>
               {/* Email + Password */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 text-left">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Email <span className="text-rose-500">*</span></label>
                   <input name="email" type="email" required placeholder="faculty@uni.edu"
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 focus:ring-4 focus:ring-violet-500/5 font-medium text-[13px] outline-none transition-all" />
@@ -298,8 +316,8 @@ const FacultyManagement = () => {
                 </div>
               </div>
               {/* Contact */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Contact Number</label>
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Phone Number</label>
                 <input name="contact_number" type="tel" placeholder="+92 300 0000000"
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 focus:ring-4 focus:ring-violet-500/5 font-medium text-[13px] outline-none transition-all" />
               </div>
@@ -344,44 +362,38 @@ const FacultyManagement = () => {
                   required className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 font-medium text-[13px] outline-none" />
               </div>
               {/* Email */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Email Address</label>
-                <input type="email" value={selectedFaculty.email || ''} 
-                  onChange={e => setSelectedFaculty({ ...selectedFaculty, email: e.target.value })}
-                  required className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 font-medium text-[13px] outline-none" />
-              </div>
-              {/* Department + Designation */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 text-left">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Department</label>
-                  <input value={selectedFaculty.department || ''} 
+                  <input value={selectedFaculty.department || ''} placeholder="e.g. Computer Science"
                     onChange={e => setSelectedFaculty({ ...selectedFaculty, department: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 font-medium text-[13px] outline-none" />
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 font-medium text-[13px] outline-none transition-all" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Designation</label>
-                  <input value={selectedFaculty.designation || ''} 
+                  <input value={selectedFaculty.designation || ''} placeholder="e.g. Professor"
                     onChange={e => setSelectedFaculty({ ...selectedFaculty, designation: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 font-medium text-[13px] outline-none" />
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 font-medium text-[13px] outline-none transition-all" />
                 </div>
               </div>
-              {/* Contact */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Contact Number</label>
-                <input value={selectedFaculty.contact_number || ''} 
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Phone Number</label>
+                <input value={selectedFaculty.contact_number || ''} placeholder="+92 300 0000000"
                   onChange={e => setSelectedFaculty({ ...selectedFaculty, contact_number: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 font-medium text-[13px] outline-none" />
+                  type="tel" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 font-medium text-[13px] outline-none transition-all" />
               </div>
-              {/* Qualifications */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Qualifications</label>
-                <textarea rows={2} value={selectedFaculty.qualifications || ''} 
+              <div className="space-y-1.5 text-left">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Academic Qualifications</label>
+                <textarea rows={2} value={selectedFaculty.qualifications || ''} placeholder="e.g. PhD, MSCS"
                   onChange={e => setSelectedFaculty({ ...selectedFaculty, qualifications: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 font-medium text-[13px] outline-none resize-none" />
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:border-violet-500 font-medium text-[13px] outline-none resize-none transition-all" />
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 px-5 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-[13px] hover:bg-slate-200 transition-all">Cancel</button>
-                <button type="submit" className="flex-[2] px-5 py-3 bg-violet-600 text-white rounded-xl font-bold text-[13px] hover:bg-violet-700 transition-all shadow-lg shadow-violet-600/20">Save Changes</button>
+                <button type="submit" disabled={updateLoading} className="flex-[2] px-5 py-3 bg-violet-600 text-white rounded-xl font-bold text-[13px] hover:bg-violet-700 transition-all shadow-lg shadow-violet-600/20 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {updateLoading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                  {updateLoading ? 'Saving...' : 'Save Changes'}
+                </button>
               </div>
             </form>
           </div>
@@ -404,16 +416,31 @@ const FacultyManagement = () => {
           </div>
         </div>
       )}
-      {/* ── Error Modal ── */}
-      {errorModal && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-xl p-8 border border-slate-200 text-center relative overflow-hidden">
-            <div className="absolute inset-x-0 -top-10 h-40 bg-gradient-to-b from-amber-50 to-transparent pointer-events-none" />
-            <div className="w-20 h-20 bg-white text-amber-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-amber-100 relative z-10 border-4 border-amber-50"><ShieldAlert size={32} /></div>
-            <h2 className="text-xl font-black text-slate-900 mb-2">{errorModal.title}</h2>
-            <p className="text-slate-500 font-medium text-sm mb-8 leading-relaxed max-w-[300px] mx-auto">{errorModal.message}</p>
-            <button type="button" onClick={() => setErrorModal(null)} className="w-full px-6 py-4 bg-slate-900 text-white rounded-2xl font-bold text-[14px] hover:bg-slate-800 transition-all">Got it</button>
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className="fixed top-8 right-8 z-[200] animate-in fade-in slide-in-from-right-8 duration-500">
+          <div className={`flex items-center gap-4 pl-4 pr-3 py-3 rounded-2xl shadow-2xl border backdrop-blur-md min-w-[320px] ${
+            toast.type === 'success' 
+              ? 'bg-emerald-500/95 border-emerald-400/50 text-white' 
+              : 'bg-rose-500/95 border-rose-400/50 text-white'
+          }`}>
+            <div className="flex-shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
+              {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <div className="flex-1">
+              <p className="text-[13px] font-medium opacity-80 uppercase tracking-wider mb-0.5">
+                {toast.type === 'success' ? 'Success' : 'Attention Needed'}
+              </p>
+              <p className="text-sm font-semibold leading-tight">{toast.msg}</p>
+            </div>
+            <button 
+              onClick={() => setToast({ ...toast, show: false })} 
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors group"
+            >
+              <X size={16} className="opacity-60 group-hover:opacity-100" />
+            </button>
           </div>
+          <div className="absolute bottom-0 left-0 h-1 rounded-full bg-white/30 animate-progress origin-left" style={{ animationDuration: '5000ms' }}></div>
         </div>
       )}
     </>

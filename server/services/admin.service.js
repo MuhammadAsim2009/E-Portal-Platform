@@ -180,10 +180,31 @@ export const createBulkUsers = async (usersData, adminId) => {
         const userRes = await client.query(
           `INSERT INTO users (name, email, role, password, registration_status, is_active)
            VALUES ($1, $2, $3, $4, 'approved', true) 
-           RETURNING user_id`,
-          [name, email.toLowerCase(), role, password || 'Student123!'] // Default password if not provided
+           RETURNING user_id, name, email`,
+          [name, email, role, password || 'Student123!'] // Default password if not provided
         );
         const userId = userRes.rows[0].user_id;
+
+        // Send Notification Email
+        await sendEmail({
+          to: email,
+          subject: 'Account Created - E-Portal Platform',
+          text: `Hello ${name}, your account has been created on E-Portal. Your role is ${role}.`,
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px;">
+              <h2 style="color: #4f46e5;">Welcome to E-Portal</h2>
+              <p>Hello <strong>${name}</strong>,</p>
+              <p>Your institutional account has been successfully created by the administrator.</p>
+              <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0;"><strong>Role:</strong> ${role.toUpperCase()}</p>
+                <p style="margin: 4px 0 0 0;"><strong>Email:</strong> ${email}</p>
+                <p style="margin: 4px 0 0 0;"><strong>Default Password:</strong> ${password || 'Student123!'}</p>
+              </div>
+              <p>Please login and change your password immediately.</p>
+              <p style="font-size: 12px; color: #94a3b8; margin-top: 30px;">This is an automated message. Please do not reply.</p>
+            </div>
+          `
+        }).catch(err => console.error('Create User Email Error:', err));
 
         // 2. Create Profile
         if (role === 'student') {
@@ -478,26 +499,28 @@ export const checkScheduleConflict = async (sectionId, facultyId, roomId, day, s
   // Check Faculty Conflict
   const facultyRes = await db.query(`
     SELECT * FROM course_sections 
-    WHERE faculty_id = $1 AND section_id != $3
+    WHERE faculty_id = $1 
+    AND ($3::TEXT IS NULL OR section_id::TEXT != $3::TEXT)
     AND string_to_array(day_of_week, ', ') && string_to_array($2, ', ')
     AND (
-      (start_time, end_time) OVERLAPS ($4::TIME, $5::TIME)
+      (start_time::TIME, end_time::TIME) OVERLAPS ($4::TIME, $5::TIME)
     )
   `, [facultyId, day, sectionId, startTime, endTime]);
 
-  if (facultyRes.rows.length > 0) return { conflict: true, type: 'Faculty already assigned to another section at this time.' };
+  if (facultyRes.rows.length > 0) return { conflict: true, type: 'Selected teacher is already assigned to another class at this time/day.' };
 
   // Check Room Conflict
   const roomRes = await db.query(`
     SELECT * FROM course_sections 
-    WHERE room = $1 AND section_id != $3
+    WHERE room = $1 
+    AND ($3::TEXT IS NULL OR section_id::TEXT != $3::TEXT)
     AND string_to_array(day_of_week, ', ') && string_to_array($2, ', ')
     AND (
-      (start_time, end_time) OVERLAPS ($4::TIME, $5::TIME)
+      (start_time::TIME, end_time::TIME) OVERLAPS ($4::TIME, $5::TIME)
     )
   `, [roomId, day, sectionId, startTime, endTime]);
 
-  if (roomRes.rows.length > 0) return { conflict: true, type: 'Room is already occupied at this time.' };
+  if (roomRes.rows.length > 0) return { conflict: true, type: 'Selected room is already occupied at this time/day.' };
 
   return { conflict: false };
 };
@@ -511,14 +534,23 @@ export const updateSectionSchedule = async (sectionId, data) => {
     throw new Error(conflict.type);
   }
 
-  const res = await db.query(`
+  const updated = await db.query(`
     UPDATE course_sections 
     SET faculty_id = $1, room = $2, day_of_week = $3, start_time = $4, end_time = $5
     WHERE section_id = $6
     RETURNING *
   `, [faculty_id, room, day_of_week, start_time, end_time, sectionId]);
+
+  const fullData = await db.query(`
+    SELECT s.*, c.title as course_title, c.course_code, f.faculty_id, u.name as faculty_name
+    FROM course_sections s
+    JOIN courses c ON s.course_id = c.course_id
+    LEFT JOIN faculty f ON s.faculty_id = f.faculty_id
+    LEFT JOIN users u ON f.user_id = u.user_id
+    WHERE s.section_id = $1
+  `, [sectionId]);
   
-  return res.rows[0];
+  return fullData.rows[0];
 };
 
 export const createSection = async (data) => {
@@ -535,10 +567,19 @@ export const createSection = async (data) => {
   const res = await db.query(`
     INSERT INTO course_sections (course_id, section_name, faculty_id, room, day_of_week, start_time, end_time, max_seats)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    RETURNING *
+    RETURNING section_id
   `, [course_id, section_name, faculty_id, room, day_of_week, start_time, end_time, max_seats]);
   
-  return res.rows[0];
+  const fullData = await db.query(`
+    SELECT s.*, c.title as course_title, c.course_code, f.faculty_id, u.name as faculty_name
+    FROM course_sections s
+    JOIN courses c ON s.course_id = c.course_id
+    LEFT JOIN faculty f ON s.faculty_id = f.faculty_id
+    LEFT JOIN users u ON f.user_id = u.user_id
+    WHERE s.section_id = $1
+  `, [res.rows[0].section_id]);
+
+  return fullData.rows[0];
 };
 
 // ─────────────────────── FINANCIAL ANALYTICS ───────────────────────
@@ -830,43 +871,74 @@ export const updateSiteSettings = async (settings) => {
 
 // ─────────────────────── FEE STRUCTURES ───────────────────────
 
-export const generateBulkFees = async (program, semester) => {
-  // 1. Get structures for this program/semester
-  const structuresRes = await db.query(
-    'SELECT * FROM fee_structures WHERE program = $1 AND semester = $2 AND is_active = true',
-    [program, semester]
-  );
-  const structures = structuresRes.rows;
-  if (structures.length === 0) {
-    throw new Error(`No active fee structure found for ${program} — ${semester}. Please create a fee structure first.`);
+export const generateBulkFees = async (data) => {
+  const { program, semester, course_id, section_id } = data;
+  
+  let structures = [];
+  let students = [];
+
+  if (course_id && section_id) {
+    // 1. Get structures for this course/section
+    const structuresRes = await db.query(
+      'SELECT * FROM fee_structures WHERE course_id = $1 AND section_id = $2 AND is_active = true',
+      [course_id, section_id]
+    );
+    structures = structuresRes.rows;
+
+    if (structures.length === 0) {
+      throw new Error(`No active fee configuration found for this course and section. Please add pricing in the Fee Matrix first.`);
+    }
+
+    // 2. Get students enrolled in this section
+    const studentsRes = await db.query(
+      `SELECT DISTINCT s.student_id FROM students s
+       JOIN enrollments e ON s.student_id = e.student_id
+       WHERE e.section_id = $1 AND e.status = 'enrolled' AND s.status = 'active'`,
+      [section_id]
+    );
+    students = studentsRes.rows;
+  } else {
+    // Legacy program/semester based generation
+    const structuresRes = await db.query(
+      'SELECT * FROM fee_structures WHERE program = $1 AND semester = $2 AND is_active = true',
+      [program, semester]
+    );
+    structures = structuresRes.rows;
+
+    if (structures.length === 0) {
+      throw new Error(`No active fee structure found for ${program} — ${semester}.`);
+    }
+
+    const studentsRes = await db.query(
+      "SELECT student_id FROM students WHERE status = 'active' AND program = $1",
+      [program]
+    );
+    students = studentsRes.rows;
   }
 
-  // 2. Get all active students in this program
-  const studentsRes = await db.query(
-    `SELECT student_id FROM students 
-     WHERE status = 'active' AND (program = $1 OR program IS NULL)`,
-    [program]
-  );
-  const students = studentsRes.rows;
   if (students.length === 0) {
-    throw new Error(`No active students found. Please ensure students are enrolled and their program is set.`);
+    throw new Error(`No active students found matching the criteria.`);
   }
 
-  // 3. Insert fee records, skip duplicates gracefully per-row
+  // 3. Insert fee records
   let generatedCount = 0;
   const insertPromises = [];
+  
   for (const student of students) {
     for (const structure of structures) {
+      // Use a more unique identifier for course-based fees if applicable
+      const uniqueSemester = semester || `COURSE_${course_id.substring(0,8)}`;
+      
       insertPromises.push(
         db.query(
-          `INSERT INTO fees (student_id, amount, semester, fee_type, due_date, status, discount_amount)
-           VALUES ($1, $2, $3, $4, CURRENT_DATE + INTERVAL '15 days', 'pending', 0)
+          `INSERT INTO fees (student_id, amount, semester, fee_type, due_date, status, discount_amount, course_id, section_id)
+           VALUES ($1, $2, $3, $4, CURRENT_DATE + INTERVAL '15 days', 'pending', 0, $5, $6)
            ON CONFLICT (student_id, semester, fee_type) DO NOTHING`,
-          [student.student_id, structure.amount, semester, structure.category]
+          [student.student_id, structure.amount, uniqueSemester, structure.category, course_id || null, section_id || null]
         ).then(r => {
           if (r.rowCount > 0) generatedCount++;
-        }).catch(() => {
-          // Skip rows that fail due to constraint issues — already billed
+        }).catch(err => {
+          console.error('Error generating fee for student:', student.student_id, err);
         })
       );
     }
@@ -882,21 +954,58 @@ export const generateBulkFees = async (program, semester) => {
 };
 
 export const getFeeStructures = async () => {
-  const res = await db.query('SELECT * FROM fee_structures ORDER BY created_at DESC');
+  const res = await db.query(`
+    SELECT fs.*, c.title as course_title, cs.section_name 
+    FROM fee_structures fs
+    LEFT JOIN courses c ON fs.course_id = c.course_id
+    LEFT JOIN course_sections cs ON fs.section_id = cs.section_id
+    ORDER BY fs.created_at DESC
+  `);
   return res.rows;
 };
-
 export const createFeeStructure = async (data) => {
-  const { program, semester, category, amount } = data;
+  const { program, semester, category, amount, course_id, section_id } = data;
   const res = await db.query(
-    `INSERT INTO fee_structures (program, semester, category, amount)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [program, semester, category, amount]
+    `INSERT INTO fee_structures (program, semester, category, amount, course_id, section_id)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [program || null, semester || null, category, amount, course_id || null, section_id || null]
   );
-  return res.rows[0];
+  
+  // Fetch joined data for frontend immediate update
+  const joinedRes = await db.query(`
+    SELECT fs.*, c.title as course_title, cs.section_name 
+    FROM fee_structures fs
+    LEFT JOIN courses c ON fs.course_id = c.course_id
+    LEFT JOIN course_sections cs ON fs.section_id = cs.section_id
+    WHERE fs.structure_id = $1
+  `, [res.rows[0].structure_id]);
+  
+  return joinedRes.rows[0];
 };
 
 export const deleteFeeStructure = async (id) => {
   await db.query('DELETE FROM fee_structures WHERE structure_id = $1', [id]);
-  return { success: true };
+};
+
+export const updateFeeStructure = async (id, data) => {
+  const { amount, category, course_id, section_id } = data;
+  const res = await db.query(`
+    UPDATE fee_structures
+    SET amount = $1, category = $2, course_id = $3, section_id = $4
+    WHERE structure_id = $5
+    RETURNING *
+  `, [amount, category, course_id, section_id, id]);
+  
+  if (res.rows.length === 0) throw new Error('Fee structure not found');
+  
+  // Fetch joined data for frontend immediate update
+  const joinedRes = await db.query(`
+    SELECT fs.*, c.title as course_title, cs.section_name 
+    FROM fee_structures fs
+    LEFT JOIN courses c ON fs.course_id = c.course_id
+    LEFT JOIN course_sections cs ON fs.section_id = cs.section_id
+    WHERE fs.structure_id = $1
+  `, [id]);
+  
+  return joinedRes.rows[0];
 };

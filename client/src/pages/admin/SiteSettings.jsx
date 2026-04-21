@@ -5,7 +5,7 @@ import {
   Settings, Globe, Palette, Mail, Shield, Save, 
   RotateCcw, Eye, Trash2, Camera, Type, Layout, Image,
   Smartphone, BellRing, UserCheck, Languages, Clock, 
-  Coins, MapPin, Phone, Mail as MailIcon, AlertTriangle,
+  Coins, MapPin, Phone, Mail as MailIcon, AlertTriangle, AlertCircle, X,
   Lock, CheckCircle2, XCircle
 } from 'lucide-react';
 const TABS = [
@@ -505,17 +505,29 @@ const SiteSettings = () => {
       </div>
       {/* Notifications Toast */}
       {toast.show && (
-        <div className={`fixed bottom-8 right-8 flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-8 duration-500 z-50 ${
-          toast.type === 'success' ? 'bg-slate-900 border-l-4 border-emerald-500 text-white' : 'bg-white border border-rose-100 text-rose-600 shadow-rose-100'
-        }`}>
-          {toast.type === 'success' ? <CheckCircle2 className="text-emerald-400" size={20} /> : <AlertTriangle className="text-rose-500" size={20} />}
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-0.5">{toast.type === 'success' ? 'State Committed' : 'Sync Error'}</span>
-            <span className="text-[13px] font-bold tracking-tight">{toast.msg}</span>
+        <div className="fixed top-8 right-8 z-[100] animate-in fade-in slide-in-from-right-8 duration-500">
+          <div className={`flex items-center gap-4 pl-4 pr-3 py-3 rounded-2xl shadow-2xl border backdrop-blur-md min-w-[320px] ${
+            toast.type === 'success' 
+              ? 'bg-emerald-500/95 border-emerald-400/50 text-white' 
+              : 'bg-rose-500/95 border-rose-400/50 text-white'
+          }`}>
+            <div className="flex-shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
+              {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <div className="flex-1">
+              <p className="text-[13px] font-medium opacity-80 uppercase tracking-wider mb-0.5">
+                {toast.type === 'success' ? 'Success' : 'Attention Needed'}
+              </p>
+              <p className="text-sm font-semibold leading-tight">{toast.msg}</p>
+            </div>
+            <button 
+              onClick={() => setToast({ ...toast, show: false })} 
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors group"
+            >
+              <X size={16} className="opacity-60 group-hover:opacity-100" />
+            </button>
           </div>
-          <button onClick={() => setToast({show:false, type:'', msg:''})} className="ml-4 opacity-30 hover:opacity-100 transition-opacity">
-            <RotateCcw size={14} />
-          </button>
+          <div className={`absolute bottom-0 left-0 h-1 rounded-full bg-white/30 animate-progress origin-left`} style={{ animationDuration: '4000ms' }}></div>
         </div>
       )}
     </div>
