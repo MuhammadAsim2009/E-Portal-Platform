@@ -1,4 +1,5 @@
 import * as db from '../config/db.js';
+import { notify } from './notification.service.js';
 
 // ─────────────────────── DASHBOARD ───────────────────────
 export const getFacultyDashboard = async (userId) => {
@@ -91,8 +92,27 @@ export const updateGrade = async (enrollmentId, grade) => {
       `UPDATE enrollments SET grade = $1 WHERE enrollment_id = $2 RETURNING *`,
       [grade, enrollmentId]
     );
-    return res.rows[0];
-  } catch {
+    const enrollment = res.rows[0];
+
+    // Notify student
+    const studentUserRes = await db.query(
+      "SELECT u.user_id, u.name, c.title FROM enrollments e JOIN students s ON e.student_id = s.student_id JOIN users u ON s.user_id = u.user_id JOIN course_sections cs ON e.section_id = cs.section_id JOIN courses c ON cs.course_id = c.course_id WHERE e.enrollment_id = $1",
+      [enrollmentId]
+    );
+    if (studentUserRes.rowCount > 0) {
+      await notify({
+        userId: studentUserRes.rows[0].user_id,
+        title: 'Grade Published',
+        message: `Your final grade for ${studentUserRes.rows[0].title} has been updated to: ${grade}`,
+        type: 'enrollment',
+        priority: 'medium',
+        channels: ['in-app', 'email']
+      });
+    }
+
+    return enrollment;
+  } catch (err) {
+    console.error('Update Grade Error:', err);
     return { enrollment_id: enrollmentId, grade };
   }
 };
@@ -130,9 +150,40 @@ export const submitAttendance = async (sectionId, date, records, userId) => {
         [sectionId, studentId, date, status, facultyId]
       );
     }
+
+    // --- ATTENDANCE THRESHOLD CHECK ---
+    const THRESHOLD = 0.75;
+    for (const { studentId } of records) {
+       const statsRes = await db.query(`
+         SELECT 
+           COUNT(CASE WHEN status = 'present' THEN 1 END)::FLOAT / NULLIF(COUNT(*), 0) as ratio,
+           u.user_id, c.title
+         FROM attendance a
+         JOIN students s ON a.student_id = s.student_id
+         JOIN users u ON s.user_id = u.user_id
+         JOIN course_sections cs ON a.section_id = cs.section_id
+         JOIN courses c ON cs.course_id = c.course_id
+         WHERE a.student_id = $1 AND a.section_id = $2
+         GROUP BY u.user_id, c.title
+       `, [studentId, sectionId]);
+
+       if (statsRes.rowCount > 0 && statsRes.rows[0].ratio < THRESHOLD) {
+         notify({
+           userId: statsRes.rows[0].user_id,
+           title: 'Low Attendance Alert',
+           message: `Your attendance in ${statsRes.rows[0].title} has dropped below the 75% threshold (Current: ${Math.round(statsRes.rows[0].ratio * 100)}%). Please attend classes regularly to avoid penalties.`,
+           type: 'system',
+           priority: 'high',
+           channels: ['in-app', 'email']
+         });
+       }
+    }
+    // ------------------------------------
+
     return { success: true, count: records.length };
-  } catch {
-    return { success: true, count: records.length };
+  } catch (err) {
+    console.error('Attendance submit error:', err);
+    return { success: false, error: err.message };
   }
 };
 
@@ -162,7 +213,34 @@ export const createAssignment = async ({ sectionId, title, description, deadline
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [sectionId, title, description, deadline, max_marks, submission_type, facultyId]
     );
-    return res.rows[0];
+    const assignment = res.rows[0];
+
+    // Notify all Students in section
+    const studentsRes = await db.query(`
+      SELECT u.user_id, c.title as course_title 
+      FROM enrollments e 
+      JOIN students s ON e.student_id = s.student_id 
+      JOIN users u ON s.user_id = u.user_id 
+      JOIN course_sections cs ON e.section_id = cs.section_id
+      JOIN courses c ON cs.course_id = c.course_id
+      WHERE e.section_id = $1 AND e.status = 'enrolled'
+    `, [sectionId]);
+
+    if (studentsRes.rowCount > 0) {
+      const courseTitle = studentsRes.rows[0].course_title;
+      for (const student of studentsRes.rows) {
+        notify({
+          userId: student.user_id,
+          title: 'New Assignment Posted',
+          message: `A new assignment "${title}" has been posted for ${courseTitle}. Deadline: ${new Date(deadline).toLocaleString()}`,
+          type: 'assignment',
+          priority: 'medium',
+          channels: ['in-app', 'email']
+        });
+      }
+    }
+
+    return assignment;
   } catch (err) {
     throw new Error(err.message);
   }

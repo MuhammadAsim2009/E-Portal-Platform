@@ -1,6 +1,7 @@
 import * as courseService from '../services/course.service.js';
 import * as studentService from '../services/student.service.js';
 import { logAction, createNotification } from '../services/admin.service.js';
+import { notify } from '../services/notification.service.js';
 import * as db from '../config/db.js';
 
 /**
@@ -147,6 +148,16 @@ export const submitPayment = async (req, res) => {
       target: payment.payment_id,
       details: `Submitted payment slip for ${amount} (Txn: ${transaction_id})`,
       ipAddress: req.ip
+    });
+
+    // Notify Admin
+    await notify({
+      userId: 'admin',
+      title: 'New Fee Payment Received',
+      message: `Student ${req.user.name} has submitted a payment slip for ${amount}. Transaction ID: ${transaction_id}. Please verify the receipt.`,
+      type: 'payment',
+      priority: 'high',
+      channels: ['in-app', 'email']
     });
 
     res.status(201).json(payment);

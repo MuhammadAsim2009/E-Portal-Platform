@@ -1,5 +1,6 @@
 import * as db from '../config/db.js';
 import { sendEmail } from './email.service.js';
+import { notify } from './notification.service.js';
 
 // ─────────────────────── DASHBOARD OVERVIEW ───────────────────────
 
@@ -679,10 +680,10 @@ export const createAnnouncement = async ({ title, body, category, target_role, t
       }
 
       if (recipients.length > 0) {
-        // Send email in background (or wait if you prefer, usually background is better but here we can wait for confirmation)
+        // Send email in background
         sendEmail({
           to: recipients,
-          subject: `[${category}] ${title}`,
+          subject: title,
           text: body,
           html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
@@ -693,7 +694,7 @@ export const createAnnouncement = async ({ title, body, category, target_role, t
               <div style="padding: 32px; color: #1e293b;">
                 <h1 style="margin: 0 0 16px 0; font-size: 24px; color: #0f172a;">${title}</h1>
                 <p style="margin: 0; line-height: 1.6; color: #475569; white-space: pre-wrap;">${body}</p>
-                <div style="margin-top: 32px; padding-top: 24px; border-t: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8;">
+                <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8;">
                   Target Audience: ${target_role}<br>
                   Date Posted: ${new Date().toLocaleDateString()}<br>
                   This is an automated institutional message.
@@ -704,6 +705,22 @@ export const createAnnouncement = async ({ title, body, category, target_role, t
         }).catch(err => console.error('E-Broadcast Failure:', err));
       }
     }
+
+    // --- IN-APP NOTIFICATION BROADCAST ---
+    if (target_role === 'individual' && target_user_id) {
+       await createNotification({ userId: target_user_id, title, message: body, type: 'system', priority: 'medium', relatedId: announcement.announcement_id });
+    } else if (target_role === 'all') {
+       const uRes = await db.query("SELECT user_id FROM users WHERE is_active = true");
+       for (const u of uRes.rows) {
+         await createNotification({ userId: u.user_id, title, message: body, type: 'system', priority: 'medium', relatedId: announcement.announcement_id });
+       }
+    } else {
+       const uRes = await db.query("SELECT user_id FROM users WHERE role = $1 AND is_active = true", [target_role]);
+       for (const u of uRes.rows) {
+         await createNotification({ userId: u.user_id, title, message: body, type: 'system', priority: 'medium', relatedId: announcement.announcement_id });
+       }
+    }
+    // -------------------------------------
 
     return announcement;
   } catch (err) {
@@ -843,7 +860,25 @@ export const updatePaymentStatus = async (paymentId, status, waiver_justificatio
     );
   }
   
-  return res.rows[0];
+  const payment = res.rows[0];
+
+  // Notify student of the status change
+  const studentUserRes = await db.query(
+    "SELECT u.user_id FROM users u JOIN students s ON u.user_id = s.user_id WHERE s.student_id = $1",
+    [payment.student_id]
+  );
+  if (studentUserRes.rowCount > 0) {
+    await notify({
+      userId: studentUserRes.rows[0].user_id,
+      title: `Payment ${status.toUpperCase()}`,
+      message: `Your payment of ${payment.amount_paid} (Txn: ${payment.transaction_id}) has been ${status}. ${waiver_justification ? `Reason: ${waiver_justification}` : ''}`,
+      type: 'payment',
+      priority: status === 'rejected' ? 'high' : 'medium',
+      channels: ['in-app', 'email']
+    });
+  }
+  
+  return payment;
 };
 
 // ─────────────────────── SITE SETTINGS ───────────────────────
@@ -935,8 +970,22 @@ export const generateBulkFees = async (data) => {
            VALUES ($1, $2, $3, $4, CURRENT_DATE + INTERVAL '15 days', 'pending', 0, $5, $6)
            ON CONFLICT (student_id, semester, fee_type) DO NOTHING`,
           [student.student_id, structure.amount, uniqueSemester, structure.category, course_id || null, section_id || null]
-        ).then(r => {
-          if (r.rowCount > 0) generatedCount++;
+        ).then(async r => {
+          if (r.rowCount > 0) {
+            generatedCount++;
+            // Notify student
+            const userRes = await db.query("SELECT user_id FROM students WHERE student_id = $1", [student.student_id]);
+            if (userRes.rowCount > 0) {
+              notify({
+                userId: userRes.rows[0].user_id,
+                title: 'Fee Payment Due',
+                message: `An invoice for ${structure.category} (${structure.amount}) has been generated for ${uniqueSemester}. Due date: ${new Date(Date.now() + 15 * 86400000).toLocaleDateString()}`,
+                type: 'payment',
+                priority: 'high',
+                channels: ['in-app', 'email']
+              });
+            }
+          }
         }).catch(err => {
           console.error('Error generating fee for student:', student.student_id, err);
         })

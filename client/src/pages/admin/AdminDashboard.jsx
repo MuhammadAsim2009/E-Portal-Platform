@@ -4,8 +4,9 @@ import api from '../../services/api';
 import {
   Users, BookOpen, GraduationCap, TrendingUp,
   Megaphone, UserCheck, ArrowUpRight, ArrowDownRight, Activity,
-  Clock, Calendar, Filter, Shield
+  Clock, Calendar, Filter, Shield, List
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, BarChart, Bar, Cell
@@ -44,6 +45,7 @@ const StatCard = ({ icon: Icon, label, value, trend, isPositive, color }) => (
 );
 const AdminDashboard = () => {
   usePageTitle('Admin Dashboard');
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -224,8 +226,11 @@ const AdminDashboard = () => {
             <h2 className="text-lg font-bold text-slate-900 tracking-tight">Recent Activity</h2>
             <p className="text-xs text-slate-400 font-medium uppercase tracking-widest mt-1">Live platform intelligence feed</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-[11px] font-bold uppercase tracking-widest hover:bg-slate-100 transition-all">
-            <Filter size={14} /> Full Audit Log
+          <button 
+            onClick={() => navigate('/admin/audit-logs')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-[11px] font-bold uppercase tracking-widest transition-all border border-indigo-100 active:scale-95 shadow-sm"
+          >
+            <List size={14} /> Full Audit Log
           </button>
         </div>
         <div className="overflow-x-auto">

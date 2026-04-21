@@ -8,7 +8,10 @@ import adminRoutes from './routes/admin.routes.js';
 import facultyRoutes from './routes/faculty.routes.js';
 import pool from './config/db.js';
 
+import { initCronTasks } from './services/tasks.service.js';
+
 dotenv.config();
+initCronTasks();
 
 const app = express();
 const PORT = process.env.PORT || 5000;

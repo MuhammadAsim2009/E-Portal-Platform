@@ -31,6 +31,7 @@ import Analytics from './pages/admin/Analytics';
 import AdminNotifications from './pages/admin/AdminNotifications';
 import SiteSettings from './pages/admin/SiteSettings';
 import FeeStructureManagement from './pages/admin/FeeStructureManagement';
+import AuditLogs from './pages/admin/AuditLogs';
 
 // Faculty pages
 import FacultyDashboard from './pages/faculty/FacultyDashboard';
@@ -95,6 +96,7 @@ function App() {
           <Route path="notifications" element={<AdminNotifications />} />
           <Route path="settings" element={<SiteSettings />} />
           <Route path="fees-config" element={<FeeStructureManagement />} />
+          <Route path="audit-logs" element={<AuditLogs />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 
