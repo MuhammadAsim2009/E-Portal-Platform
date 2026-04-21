@@ -165,7 +165,7 @@ export const submitAssignment = async (req, res) => {
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    const fileUrl = `/uploads/assignments/${req.file.filename}`;
+    const fileUrl = req.file.location || `/uploads/assignments/${req.file.filename}`;
     
     // Get student_id from user_id
     const studentRes = await db.query('SELECT student_id FROM students WHERE user_id = $1', [req.user.id]);

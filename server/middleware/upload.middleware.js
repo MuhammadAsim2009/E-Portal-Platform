@@ -1,6 +1,7 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { createS3Upload } from '../services/s3Service.js';
 
 // Ensure upload directory exists
 const uploadDir = 'uploads/assignments';
@@ -35,3 +36,6 @@ export const uploadAssignment = multer({
     fileSize: 25 * 1024 * 1024 // 25MB limit
   }
 });
+
+// S3 version of the assignment upload
+export const uploadAssignmentS3 = createS3Upload('assignments');
