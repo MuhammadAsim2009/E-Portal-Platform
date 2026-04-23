@@ -150,7 +150,7 @@ export const login = async (req, res) => {
 
     // --- NEW DEVICE DETECTION ---
     const userAgent = req.headers['user-agent'] || 'Unknown Device';
-    const fingerprint = crypto.createHash('md5').update(userAgent).digest('hex');
+    const fingerprint = req.body.fingerprint || crypto.createHash('md5').update(userAgent).digest('hex');
     
     const deviceCheck = await db.query(
       "SELECT * FROM login_devices WHERE user_id = $1 AND device_fingerprint = $2",
@@ -232,6 +232,37 @@ export const verifyMFA = async (req, res) => {
       details: `MFA successful for ${user.email}`,
       ipAddress: req.ip
     });
+
+    // --- NEW DEVICE DETECTION (After MFA) ---
+    const userAgent = req.headers['user-agent'] || 'Unknown Device';
+    const fingerprint = req.body.fingerprint || crypto.createHash('md5').update(userAgent).digest('hex');
+    
+    const deviceCheck = await db.query(
+      "SELECT * FROM login_devices WHERE user_id = $1 AND device_fingerprint = $2",
+      [user.user_id, fingerprint]
+    );
+
+    if (deviceCheck.rowCount === 0) {
+      await db.query(
+        "INSERT INTO login_devices (user_id, device_fingerprint, user_agent, last_ip) VALUES ($1, $2, $3, $4)",
+        [user.user_id, fingerprint, userAgent, req.ip]
+      );
+
+      await notify({
+        userId: user.user_id,
+        title: 'New Device Login Detected',
+        message: `Your account was just logged into from a new device: ${userAgent} at IP: ${req.ip}. If this wasn't you, please change your password immediately.`,
+        type: 'system',
+        priority: 'high',
+        channels: ['in-app', 'email']
+      });
+    } else {
+      await db.query(
+        "UPDATE login_devices SET last_ip = $1, last_login = NOW() WHERE device_id = $2",
+        [req.ip, deviceCheck.rows[0].device_id]
+      );
+    }
+    // ----------------------------------------
   } catch (error) {
     console.error('MFA Verify error:', error);
     res.status(500).json({ message: 'Internal server error during MFA verification.' });

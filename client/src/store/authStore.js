@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import api from '../services/api.js';
+import { getDeviceFingerprint } from '../utils/fingerprint.js';
 
 const INACTIVITY_LIMIT = 60 * 60 * 1000; // 1 hour in ms
 
@@ -73,7 +74,8 @@ const useAuthStore = create((set, get) => ({
    */
   login: async (email, password) => {
     try {
-      const response = await api.post('/auth/login', { email, password });
+      const fingerprint = await getDeviceFingerprint();
+      const response = await api.post('/auth/login', { email, password, fingerprint });
       
       if (response.data.message === 'MFA REQUIRED') {
         return { success: false, mfaRequired: true, userId: response.data.userId };
@@ -95,7 +97,8 @@ const useAuthStore = create((set, get) => ({
    */
   verifyMFA: async (userId, code) => {
     try {
-      const response = await api.post('/auth/verify-mfa', { userId, code });
+      const fingerprint = await getDeviceFingerprint();
+      const response = await api.post('/auth/verify-mfa', { userId, code, fingerprint });
       set({ user: response.data.user, isAuthenticated: true });
       get().startInactivityTimer();
       return { success: true, user: response.data.user };

@@ -2,7 +2,9 @@ import usePageTitle from '../../hooks/usePageTitle';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
-import { BookOpen, Users, ClipboardList, ChevronRight, GraduationCap, Clock, Calendar, CheckCircle2, ArrowRight } from 'lucide-react';
+import { BookOpen, Users, ClipboardList, ChevronRight, GraduationCap, Clock, Calendar, CheckCircle2, ArrowRight, CalendarCheck, LayoutDashboard } from 'lucide-react';
+import { formatSchedule } from '../../utils/timeFormat';
+
 const StatCard = ({ icon: Icon, label, value, gradient, delay, to }) => {
   const CardContent = (
     <>
@@ -74,16 +76,18 @@ const FacultyDashboard = () => {
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Faculty Dashboard</h1>
           <p className="text-slate-500 mt-2 font-medium">Welcome back! Here's your teaching overview for this semester.</p>
         </div>
-          <Link to="/faculty/assignments" className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center gap-2 shadow-sm">
-            <BookOpen size={18} />
-            Post Assignment
+        <div className="flex items-center gap-3">
+          <Link to="/faculty/attendance" className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center gap-2 shadow-sm">
+            <CalendarCheck size={18} />
+            Post Attendance
           </Link>
           <Link to="/faculty/gradebook" className="px-5 py-2.5 bg-violet-600 text-white font-semibold rounded-xl hover:bg-violet-700 transition-colors shadow-md shadow-violet-600/20 flex items-center gap-2">
             <ClipboardList size={18} />
             Grade Book
           </Link>
         </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
         <StatCard icon={BookOpen} label="Course Sections" value={stats?.sectionsCount} gradient="from-violet-500 to-indigo-600" delay={100} to="/faculty/courses" />
         <StatCard icon={Users} label="Total Students" value={stats?.studentsCount} gradient="from-blue-500 to-cyan-600" delay={200} />
         <StatCard icon={ClipboardList} label="Assignments Created" value={stats?.assignmentsCount} gradient="from-emerald-500 to-teal-600" delay={300} to="/faculty/assignments" />
@@ -125,7 +129,9 @@ const FacultyDashboard = () => {
                         </div>
                         <p className="font-bold text-slate-900 text-lg mb-1">{course.title}</p>
                         <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
-                          <span className="flex items-center gap-1.5"><Clock size={14} className="text-slate-400" /> {course.schedule_time}</span>
+                          <span className="flex items-center gap-1.5"><Clock size={14} className="text-slate-400" /> 
+                            {formatSchedule(course.day_of_week, course.start_time, course.end_time)}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -165,44 +171,29 @@ const FacultyDashboard = () => {
                )}
              </ul>
            </div>
-           {/* Quick links block */}
-           <div className="grid grid-cols-2 gap-4">
-              <Link to="/faculty/attendance" className="bg-white border border-slate-200 p-5 rounded-2xl hover:border-violet-300 hover:shadow-md transition-all group flex flex-col items-center justify-center text-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-violet-50 flex items-center justify-center group-hover:scale-110 group-hover:bg-violet-100 transition-all">
-                   <Calendar size={22} className="text-violet-600" />
-                </div>
-                <span className="text-sm font-bold text-slate-700">Attendance</span>
-              </Link>
-              <Link to="/faculty/gradebook" className="bg-white border border-slate-200 p-5 rounded-2xl hover:border-emerald-300 hover:shadow-md transition-all group flex flex-col items-center justify-center text-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center group-hover:scale-110 group-hover:bg-emerald-100 transition-all">
-                   <ClipboardList size={22} className="text-emerald-600" />
-                </div>
-                <span className="text-sm font-bold text-slate-700">Grade Book</span>
-              </Link>
-           </div>
+           {/* Empty space as requested */}
         </div>
       </div>
-      {/* Bottom Section: Announcements & Guidelines */}
-      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '600ms', animationFillMode: 'both' }}>
-        <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-3xl overflow-hidden shadow-xl">
-          <div className="flex flex-col md:flex-row items-center border-b border-white/10">
-            <div className="p-8 md:w-2/3">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/20 text-violet-300 text-xs font-bold tracking-wide uppercase mb-4">
-                Important Update
-              </span>
-              <h2 className="text-2xl font-bold text-white mb-3 tracking-tight">End of Semester Grading Deadline</h2>
-              <p className="text-slate-300 mb-6 leading-relaxed">
-                Please ensure all final grades are submitted through the Grade Book module by the 15th of next month. 
-                For any discrepancies, contact the IT support desk or refer to the faculty guidelines portal.
-              </p>
-              <button className="px-5 py-2.5 bg-white text-slate-900 font-bold rounded-xl hover:bg-slate-100 transition-colors shadow-sm">
-                View Faculty Guidelines
-              </button>
-            </div>
-            <div className="hidden md:flex p-8 items-center justify-center md:w-1/3 opacity-20">
-              <GraduationCap size={160} className="text-white" />
-            </div>
-          </div>
+      {/* Bottom Section: Quick Access & Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '600ms', animationFillMode: 'both' }}>
+        <div className="bg-white border border-slate-200 rounded-3xl p-8 flex items-center gap-6 group hover:border-violet-300 transition-all shadow-sm">
+           <div className="w-16 h-16 rounded-2xl bg-violet-50 flex items-center justify-center text-violet-600 group-hover:bg-violet-600 group-hover:text-white transition-all duration-500">
+              <ClipboardList size={28} />
+           </div>
+           <div>
+              <h3 className="font-bold text-slate-900 text-lg">Detailed Reports</h3>
+              <p className="text-slate-500 text-sm mt-1">Review comprehensive analytics of your teaching performance and student engagement.</p>
+           </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-3xl p-8 flex items-center gap-6 group hover:border-emerald-300 transition-all shadow-sm">
+           <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-500">
+              <Users size={28} />
+           </div>
+           <div>
+              <h3 className="font-bold text-slate-900 text-lg">Student Directory</h3>
+              <p className="text-slate-500 text-sm mt-1">Easily communicate and manage communication with all students enrolled in your sections.</p>
+           </div>
         </div>
       </div>
     </div>

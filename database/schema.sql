@@ -56,9 +56,11 @@ CREATE TABLE course_sections (
   faculty_id UUID REFERENCES faculty(faculty_id),
   section_name VARCHAR(50) NOT NULL,
   room VARCHAR(50),
-  schedule_time VARCHAR(100),
-  max_seats INT DEFAULT 40,
-  current_seats INT DEFAULT 0
+  day_of_week VARCHAR(50),
+  start_time TIME,
+  end_time TIME
+  -- max_seats comes from courses.max_seats
+  -- current enrollment count comes from COUNT(enrollments) 
 );
 
 CREATE TABLE enrollments (
@@ -182,4 +184,16 @@ CREATE TABLE IF NOT EXISTS site_settings (
   key VARCHAR(100) PRIMARY KEY,
   value JSONB,
   updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Device Tracking for Security
+CREATE TABLE IF NOT EXISTS login_devices (
+  device_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+  device_fingerprint VARCHAR(255) NOT NULL,
+  user_agent TEXT,
+  last_ip VARCHAR(45),
+  last_login TIMESTAMP DEFAULT NOW(),
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, device_fingerprint)
 );

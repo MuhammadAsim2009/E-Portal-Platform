@@ -242,7 +242,8 @@ const CourseManagement = () => {
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Capacity</p>
                   <p className="text-xl font-bold text-slate-900 flex items-center justify-end gap-2">
                     <CheckCircle2 size={16} className="text-emerald-500" />
-                    {course.max_seats || 50}
+                    {course.max_seats}
+
                   </p>
                 </div>
               </div>

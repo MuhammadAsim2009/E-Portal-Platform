@@ -1,4 +1,26 @@
 import * as db from '../config/db.js';
+
+// Helper to normalize day strings (e.g., "Mon-Fri" or "Mon, Wed") into an array of day abbreviations
+const normalizeDays = (dayStr) => {
+  if (!dayStr) return [];
+  const daysOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  let parts = dayStr.split(/[,/| ]+/).map(p => p.trim().toLowerCase()).filter(p => p);
+  let expanded = [];
+  parts.forEach(p => {
+    if (p.includes('-')) {
+      const [start, end] = p.split('-').map(s => s.trim().substring(0, 3));
+      const sIdx = daysOrder.findIndex(d => d.toLowerCase() === start);
+      const eIdx = daysOrder.findIndex(d => d.toLowerCase() === end);
+      if (sIdx !== -1 && eIdx !== -1 && sIdx <= eIdx) {
+        for (let i = sIdx; i <= eIdx; i++) expanded.push(daysOrder[i]);
+      } else if (sIdx !== -1) expanded.push(daysOrder[sIdx]);
+    } else {
+      const match = daysOrder.find(d => d.toLowerCase().startsWith(p.substring(0, 3)));
+      if (match) expanded.push(match);
+    }
+  });
+  return [...new Set(expanded)];
+};
 import { notify } from './notification.service.js';
 
 // ─────────────────────── DASHBOARD ───────────────────────
@@ -45,15 +67,29 @@ export const getMyCourses = async (userId) => {
     const facultyId = facultyRes.rows[0]?.faculty_id;
 
     const res = await db.query(
-      `SELECT cs.section_id, cs.section_name, cs.room, cs.schedule_time,
-              cs.max_seats, cs.current_seats,
-              c.course_code, c.title, c.credit_hours, c.department
+      `SELECT 
+        cs.section_id, 
+        cs.section_name, 
+        cs.room, 
+        cs.day_of_week,
+        cs.start_time,
+        cs.end_time,
+        c.max_seats,
+        (SELECT COUNT(*) FROM enrollments e WHERE e.section_id = cs.section_id AND e.status = 'enrolled') as current_seats,
+        c.course_id, 
+        c.course_code, 
+        c.title, 
+        c.credit_hours, 
+        c.department,
+        c.description
        FROM course_sections cs
        JOIN courses c ON cs.course_id = c.course_id
        WHERE cs.faculty_id = $1
        ORDER BY c.course_code`, [facultyId]
     );
     return res.rows;
+
+
   } catch (error) {
     console.error("Courses error:", error);
     throw new Error('Failed to fetch courses: ' + error.message);
@@ -245,3 +281,74 @@ export const createAssignment = async ({ sectionId, title, description, deadline
     throw new Error(err.message);
   }
 };
+
+// ─────────────────────── COURSE APPROVALS ───────────────────────
+export const submitCourseRequest = async (userId, { type, targetId, data }) => {
+  try {
+    // 1. Check for teacher schedule conflict if schedule data is provided
+    if ((type === 'COURSE_ADD' || type === 'COURSE_EDIT') && data.day_of_week && data.start_time && data.end_time) {
+      if (data.start_time >= data.end_time) {
+        throw new Error('Invalid Time: Start time must be before end time.');
+      }
+      console.log('Checking faculty conflict for submission. user_id:', userId, 'type:', type);
+      const facultyRes = await db.query(`SELECT faculty_id FROM faculty WHERE user_id = $1`, [userId]);
+      const facultyId = facultyRes.rows[0]?.faculty_id;
+      console.log('Submission conflict check - facultyId:', facultyId);
+      
+      if (facultyId) {
+        // We check for overlaps with existing sections assigned to this teacher
+        const proposedDays = normalizeDays(data.day_of_week);
+        const conflictRes = await db.query(`
+          SELECT cs.section_name, c.title, cs.day_of_week
+          FROM course_sections cs
+          JOIN courses c ON cs.course_id = c.course_id
+          WHERE cs.faculty_id = $1
+          AND ($3::TEXT IS NULL OR cs.section_id::TEXT != $3::TEXT)
+          AND (
+            (cs.start_time::TIME, cs.end_time::TIME) OVERLAPS ($2::TIME, $4::TIME)
+          )
+        `, [facultyId, data.start_time, data.section_id || null, data.end_time]);
+
+        // Filter by normalized days in JS for maximum reliability
+        console.log('Conflict query returned rows:', conflictRes.rows.length);
+        const conflict = conflictRes.rows.find(row => {
+          const existingDays = normalizeDays(row.day_of_week);
+          const intersects = existingDays.some(d => proposedDays.includes(d));
+          console.log(`Checking overlap with ${row.title} on ${row.day_of_week}: ${intersects}`);
+          return intersects;
+        });
+
+        if (conflict) {
+          throw new Error(`Schedule Conflict: You already have a class ("${conflict.title} - ${conflict.section_name}") scheduled during this time on ${conflict.day_of_week}. Please choose a different slot.`);
+        }
+      }
+    }
+
+    const res = await db.query(
+      `INSERT INTO approval_requests (requester_id, request_type, target_id, request_data)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [userId, type, targetId, data]
+    );
+    
+    // Notify Admin (optional, but good for UX)
+    // We can fetch all admins and notify them or just rely on the dashboard
+    
+    return res.rows[0];
+  } catch (err) {
+    console.error('Submit Course Request Error:', err);
+    throw new Error('Failed to submit request: ' + err.message);
+  }
+};
+
+export const getMyRequests = async (userId) => {
+  try {
+    const res = await db.query(
+      `SELECT * FROM approval_requests WHERE requester_id = $1 ORDER BY created_at DESC`,
+      [userId]
+    );
+    return res.rows;
+  } catch (err) {
+    throw new Error('Failed to fetch requests');
+  }
+};
+

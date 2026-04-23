@@ -51,6 +51,25 @@ const TimetableManagement = () => {
     );
   };
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  // Parses any stored day_of_week string (full names, abbreviations, slashes) into full-name array
+  const parseDaysToFullNames = (dayStr) => {
+    if (!dayStr) return [];
+    const abbrevToFull = {
+      'Mon': 'Monday', 'Tue': 'Tuesday', 'Wed': 'Wednesday',
+      'Thu': 'Thursday', 'Fri': 'Friday', 'Sat': 'Saturday', 'Sun': 'Sunday'
+    };
+    const fullToFull = {
+      'Monday': 'Monday', 'Tuesday': 'Tuesday', 'Wednesday': 'Wednesday',
+      'Thursday': 'Thursday', 'Friday': 'Friday', 'Saturday': 'Saturday', 'Sunday': 'Sunday'
+    };
+    const orderedDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const parts = dayStr.split(/[,/]+/).map(s => s.trim()).filter(Boolean);
+    let fullNames = parts.map(p => fullToFull[p] || abbrevToFull[p]).filter(Boolean);
+    fullNames = [...new Set(fullNames)];
+    fullNames.sort((a, b) => orderedDays.indexOf(a) - orderedDays.indexOf(b));
+    return fullNames;
+  };
   const fetchSections = async () => {
     try {
       const res = await api.get('/admin/sections');
@@ -168,10 +187,9 @@ const TimetableManagement = () => {
     if (isActionLoading) return;
     const student_id = e.target.student_id.value;
     if (!student_id) return;
-    // Capacity guard â€” use course max_seats
-    const courseMaxSeats = courses.find(c => c.course_id === selectedSection.course_id)?.max_seats
-      || selectedSection.max_seats;
-    if (courseMaxSeats && sectionStudents.length >= Number(courseMaxSeats)) {
+    // Capacity guard — max_seats is always from courses table via API
+    const courseMaxSeats = parseInt(selectedSection.max_seats) || 0;
+    if (courseMaxSeats && sectionStudents.length >= courseMaxSeats) {
       showToast('error', `Section is full. Maximum capacity is ${courseMaxSeats} students.`);
       return;
     }
@@ -246,8 +264,8 @@ const TimetableManagement = () => {
     s.course_code.toLowerCase().includes(search.toLowerCase()) || 
     s.course_title.toLowerCase().includes(search.toLowerCase())
   );
-  const totalEnrolled = sections.reduce((acc, s) => acc + (s.current_seats || 0), 0);
-  const totalCapacity = sections.reduce((acc, s) => acc + (s.max_seats || 0), 0);
+  const totalEnrolled = sections.reduce((acc, s) => acc + (parseInt(s.current_seats) || 0), 0);
+  const totalCapacity = sections.reduce((acc, s) => acc + (parseInt(s.max_seats) || 0), 0);
   const metrics = {
     total: sections.length,
     unassigned: sections.filter(s => !s.faculty_id).length,
@@ -416,7 +434,7 @@ const TimetableManagement = () => {
                 <button 
                   onClick={() => { 
                     setSelectedSection(section); 
-                    setSelectedDays(section.day_of_week ? section.day_of_week.split(', ') : []);
+                    setSelectedDays(parseDaysToFullNames(section.day_of_week));
                     setTimeError('');
                     setShowEditModal(true); 
                   }}
@@ -448,7 +466,7 @@ const TimetableManagement = () => {
               </div>
               <div>
                 <h2 className="text-xl font-bold text-slate-900 tracking-tight leading-tight">Schedule Assembly</h2>
-                <p className="text-slate-500 font-medium text-[13px] mt-0.5">{selectedSection.course_title} â€¢ {selectedSection.section_name}</p>
+                <p className="text-slate-500 font-medium text-[13px] mt-0.5">{selectedSection.course_title} • {selectedSection.section_name}</p>
               </div>
             </div>
             <form onSubmit={handleUpdate} className="space-y-5">
@@ -482,7 +500,7 @@ const TimetableManagement = () => {
                   >
                     <option value="">Select Faculty</option>
                     {faculty.map(f => (
-                      <option key={f.faculty_id} value={f.faculty_id}>{f.name} â€” {f.department}</option>
+                      <option key={f.faculty_id} value={f.faculty_id}>{f.name} — {f.department}</option>
                     ))}
                   </select>
                   <ChevronRight size={16} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
@@ -674,7 +692,7 @@ const TimetableManagement = () => {
                 <div>
                   <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-tight">{selectedSection.course_title}</h2>
                   <div className="flex items-center gap-3 mt-1">
-                    <p className="text-indigo-600 font-bold text-sm">Section {selectedSection.section_name} â€¢ {selectedSection.course_code}</p>
+                    <p className="text-indigo-600 font-bold text-sm">Section {selectedSection.section_name} • {selectedSection.course_code}</p>
                     <button 
                       onClick={handleExportICS}
                       className="px-3 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gradient-to-r hover:from-indigo-600 hover:to-violet-600 hover:text-white hover:border-transparent hover:shadow-lg hover:shadow-indigo-200 transition-all flex items-center gap-1.5 active:scale-95"
@@ -707,7 +725,7 @@ const TimetableManagement = () => {
                     Enrolled Students 
                     <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[10px] font-black">{sectionStudents.length}</span>
                   </h3>
-                  <div className="text-[11px] font-bold text-slate-400 italic">Capacity: {selectedSection.current_seats}/{courses.find(c => c.course_id === selectedSection.course_id)?.max_seats || selectedSection.max_seats || 'N/A'}</div>
+                  <div className="text-[11px] font-bold text-slate-400 italic">Capacity: {sectionStudents.length} / {parseInt(selectedSection.max_seats) || 'N/A'}</div>
                 </div>
                 <form onSubmit={handleEnroll} className="flex gap-2">
                   <div className="relative flex-1">

@@ -103,11 +103,12 @@ const AdminDashboard = () => {
         </div>
       </div>
       {/* Primary Stat Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         <StatCard icon={Users} label="Total Platform Users" value={stats?.totalUsers} trend="12.5%" isPositive={true} color="bg-indigo-600 text-indigo-600" />
         <StatCard icon={GraduationCap} label="Enrolled Students" value={stats?.totalStudents} trend="8.2%" isPositive={true} color="bg-purple-600 text-purple-600" />
         <StatCard icon={UserCheck} label="Active Faculty" value={stats?.totalFaculty} trend="2.1%" isPositive={false} color="bg-rose-500 text-rose-600" />
-        <StatCard icon={BookOpen} label="Published Courses" value={stats?.activeCourses} trend="14.8%" isPositive={true} color="bg-emerald-500 text-emerald-600" />
+        <StatCard icon={BookOpen} label="Published Courses" value={stats?.activeCourses} trend="14.8%" isPositive={true} color="bg-amber-500 text-amber-600" />
+        <StatCard icon={Activity} label="Seat Utilization" value={`${stats?.seatUtilization || 0}%`} trend="Optimal" isPositive={true} color="bg-emerald-500 text-emerald-600" />
       </div>
       {/* Main Insights Layer */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

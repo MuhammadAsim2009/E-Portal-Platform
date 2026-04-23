@@ -67,6 +67,10 @@ export const toggleUserStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const result = await adminService.toggleUserStatus(id);
+    
+    // Fetch user details for notification
+    const user = await import('../services/user.service.js').then(m => m.findUserById(id));
+    
     await adminService.logAction({
       userId: req.user.id,
       action: 'TOGGLE_USER_STATUS',
@@ -74,6 +78,36 @@ export const toggleUserStatus = async (req, res) => {
       details: `User status changed to ${result.is_active ? 'Active' : 'Inactive'}`,
       ipAddress: req.ip
     });
+
+    // Notify user via email
+    if (user) {
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: `Account Status Update - ${result.is_active ? 'Reactivated' : 'Suspended'}`,
+          text: `Your account has been ${result.is_active ? 'reactivated' : 'suspended'} by the Administrator.`,
+          html: `
+            <div style="font-family: 'Inter', sans-serif; padding: 40px; background: #f8fafc;">
+              <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 40px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                <div style="width: 48px; h-height: 48px; background: ${result.is_active ? '#ecfdf5' : '#fef2f2'}; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 24px;">
+                   <span style="font-size: 24px;">${result.is_active ? '✅' : '🚫'}</span>
+                </div>
+                <h2 style="color: #0f172a; margin-bottom: 16px;">Account Status Changed</h2>
+                <p style="color: #475569; font-size: 16px; line-height: 1.6;">Hello ${user.name}, your institutional account status has been updated by the administration.</p>
+                <div style="margin: 24px 0; padding: 20px; background: #f1f5f9; border-radius: 12px;">
+                   <p style="margin: 0; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase;">Current Status</p>
+                   <p style="margin: 4px 0 0 0; color: ${result.is_active ? '#059669' : '#dc2626'}; font-size: 18px; font-weight: 800;">${result.is_active ? 'ACTIVE' : 'SUSPENDED'}</p>
+                </div>
+                <p style="color: #64748b; font-size: 14px;">If you believe this is an error, please contact the IT support desk or your department head.</p>
+              </div>
+            </div>
+          `
+        });
+      } catch (err) {
+        console.error('Failed to send status update email:', err);
+      }
+    }
+
     res.json(result);
   } catch (err) {
     console.error(`[AdminController] ${req.route.path} Error:`, err);
@@ -145,6 +179,30 @@ export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
     const result = await adminService.updateUser(id, req.body);
+    
+    // Notify if important fields changed or just a general update
+    const user = await import('../services/user.service.js').then(m => m.findUserById(id));
+    if (user) {
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: 'Account Information Updated',
+          text: 'Your account details have been updated by the administrator.',
+          html: `
+            <div style="font-family: 'Inter', sans-serif; padding: 40px; background: #f8fafc;">
+              <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 40px; border: 1px solid #e2e8f0;">
+                <h2 style="color: #0f172a; margin-bottom: 16px;">Profile Updated</h2>
+                <p style="color: #475569; font-size: 16px; line-height: 1.6;">Hello ${user.name}, your institutional profile information has been updated by the administration to ensure data accuracy.</p>
+                <p style="color: #475569; font-size: 14px; margin-top: 20px;">Please log in to your dashboard to review the changes.</p>
+                <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/login" style="display: inline-block; margin-top: 24px; background: #4f46e5; color: #ffffff; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: 600;">View Profile</a>
+              </div>
+            </div>
+          `
+        });
+      } catch (err) {
+        console.error('Failed to send update email:', err);
+      }
+    }
     res.json(result);
   } catch (err) {
     console.error(`[AdminController] ${req.route.path} Error:`, err);
@@ -158,6 +216,9 @@ export const updateUser = async (req, res) => {
 export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
+    // Fetch user details BEFORE deletion
+    const user = await import('../services/user.service.js').then(m => m.findUserById(id));
+    
     await adminService.deleteUser(id);
     await adminService.logAction({
       userId: req.user.id,
@@ -167,6 +228,27 @@ export const deleteUser = async (req, res) => {
       severity: 'warning',
       ipAddress: req.ip
     });
+
+    if (user) {
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: 'Account Permanently Deleted',
+          text: 'Your institutional account has been permanently removed by the administrator.',
+          html: `
+            <div style="font-family: 'Inter', sans-serif; padding: 40px; background: #f8fafc;">
+              <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 40px; border: 1px solid #e2e8f0;">
+                <h2 style="color: #dc2626; margin-bottom: 16px;">Account Termination Notice</h2>
+                <p style="color: #475569; font-size: 16px; line-height: 1.6;">Hello ${user.name}, this is a formal notification that your institutional account (${user.email}) has been permanently removed from the E-Portal Platform by the administration.</p>
+                <p style="color: #475569; font-size: 14px; margin-top: 20px;">All associated data has been purged. If you believe this action was taken in error, please contact the administrative office immediately.</p>
+              </div>
+            </div>
+          `
+        });
+      } catch (err) {
+        console.error('Failed to send deletion email:', err);
+      }
+    }
     res.json({ message: 'User deleted successfully' });
   } catch (err) {
     if (err.code === 'ENROLLED') {
@@ -797,6 +879,65 @@ export const updateFeeStructure = async (req, res) => {
       ipAddress: req.ip
     });
     res.json(structure);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ─────────────────────── COURSE APPROVALS ───────────────────────
+export const getApprovalRequests = async (req, res) => {
+  try {
+    const { status = 'pending' } = req.query;
+    const requests = await adminService.getApprovalRequests(status);
+    res.json(requests);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const updateApprovalRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, adminComment } = req.body;
+    const result = await adminService.updateApprovalRequest(id, { 
+      status, 
+      adminComment, 
+      adminId: req.user.id 
+    });
+    
+    await adminService.logAction({
+      userId: req.user.id,
+      action: 'UPDATE_APPROVAL_REQUEST',
+      target: id,
+      details: `Approval request ${status}: ${adminComment || 'No comment'}`,
+      severity: status === 'rejected' ? 'warning' : 'info',
+      ipAddress: req.ip
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('Update Approval Request Error:', err);
+    const statusCode = (err.message.includes('conflict') || err.message.includes('Conflict') || err.message.includes('Incomplete')) ? 400 : 500;
+    res.status(statusCode).json({ message: err.message });
+  }
+};
+export const getApprovalRequestById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const request = await adminService.getApprovalRequestById(id);
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+    res.json(request);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const getCourseById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const course = await adminService.getCourseById(id);
+    if (!course) return res.status(404).json({ message: 'Course not found' });
+    res.json(course);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

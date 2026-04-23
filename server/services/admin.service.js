@@ -2,11 +2,33 @@ import * as db from '../config/db.js';
 import { sendEmail } from './email.service.js';
 import { notify } from './notification.service.js';
 
+// Helper to normalize day strings (e.g., "Mon-Fri" or "Mon, Wed") into an array of day abbreviations
+const normalizeDays = (dayStr) => {
+  if (!dayStr) return [];
+  const daysOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  let parts = dayStr.split(/[,/| ]+/).map(p => p.trim().toLowerCase()).filter(p => p);
+  let expanded = [];
+  parts.forEach(p => {
+    if (p.includes('-')) {
+      const [start, end] = p.split('-').map(s => s.trim().substring(0, 3));
+      const sIdx = daysOrder.findIndex(d => d.toLowerCase() === start);
+      const eIdx = daysOrder.findIndex(d => d.toLowerCase() === end);
+      if (sIdx !== -1 && eIdx !== -1 && sIdx <= eIdx) {
+        for (let i = sIdx; i <= eIdx; i++) expanded.push(daysOrder[i]);
+      } else if (sIdx !== -1) expanded.push(daysOrder[sIdx]);
+    } else {
+      const match = daysOrder.find(d => d.toLowerCase().startsWith(p.substring(0, 3)));
+      if (match) expanded.push(match);
+    }
+  });
+  return [...new Set(expanded)];
+};
+
 // ─────────────────────── DASHBOARD OVERVIEW ───────────────────────
 
 export const getDashboardStats = async () => {
   try {
-    const [usersRes, studentsRes, facultyRes, coursesRes, enrollmentsRes, deptDistribution, recentLogs, trendRes] = await Promise.all([
+    const [usersRes, studentsRes, facultyRes, coursesRes, enrollmentsRes, deptDistribution, recentLogs, trendRes, capacityRes] = await Promise.all([
       db.query(`SELECT COUNT(*) FROM users`),
       db.query(`SELECT COUNT(*) FROM users WHERE role = 'student' AND registration_status = 'approved' AND is_active = true`),
       db.query(`SELECT COUNT(*) FROM users WHERE role = 'faculty' AND registration_status = 'approved' AND is_active = true`),
@@ -38,16 +60,26 @@ export const getDashboardStats = async () => {
         WHERE enrollment_date >= NOW() - INTERVAL '8 months'
         GROUP BY month, date_trunc('month', enrollment_date)
         ORDER BY date_trunc('month', enrollment_date)
+      `),
+      db.query(`
+        SELECT SUM(c.max_seats) as total_capacity
+        FROM course_sections cs
+        JOIN courses c ON cs.course_id = c.course_id
       `)
     ]);
 
     const totalStudentsCount = parseInt(studentsRes.rows[0].count || 0);
+    const activeEnrollments = parseInt(enrollmentsRes.rows[0].count || 0);
+    const totalCapacity = parseInt(capacityRes.rows[0].total_capacity || 0);
+
     const totalStats = {
       totalUsers: parseInt(usersRes.rows[0].count || 0),
       totalStudents: totalStudentsCount,
       totalFaculty: parseInt(facultyRes.rows[0].count || 0),
       activeCourses: parseInt(coursesRes.rows[0].count || 0),
-      activeEnrollments: parseInt(enrollmentsRes.rows[0].count || 0),
+      activeEnrollments,
+      totalCapacity,
+      seatUtilization: totalCapacity > 0 ? Math.round((activeEnrollments / totalCapacity) * 100) : 0,
       departmentDistribution: deptDistribution.rows.map(d => ({
         dept: d.dept || 'General',
         students: totalStudentsCount > 0 ? Math.round((parseInt(d.count || 0) / totalStudentsCount) * 100) : 0,
@@ -83,12 +115,13 @@ export const getDashboardStats = async () => {
   }
 };
 
-export const logAction = async ({ userId, action, target, details, severity = 'info', ipAddress }) => {
+export const logAction = async ({ userId, action, target, targetId, details, severity = 'info', ipAddress }) => {
   try {
+    const finalTarget = target || targetId || 'SYSTEM';
     await db.query(`
       INSERT INTO audit_logs (user_id, action, target, details, severity, ip_address)
       VALUES ($1, $2, $3, $4, $5, $6)
-    `, [userId, action, target, details, severity, ipAddress]);
+    `, [userId, action, finalTarget, details, severity, ipAddress]);
   } catch (err) {
     console.error('Audit Log Error:', err);
   }
@@ -410,13 +443,14 @@ export const getAllCourses = async () => {
   try {
     const res = await db.query(
       `SELECT c.course_id, c.course_code, c.title, c.credit_hours, c.department, c.is_active, c.max_seats,
-              COUNT(DISTINCT cs.section_id) as total_sections,
-              COALESCE(SUM(cs.current_seats), 0) as total_enrolled
+              (SELECT COUNT(DISTINCT section_id) FROM course_sections WHERE course_id = c.course_id) as total_sections,
+              (SELECT COUNT(*) FROM enrollments e 
+               JOIN course_sections cs ON e.section_id = cs.section_id 
+               WHERE cs.course_id = c.course_id AND e.status = 'enrolled') as total_enrolled
        FROM courses c
-       LEFT JOIN course_sections cs ON c.course_id = cs.course_id
-       GROUP BY c.course_id
        ORDER BY c.created_at DESC`
     );
+
     return res.rows;
   } catch (err) {
     console.error('Database Error in getAllCourses:', err);
@@ -467,7 +501,13 @@ export const deleteCourse = async (courseId) => {
 export const getAllSections = async () => {
   try {
     const res = await db.query(`
-      SELECT s.*, c.title as course_title, c.course_code, f.faculty_id, u.name as faculty_name
+      SELECT 
+        s.section_id, s.course_id, s.faculty_id, s.section_name, s.room,
+        s.day_of_week, s.start_time, s.end_time,
+        c.title as course_title, c.course_code,
+        c.max_seats,
+        (SELECT COUNT(*) FROM enrollments e WHERE e.section_id = s.section_id AND e.status = 'enrolled') as current_seats,
+        f.faculty_id as fac_id, u.name as faculty_name
       FROM course_sections s
       JOIN courses c ON s.course_id = c.course_id
       LEFT JOIN faculty f ON s.faculty_id = f.faculty_id
@@ -555,7 +595,7 @@ export const updateSectionSchedule = async (sectionId, data) => {
 };
 
 export const createSection = async (data) => {
-  const { course_id, section_name, faculty_id, room, day_of_week, start_time, end_time, max_seats } = data;
+  const { course_id, section_name, faculty_id, room, day_of_week, start_time, end_time } = data;
   
   // Optional conflict check if faculty/room provided
   if (faculty_id && room && day_of_week && start_time && end_time) {
@@ -566,13 +606,19 @@ export const createSection = async (data) => {
   }
 
   const res = await db.query(`
-    INSERT INTO course_sections (course_id, section_name, faculty_id, room, day_of_week, start_time, end_time, max_seats)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    INSERT INTO course_sections (course_id, section_name, faculty_id, room, day_of_week, start_time, end_time)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING section_id
-  `, [course_id, section_name, faculty_id, room, day_of_week, start_time, end_time, max_seats]);
+  `, [course_id, section_name, faculty_id, room, day_of_week, start_time, end_time]);
   
   const fullData = await db.query(`
-    SELECT s.*, c.title as course_title, c.course_code, f.faculty_id, u.name as faculty_name
+    SELECT 
+      s.section_id, s.course_id, s.faculty_id, s.section_name, s.room,
+      s.day_of_week, s.start_time, s.end_time,
+      c.title as course_title, c.course_code,
+      c.max_seats,
+      0 as current_seats,
+      f.faculty_id as fac_id, u.name as faculty_name
     FROM course_sections s
     JOIN courses c ON s.course_id = c.course_id
     LEFT JOIN faculty f ON s.faculty_id = f.faculty_id
@@ -778,12 +824,26 @@ export const enrollStudentInSection = async (sectionId, studentId) => {
   const checkRes = await db.query('SELECT 1 FROM enrollments WHERE student_id = $1 AND section_id = $2', [studentId, sectionId]);
   if (checkRes.rows.length > 0) throw new Error('Student already enrolled in this section');
 
+  // Capacity guard: fetch max_seats from courses, count active enrollments
+  const capacityRes = await db.query(`
+    SELECT c.max_seats,
+           (SELECT COUNT(*) FROM enrollments e WHERE e.section_id = $1 AND e.status = 'enrolled') as current_count
+    FROM course_sections cs
+    JOIN courses c ON cs.course_id = c.course_id
+    WHERE cs.section_id = $1
+  `, [sectionId]);
+
+  if (capacityRes.rows.length > 0) {
+    const { max_seats, current_count } = capacityRes.rows[0];
+    if (max_seats && parseInt(current_count) >= parseInt(max_seats)) {
+      throw new Error(`Section is full. Maximum capacity is ${max_seats} students.`);
+    }
+  }
+
   const res = await db.query(`
     INSERT INTO enrollments (student_id, section_id)
     VALUES ($1, $2) RETURNING *
   `, [studentId, sectionId]);
-  
-  await db.query('UPDATE course_sections SET current_seats = current_seats + 1 WHERE section_id = $1', [sectionId]);
   
   return res.rows[0];
 };
@@ -806,9 +866,6 @@ export const removeStudentFromSection = async (sectionId, studentId) => {
   if (checkRes.rows.length === 0) throw new Error('Student is not enrolled in this section');
 
   await db.query('DELETE FROM enrollments WHERE student_id = $1 AND section_id = $2', [studentId, sectionId]);
-  
-  // Decrease current_seats (make sure it doesn't drop below 0 if somehow out of sync)
-  await db.query('UPDATE course_sections SET current_seats = GREATEST(0, current_seats - 1) WHERE section_id = $1', [sectionId]);
   
   return { success: true };
 };
@@ -1058,3 +1115,242 @@ export const updateFeeStructure = async (id, data) => {
   
   return joinedRes.rows[0];
 };
+
+// ─────────────────────── COURSE APPROVALS ───────────────────────
+export const getApprovalRequests = async (status = 'pending') => {
+  try {
+    const res = await db.query(
+      `SELECT r.*, 
+              u.name as faculty_name, u.email as faculty_email,
+              a.name as admin_name
+       FROM approval_requests r
+       JOIN users u ON r.requester_id = u.user_id
+       LEFT JOIN users a ON r.admin_id = a.user_id
+       WHERE r.status = $1
+       ORDER BY r.created_at ASC`,
+      [status]
+    );
+    return res.rows;
+  } catch (err) {
+    throw new Error('Failed to fetch approval requests: ' + err.message);
+  }
+};
+
+export const getApprovalRequestById = async (requestId) => {
+  try {
+    const res = await db.query(
+      `SELECT r.*, 
+              u.name as faculty_name, u.email as faculty_email,
+              a.name as admin_name
+       FROM approval_requests r
+       JOIN users u ON r.requester_id = u.user_id
+       LEFT JOIN users a ON r.admin_id = a.user_id
+       WHERE r.request_id = $1`,
+      [requestId]
+    );
+    return res.rows[0];
+  } catch (err) {
+    throw new Error('Failed to fetch approval request: ' + err.message);
+  }
+};
+
+export const getCourseById = async (courseId) => {
+  try {
+    const res = await db.query(`SELECT * FROM courses WHERE course_id = $1`, [courseId]);
+    return res.rows[0];
+  } catch (err) {
+    throw new Error('Failed to fetch course: ' + err.message);
+  }
+};
+
+export const updateApprovalRequest = async (requestId, { status, adminComment, adminId }) => {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // 1. Get the request
+    const requestRes = await client.query(
+      `SELECT * FROM approval_requests WHERE request_id = $1`, [requestId]
+    );
+    if (!requestRes.rows.length) throw new Error('Request not found');
+    const request = requestRes.rows[0];
+
+    // 2. Update status
+    await client.query(
+      `UPDATE approval_requests SET status = $1, admin_comment = $2, admin_id = $3, updated_at = NOW() WHERE request_id = $4`,
+      [status, adminComment, adminId, requestId]
+    );
+
+    // 3. If approved, apply the change
+    if (status === 'approved') {
+      console.log(`Applying approved request ${request.request_id} of type ${request.request_type}`);
+      let data = request.request_data || {};
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch (e) {
+          console.error('Failed to parse request_data string:', data);
+          data = {};
+        }
+      }
+      console.log('Approval data payload:', JSON.stringify(data, null, 2));
+    
+      // Re-verify faculty schedule conflict before final approval
+      if ((request.request_type === 'COURSE_ADD' || request.request_type === 'COURSE_EDIT') && data.day_of_week && data.start_time && data.end_time) {
+        if (data.start_time >= data.end_time) {
+          throw new Error('Cannot approve: Start time must be before end time.');
+        }
+        console.log('Re-verifying schedule for faculty user_id:', request.requester_id);
+        const facultyRes = await client.query(`SELECT faculty_id FROM faculty WHERE user_id = $1`, [request.requester_id]);
+        const facultyId = facultyRes.rows[0]?.faculty_id;
+        console.log('Found facultyId:', facultyId);
+
+        if (facultyId) {
+          const proposedDays = normalizeDays(data.day_of_week);
+          const conflictRes = await client.query(`
+            SELECT cs.section_name, c.title, cs.day_of_week
+            FROM course_sections cs
+            JOIN courses c ON cs.course_id = c.course_id
+            WHERE cs.faculty_id = $1
+            AND ($3::TEXT IS NULL OR cs.section_id::TEXT != $3::TEXT)
+            AND (
+              (cs.start_time::TIME, cs.end_time::TIME) OVERLAPS ($2::TIME, $4::TIME)
+            )
+          `, [facultyId, data.start_time, data.section_id || null, data.end_time]);
+
+          // Filter by normalized days in JS for maximum reliability
+          const conflict = conflictRes.rows.find(row => {
+            const existingDays = normalizeDays(row.day_of_week);
+            return existingDays.some(d => proposedDays.includes(d));
+          });
+
+          if (conflict) {
+            throw new Error(`Cannot approve: Faculty has a schedule conflict with "${conflict.title} - ${conflict.section_name}" at this time on ${conflict.day_of_week}.`);
+          }
+        }
+      }
+      
+      if (request.request_type === 'COURSE_ADD') {
+        console.log('Inserting new course:', data.course_code);
+        // Ensure required fields for NOT NULL constraints
+        if (!data.course_code || !data.title || data.credit_hours === undefined) {
+          throw new Error('Incomplete course data for insertion: missing course_code, title, or credit_hours');
+        }
+
+        let newCourseId;
+        try {
+          const courseRes = await client.query(
+            `INSERT INTO courses (course_code, title, credit_hours, department, description, max_seats)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING course_id`,
+            [
+              data.course_code, 
+              data.title, 
+              parseInt(data.credit_hours), 
+              data.department || null, 
+              data.description || '', 
+              parseInt(data.max_seats) || 50
+            ]
+          );
+          newCourseId = courseRes.rows[0].course_id;
+          console.log('New course created with ID:', newCourseId);
+        } catch (dbErr) {
+          console.error('Error during COURSE_ADD insert:', dbErr);
+          throw new Error('Database error during course creation: ' + dbErr.message);
+        }
+
+        // Find faculty_id for the requester
+        try {
+          const facultyRes = await client.query(`SELECT faculty_id FROM faculty WHERE user_id = $1`, [request.requester_id]);
+          if (facultyRes.rows.length > 0) {
+            const facultyId = facultyRes.rows[0].faculty_id;
+            console.log('Creating initial section for faculty:', facultyId);
+            await client.query(
+              `INSERT INTO course_sections (course_id, faculty_id, section_name, day_of_week, start_time, end_time, room)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+              [newCourseId, facultyId, 'Section A', data.day_of_week || 'TBD', data.start_time || null, data.end_time || null, data.room || 'TBD']
+            );
+          }
+        } catch (secErr) {
+          console.error('Error during COURSE_ADD section insert:', secErr);
+          throw new Error('Database error during section creation: ' + secErr.message);
+        }
+      } else if (request.request_type === 'COURSE_EDIT') {
+        console.log('Updating course:', request.target_id);
+        if (!request.target_id) throw new Error('Target course ID is missing for edit request');
+
+        // Fetch current values to fill gaps if partial data is sent
+        const currentCourse = await client.query(`SELECT * FROM courses WHERE course_id = $1`, [request.target_id]);
+        if (!currentCourse.rows.length) throw new Error(`Target course ${request.target_id} not found`);
+        const current = currentCourse.rows[0];
+
+        // Merge current and new data
+        const finalData = {
+          course_code: data.course_code !== undefined ? data.course_code : current.course_code,
+          title: data.title !== undefined ? data.title : current.title,
+          credit_hours: data.credit_hours !== undefined ? data.credit_hours : current.credit_hours,
+          department: data.department !== undefined ? data.department : current.department,
+          description: data.description !== undefined ? data.description : current.description,
+          max_seats: data.max_seats !== undefined ? data.max_seats : current.max_seats
+        };
+
+        try {
+          const updateRes = await client.query(
+            `UPDATE courses 
+             SET course_code = $1, title = $2, credit_hours = $3, department = $4, description = $5, max_seats = $6
+             WHERE course_id = $7`,
+            [
+              finalData.course_code, 
+              finalData.title, 
+              parseInt(finalData.credit_hours) || 0, 
+              finalData.department, 
+              finalData.description, 
+              parseInt(finalData.max_seats) || 50, 
+              request.target_id
+            ]
+          );
+          console.log(`Update result: ${updateRes.rowCount} rows affected`);
+        } catch (dbErr) {
+          console.error('Error during COURSE_EDIT update:', dbErr);
+          throw new Error('Database error during course update: ' + dbErr.message);
+        }
+
+        // If section_id is present, update the section details (time, room, capacity)
+        if (data.section_id) {
+          console.log('Updating section details:', data.section_id);
+          await client.query(
+            `UPDATE course_sections 
+             SET day_of_week = COALESCE($1, day_of_week), 
+                 start_time = COALESCE($2, start_time), 
+                 end_time = COALESCE($3, end_time), 
+                 room = COALESCE($4, room)
+             WHERE section_id = $5`,
+            [data.day_of_week, data.start_time, data.end_time, data.room, data.section_id]
+          );
+        }
+      } else if (request.request_type === 'COURSE_DELETE') {
+        console.log('Deleting course:', request.target_id);
+        await client.query(`DELETE FROM courses WHERE course_id = $1`, [request.target_id]);
+      }
+    }
+
+    // 4. Notify faculty
+    await notify({
+      userId: request.requester_id,
+      title: `Course Request ${status.toUpperCase()}`,
+      message: `Your request to ${request.request_type.replace('_', ' ')} has been ${status}. ${adminComment ? `Comment: ${adminComment}` : ''}`,
+      type: 'system',
+      priority: status === 'approved' ? 'medium' : 'high',
+      channels: ['in-app', 'email']
+    });
+
+    await client.query('COMMIT');
+    return { success: true };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+

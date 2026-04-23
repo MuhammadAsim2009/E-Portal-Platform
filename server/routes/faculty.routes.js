@@ -9,7 +9,10 @@ import {
   submitAttendance,
   getSectionAssignments,
   createAssignment,
+  submitCourseRequest,
+  getMyRequests,
 } from '../controllers/faculty.controller.js';
+
 
 const router = Router();
 
@@ -30,5 +33,10 @@ router.post('/sections/:sectionId/attendance', submitAttendance);
 // Assignments
 router.get('/sections/:sectionId/assignments', getSectionAssignments);
 router.post('/sections/:sectionId/assignments', createAssignment);
+
+// Course Management Requests
+router.post('/course-requests', submitCourseRequest);
+router.get('/course-requests', getMyRequests);
+
 
 export default router;

@@ -3,14 +3,14 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, BookOpen, Megaphone, Calendar, BarChart3,
   LogOut, Menu, X, ChevronRight, Shield, Bell, Search, Settings,
-  GraduationCap, Briefcase, User as UserIcon, CreditCard, DollarSign
+  GraduationCap, Briefcase, User as UserIcon, CreditCard, DollarSign, CheckCircle2
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import api from '../services/api';
 
 const navGroups = [
   {
-    title: 'Intelligence',
+    title: 'Overview',
     links: [
       { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
       { to: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
@@ -23,7 +23,9 @@ const navGroups = [
       { to: '/admin/students', icon: GraduationCap, label: 'Students' },
       { to: '/admin/faculty', icon: Briefcase, label: 'Faculty' },
       { to: '/admin/courses', icon: BookOpen, label: 'Courses' },
+      { to: '/admin/course-approvals', icon: CheckCircle2, label: 'Course Approvals' },
       { to: '/admin/timetable', icon: Calendar, label: 'Timetable' },
+
       { to: '/admin/payments', icon: CreditCard, label: 'Payments' },
       { to: '/admin/fees-config', icon: DollarSign, label: 'Fee Matrix' },
     ]

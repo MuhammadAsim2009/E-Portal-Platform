@@ -42,8 +42,13 @@ import {
   updateFeeStructure,
   deleteFeeStructure,
   bulkGenerateFees,
-  getSettings
+  getSettings,
+  getApprovalRequests,
+  updateApprovalRequest,
+  getApprovalRequestById,
+  getCourseById
 } from '../controllers/admin.controller.js';
+
 
 const router = Router();
 
@@ -86,9 +91,16 @@ router.patch('/payments/:id/status', updatePaymentStatus);
 
 // Course Management
 router.get('/courses', getAllCourses);
+router.get('/courses/:id', getCourseById);
 router.post('/courses', createCourse);
 router.patch('/courses/:id', updateCourse);
 router.delete('/courses/:id', deleteCourse);
+
+// Course Approvals
+router.get('/course-approvals', getApprovalRequests);
+router.get('/course-approvals/:id', getApprovalRequestById);
+router.patch('/course-approvals/:id', updateApprovalRequest);
+
 
 // Announcements
 router.get('/announcements', getAnnouncements);

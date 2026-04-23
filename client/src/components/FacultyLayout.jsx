@@ -45,7 +45,7 @@ const FacultyLayout = () => {
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-hide">
           {navLinks.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
