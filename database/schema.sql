@@ -104,7 +104,8 @@ CREATE TABLE attendance (
   student_id UUID REFERENCES students(student_id) ON DELETE CASCADE,
   date DATE NOT NULL,
   status VARCHAR(10) CHECK (status IN ('present','absent','late','excused')),
-  marked_by UUID REFERENCES faculty(faculty_id)
+  marked_by UUID REFERENCES faculty(faculty_id),
+  UNIQUE(section_id, student_id, date)
 );
 
 CREATE TABLE fees (
@@ -197,3 +198,68 @@ CREATE TABLE IF NOT EXISTS login_devices (
   created_at TIMESTAMP DEFAULT NOW(),
   UNIQUE(user_id, device_fingerprint)
 );
+
+-- Feedback & Evaluations
+CREATE TABLE IF NOT EXISTS evaluation_forms (
+  form_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  section_id UUID REFERENCES course_sections(section_id) ON DELETE CASCADE,
+  title VARCHAR(200) NOT NULL,
+  description TEXT,
+  questions JSONB NOT NULL, -- Array of objects: {id, text, type: 'scale'|'text'}
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS evaluation_responses (
+  response_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  form_id UUID REFERENCES evaluation_forms(form_id) ON DELETE CASCADE,
+  student_id UUID REFERENCES students(student_id) ON DELETE CASCADE,
+  answers JSONB NOT NULL, -- Object mapping question ids to answers
+  submitted_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(form_id, student_id)
+);
+
+-- Table for defining assessment components (weightage)
+CREATE TABLE IF NOT EXISTS assessment_components (
+    component_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    section_id UUID REFERENCES course_sections(section_id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL, -- e.g., 'Assignment', 'Quiz', 'Midterm', 'Final'
+    weightage INT NOT NULL, -- e.g., 10, 20, 30, 40 (must sum to 100)
+    max_marks INT DEFAULT 100,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Table for storing marks for each student per component
+CREATE TABLE IF NOT EXISTS student_marks (
+    mark_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    enrollment_id UUID REFERENCES enrollments(enrollment_id) ON DELETE CASCADE,
+    component_id UUID REFERENCES assessment_components(component_id) ON DELETE CASCADE,
+    marks_obtained DECIMAL(5,2) NOT NULL,
+    recorded_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(enrollment_id, component_id)
+);
+
+-- Table for defining the grade scale (Letter Grade to Points)
+CREATE TABLE IF NOT EXISTS grade_scale (
+    grade_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    letter_grade VARCHAR(5) UNIQUE NOT NULL,
+    grade_points DECIMAL(3,2) NOT NULL,
+    min_score INT NOT NULL,
+    max_score INT NOT NULL,
+    description TEXT
+);
+
+-- Seed standard grade scale
+INSERT INTO grade_scale (letter_grade, grade_points, min_score, max_score) VALUES
+('A+', 4.00, 90, 100),
+('A', 4.00, 85, 89),
+('A-', 3.70, 80, 84),
+('B+', 3.30, 75, 79),
+('B', 3.00, 71, 74),
+('B-', 2.70, 68, 70),
+('C+', 2.30, 64, 67),
+('C', 2.00, 60, 63),
+('C-', 1.70, 57, 59),
+('D', 1.00, 50, 56),
+('F', 0.00, 0, 49)
+ON CONFLICT (letter_grade) DO NOTHING;

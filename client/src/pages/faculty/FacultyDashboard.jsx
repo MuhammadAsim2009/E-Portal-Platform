@@ -2,8 +2,16 @@ import usePageTitle from '../../hooks/usePageTitle';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
-import { BookOpen, Users, ClipboardList, ChevronRight, GraduationCap, Clock, Calendar, CheckCircle2, ArrowRight, CalendarCheck, LayoutDashboard } from 'lucide-react';
+import { 
+  BookOpen, Users, ClipboardList, ChevronRight, GraduationCap, 
+  Clock, Calendar, CheckCircle2, ArrowRight, CalendarCheck, 
+  LayoutDashboard, BarChart3, TrendingUp, AlertTriangle, MessageSquare
+} from 'lucide-react';
 import { formatSchedule } from '../../utils/timeFormat';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  LineChart, Line, Cell, PieChart, Pie
+} from 'recharts';
 
 const StatCard = ({ icon: Icon, label, value, gradient, delay, to }) => {
   const CardContent = (
@@ -33,12 +41,14 @@ const StatCard = ({ icon: Icon, label, value, gradient, delay, to }) => {
     </div>
   );
 };
+
 const FacultyDashboard = () => {
   usePageTitle('Faculty Dashboard');
   const [stats, setStats] = useState(null);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
   useEffect(() => {
     const fetchAll = async () => {
       try {
@@ -47,7 +57,8 @@ const FacultyDashboard = () => {
           api.get('/faculty/courses'),
         ]);
         setStats(statsRes.data);
-        setCourses(coursesRes.data.slice(0, 3));
+        const courseData = Array.isArray(coursesRes.data) ? coursesRes.data : (coursesRes.data.courses || []);
+        setCourses(courseData.slice(0, 3));
       } catch (err) {
         console.error("Failed to load dashboard data", err);
         setError("Failed to load dashboard data. Please try again later.");
@@ -57,11 +68,13 @@ const FacultyDashboard = () => {
     };
     fetchAll();
   }, []);
+
   if (loading) return (
     <div className="flex h-full items-center justify-center">
       <div className="w-8 h-8 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
     </div>
   );
+
   if (error) return (
     <div className="flex h-full items-center justify-center">
       <div className="bg-red-50 text-red-600 p-6 rounded-2xl max-w-lg text-center font-medium shadow-sm border border-red-100">
@@ -69,8 +82,11 @@ const FacultyDashboard = () => {
       </div>
     </div>
   );
+
+  const COLORS = ['#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
+
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
+    <div className="space-y-8 max-w-7xl mx-auto pb-12">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Faculty Dashboard</h1>
@@ -87,15 +103,78 @@ const FacultyDashboard = () => {
           </Link>
         </div>
       </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
         <StatCard icon={BookOpen} label="Course Sections" value={stats?.sectionsCount} gradient="from-violet-500 to-indigo-600" delay={100} to="/faculty/courses" />
         <StatCard icon={Users} label="Total Students" value={stats?.studentsCount} gradient="from-blue-500 to-cyan-600" delay={200} />
         <StatCard icon={ClipboardList} label="Assignments Created" value={stats?.assignmentsCount} gradient="from-emerald-500 to-teal-600" delay={300} to="/faculty/assignments" />
       </div>
-      {/* Split Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-8">
-        {/* Left Column: My Courses */}
-        <div className="lg:col-span-2 space-y-6 animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '400ms', animationFillMode: 'both' }}>
+
+      {/* Analytics Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '400ms', animationFillMode: 'both' }}>
+        {/* Grade Distribution */}
+        <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <BarChart3 size={20} className="text-violet-600" /> Grade Distribution
+            </h2>
+            <span className="text-xs font-black uppercase tracking-widest text-slate-400">All Sections</span>
+          </div>
+          <div className="h-64 w-full">
+            {stats?.gradeDistribution?.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.gradeDistribution}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="grade" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 700}} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 700}} />
+                  <Tooltip 
+                    cursor={{fill: '#f8fafc'}}
+                    contentStyle={{borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
+                  />
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                    {stats.gradeDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-400 font-medium">No grades published yet.</div>
+            )}
+          </div>
+        </div>
+
+        {/* Attendance Trend */}
+        <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <TrendingUp size={20} className="text-blue-600" /> Attendance Trends
+            </h2>
+            <span className="text-xs font-black uppercase tracking-widest text-slate-400">Last 7 Sessions</span>
+          </div>
+          <div className="h-64 w-full">
+            {stats?.attendanceTrends?.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={stats.attendanceTrends}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10, fontWeight: 700}} tickFormatter={(val) => new Date(val).toLocaleDateString([], {month: 'short', day: 'numeric'})} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 700}} unit="%" />
+                  <Tooltip 
+                    contentStyle={{borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
+                  />
+                  <Line type="monotone" dataKey="rate" stroke="#3b82f6" strokeWidth={4} dot={{r: 6, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff'}} activeDot={{r: 8}} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-400 font-medium">No attendance data recorded yet.</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Today's Schedule */}
+        <div className="lg:col-span-2 space-y-6 animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '500ms', animationFillMode: 'both' }}>
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-slate-800">Today's Schedule</h2>
             <Link to="/faculty/courses" className="text-sm font-semibold text-violet-600 hover:text-violet-700 flex items-center gap-1 transition-colors group">
@@ -146,57 +225,51 @@ const FacultyDashboard = () => {
             </div>
           </div>
         </div>
-        {/* Right Column: Quick Actions & Tasks placeholder */}
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '500ms', animationFillMode: 'both' }}>
-           <h2 className="text-xl font-bold text-slate-800">Quick Tools</h2>
-           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm relative overflow-hidden">
-             <h3 className="text-lg font-bold mb-4 flex items-center gap-2 relative z-10 text-slate-800"><ClipboardList size={20} className="text-violet-600" /> Pending Tasks</h3>
-             <ul className="space-y-3 relative z-10">
+
+        {/* Right Column: Submission Stats & Tasks */}
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '600ms', animationFillMode: 'both' }}>
+
+
+           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+             <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-800"><Clock size={20} className="text-violet-600" /> Pending Tasks</h3>
+             <ul className="space-y-3">
                {(!stats?.pendingTasks || stats.pendingTasks.length === 0) ? (
-                 <li className="text-sm font-medium text-slate-500 py-2">No pending tasks!</li>
+                 <li className="text-sm font-medium text-slate-500 py-2 text-center">No pending tasks!</li>
                ) : (
                  stats.pendingTasks.map((task, idx) => {
-                   // parse deadline to see if it's near
                    const isNear = new Date(task.deadline).getTime() - Date.now() < 3 * 86400000;
                    return (
-                     <li key={task.id} className="flex items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors cursor-pointer">
+                     <li key={task.id} className="flex items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors cursor-pointer group">
                        <div className={`mt-1.5 w-2 h-2 rounded-full ${isNear ? 'bg-amber-400' : 'bg-emerald-400'} flex-shrink-0`}></div>
-                       <div>
-                         <p className="text-sm font-bold text-slate-800">{task.title}</p>
-                         <p className="text-xs text-slate-500 mt-0.5">{task.course_code} Sec {task.section_name} • Due {new Date(task.deadline).toLocaleDateString()}</p>
+                       <div className="flex-1">
+                         <p className="text-sm font-bold text-slate-800 group-hover:text-violet-600 transition-colors">{task.title}</p>
+                         <p className="text-[10px] text-slate-500 mt-0.5 uppercase font-bold">{task.course_code} Sec {task.section_name} • Due {new Date(task.deadline).toLocaleDateString()}</p>
                        </div>
+                       <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-600 mt-1" />
                      </li>
                    );
                  })
                )}
              </ul>
            </div>
-           {/* Empty space as requested */}
         </div>
       </div>
-      {/* Bottom Section: Quick Access & Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '600ms', animationFillMode: 'both' }}>
-        <div className="bg-white border border-slate-200 rounded-3xl p-8 flex items-center gap-6 group hover:border-violet-300 transition-all shadow-sm">
-           <div className="w-16 h-16 rounded-2xl bg-violet-50 flex items-center justify-center text-violet-600 group-hover:bg-violet-600 group-hover:text-white transition-all duration-500">
-              <ClipboardList size={28} />
-           </div>
-           <div>
-              <h3 className="font-bold text-slate-900 text-lg">Detailed Reports</h3>
-              <p className="text-slate-500 text-sm mt-1">Review comprehensive analytics of your teaching performance and student engagement.</p>
-           </div>
-        </div>
 
+      {/* Bottom Section: Reports */}
+      <div className="grid grid-cols-1 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '700ms', animationFillMode: 'both' }}>
         <div className="bg-white border border-slate-200 rounded-3xl p-8 flex items-center gap-6 group hover:border-emerald-300 transition-all shadow-sm">
            <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-500">
-              <Users size={28} />
+              <BarChart3 size={28} />
            </div>
-           <div>
-              <h3 className="font-bold text-slate-900 text-lg">Student Directory</h3>
-              <p className="text-slate-500 text-sm mt-1">Easily communicate and manage communication with all students enrolled in your sections.</p>
+           <div className="flex-1">
+              <h3 className="font-bold text-slate-900 text-lg">Performance Audit</h3>
+              <p className="text-slate-500 text-sm mt-1">Generate detailed PDF reports of class performance, attendance consistency, and grade trends.</p>
            </div>
+           <ArrowRight size={20} className="text-slate-300 group-hover:text-slate-900 group-hover:translate-x-1 transition-all" />
         </div>
       </div>
     </div>
   );
 };
+
 export default FacultyDashboard;

@@ -232,3 +232,16 @@ export const submitAssignment = async (req, res) => {
   }
 };
 
+
+/**
+ * Fetch detailed grades and assessment breakdown for the student
+ */
+export const getGrades = async (req, res) => {
+  try {
+    const data = await studentService.getStudentGrades(req.user.id);
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Student Grades error:', error);
+    res.status(500).json({ message: 'Error fetching grades breakdown' });
+  }
+};

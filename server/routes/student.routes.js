@@ -19,5 +19,7 @@ router.post('/drop', studentCtrl.dropModule);
 router.post('/swap', studentCtrl.swapModule);
 router.post('/payments', studentCtrl.submitPayment);
 router.post('/assignments/submit', uploadAssignmentS3.single('file'), studentCtrl.submitAssignment);
+router.get('/grades', studentCtrl.getGrades);
+
 
 export default router;

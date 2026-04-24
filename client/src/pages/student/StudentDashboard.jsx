@@ -31,8 +31,10 @@ import {
   Smartphone,
   Megaphone,
   Pin,
-  X
+  X,
+  ClipboardList
 } from 'lucide-react';
+
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, Cell
 } from 'recharts';
@@ -113,17 +115,22 @@ const StudentDashboard = () => {
   const [submissionFile, setSubmissionFile] = useState(null);
   const [conflictError, setConflictError] = useState(null);
   const [gradePredictions, setGradePredictions] = useState({}); // { section_id: grade_point }
+  const [gradesBreakdown, setGradesBreakdown] = useState([]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [dashRes, courseRes, announceRes] = await Promise.all([
+      const [dashRes, courseRes, announceRes, gradesRes] = await Promise.all([
         api.get('/student/dashboard'),
         api.get('/student/courses/available'),
-        api.get('/student/announcements')
+        api.get('/student/announcements'),
+        api.get('/student/grades')
       ]);
       setDashboardData(dashRes.data);
       setAvailableCourses(courseRes.data);
       setAnnouncements(announceRes.data || []);
+      setGradesBreakdown(gradesRes.data || []);
+
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       toast.error('Failed to load dashboard data. Please try again.');
@@ -1150,6 +1157,89 @@ const StudentDashboard = () => {
                  <button className="w-full mt-10 py-5 bg-slate-900 text-white rounded-[1.5rem] font-bold flex items-center justify-center gap-3 shadow-2xl shadow-slate-200 active:scale-95 transition-all">
                     <Download size={22} /> Request Official Certified Transcript
                  </button>
+              </div>
+
+              {/* Detailed Grade Breakdown */}
+              <div className="glass-card p-10 rounded-[2.5rem] mt-10">
+                <div className="flex items-center gap-4 mb-10">
+                  <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-100">
+                    <ClipboardList size={22} />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-800">Assessment Breakdown</h2>
+                    <p className="text-slate-500 font-medium">Detailed marks for each course component.</p>
+                  </div>
+                </div>
+
+                <div className="space-y-10">
+                  {(() => {
+                    // Group by Course
+                    const grouped = gradesBreakdown.reduce((acc, curr) => {
+                      if (!acc[curr.course_code]) {
+                        acc[curr.course_code] = {
+                          title: curr.course_title,
+                          final_grade: curr.final_grade,
+                          components: []
+                        };
+                      }
+                      acc[curr.course_code].components.push(curr);
+                      return acc;
+                    }, {});
+
+                    const courses = Object.keys(grouped);
+                    if (courses.length === 0) return <p className="text-slate-400 italic text-center py-10">No assessment data released yet.</p>;
+
+                    return courses.map(code => (
+                      <div key={code} className="bg-slate-50 rounded-[2.5rem] border border-slate-100 overflow-hidden transition-all hover:border-indigo-200">
+                        <div className="bg-white p-6 sm:p-8 flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-slate-100">
+                          <div>
+                            <p className="text-xs font-black text-indigo-600 uppercase tracking-widest mb-1">{code}</p>
+                            <h4 className="text-xl font-black text-slate-900">{grouped[code].title}</h4>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Standing</p>
+                              <p className="text-2xl font-black text-indigo-600">{grouped[code].final_grade || 'Evaluating'}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-6 sm:p-8">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {grouped[code].components.map(comp => {
+                              const percentage = comp.marks_obtained !== null 
+                                ? ((comp.marks_obtained / comp.max_marks) * 100).toFixed(0) 
+                                : null;
+                              
+                              return (
+                                <div key={comp.component_id} className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group">
+                                  <div 
+                                    className="absolute bottom-0 left-0 h-1 bg-indigo-500 transition-all duration-1000" 
+                                    style={{ width: `${percentage || 0}%` }}
+                                  />
+                                  <div className="flex justify-between items-start mb-4">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{comp.component_name}</span>
+                                    <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase">{comp.weightage}% WT.</span>
+                                  </div>
+                                  <div className="flex items-end justify-between">
+                                    <div>
+                                      <span className="text-2xl font-black text-slate-900">{comp.marks_obtained ?? '--'}</span>
+                                      <span className="text-sm font-bold text-slate-300 ml-1">/ {comp.max_marks}</span>
+                                    </div>
+                                    {percentage !== null && (
+                                      <span className="text-xs font-black text-emerald-500 bg-emerald-50 px-2 py-1 rounded-lg">
+                                        {percentage}%
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
               </div>
            </div>
         )}

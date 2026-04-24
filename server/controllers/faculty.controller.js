@@ -37,6 +37,61 @@ export const updateGrade = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+// --- Dynamic Gradebook ---
+
+export const getAssessmentComponents = async (req, res) => {
+  try {
+    const data = await facultyService.getAssessmentComponents(req.params.sectionId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+export const createAssessmentComponent = async (req, res) => {
+  try {
+    const result = await facultyService.createAssessmentComponent(req.params.sectionId, req.body);
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+export const updateAssessmentComponent = async (req, res) => {
+  try {
+    const result = await facultyService.updateAssessmentComponent(req.params.componentId, req.body);
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+export const deleteAssessmentComponent = async (req, res) => {
+  try {
+    const result = await facultyService.deleteAssessmentComponent(req.params.componentId);
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+export const getSectionGradebook = async (req, res) => {
+  try {
+    const data = await facultyService.getSectionGradebook(req.params.sectionId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+export const updateStudentMarks = async (req, res) => {
+  try {
+    const { enrollmentId, componentId } = req.params;
+    const { marksObtained } = req.body;
+    const result = await facultyService.updateStudentMarks(enrollmentId, componentId, marksObtained);
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+export const getGradeScale = async (req, res) => {
+  try {
+    const data = await facultyService.getGradeScale();
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+
+
 export const getAttendance = async (req, res) => {
   try {
     const { sectionId } = req.params;
@@ -51,6 +106,9 @@ export const submitAttendance = async (req, res) => {
     const { sectionId } = req.params;
     const { date, records } = req.body;
     const result = await facultyService.submitAttendance(sectionId, date, records, req.user.id);
+    if (!result.success) {
+      return res.status(400).json({ message: result.error || 'Failed to submit attendance' });
+    }
     res.json(result);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -64,7 +122,11 @@ export const getSectionAssignments = async (req, res) => {
 
 export const createAssignment = async (req, res) => {
   try {
-    const result = await facultyService.createAssignment({ ...req.body, userId: req.user.id });
+    const result = await facultyService.createAssignment({ 
+      ...req.body, 
+      sectionId: req.params.sectionId, 
+      userId: req.user.id 
+    });
     res.json(result);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -87,3 +149,116 @@ export const getMyRequests = async (req, res) => {
     res.status(500).json({ message: err.message }); 
   }
 };
+
+export const getAssignmentById = async (req, res) => {
+  try {
+    const data = await facultyService.getAssignmentById(req.params.assignmentId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+export const getAssignmentSubmissions = async (req, res) => {
+  try {
+    const data = await facultyService.getAssignmentSubmissions(req.params.assignmentId);
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+export const gradeSubmission = async (req, res) => {
+  try {
+    const result = await facultyService.gradeSubmission(req.params.submissionId, req.body.marks, req.body.feedback, req.user.id);
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+export const deleteAssignment = async (req, res) => {
+  try {
+    const result = await facultyService.deleteAssignment(req.params.id);
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+export const getEvaluations = async (req, res) => {
+  try {
+    const stats = await facultyService.getEvaluationStats(req.params.sectionId);
+    res.json({ success: true, stats });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+export const createEvaluation = async (req, res) => {
+  try {
+    const { title, description, questions } = req.body;
+    const form = await facultyService.createEvaluationForm(req.params.sectionId, title, description, questions);
+    res.json({ success: true, form });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+export const getEvaluationResponses = async (req, res) => {
+  try {
+    const responses = await facultyService.getEvaluationResponses(req.params.formId);
+    res.json({ success: true, responses });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+export const getAnnouncements = async (req, res) => {
+  try {
+    const announcements = await facultyService.getAnnouncements(req.user.id);
+    res.json(announcements);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const createAnnouncement = async (req, res) => {
+  try {
+    const announcement = await facultyService.createAnnouncement(req.body, req.user.id);
+    res.status(201).json(announcement);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const updateAnnouncement = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const announcement = await facultyService.updateAnnouncement(id, req.body, req.user.id);
+    if (!announcement) return res.status(404).json({ message: 'Announcement not found or unauthorized' });
+    res.json(announcement);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const deleteAnnouncement = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await facultyService.deleteAnnouncement(id, req.user.id);
+    if (!result) return res.status(404).json({ message: 'Announcement not found or unauthorized' });
+    res.json({ message: 'Announcement deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const getNotifications = async (req, res) => {
+  try {
+    const { isRead, limit = 50 } = req.query;
+    const notifications = await facultyService.getNotifications(req.user.id, { 
+      isRead: isRead === undefined ? null : isRead === 'true',
+      limit: parseInt(limit)
+    });
+    res.json(notifications);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const markNotificationAsRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await facultyService.markNotificationRead(id, req.user.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+

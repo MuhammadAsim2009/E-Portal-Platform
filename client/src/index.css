@@ -47,11 +47,9 @@ h1, h2, h3, h4, .brand-font {
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  display: none;
 }
-.custom-scrollbar::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
+.custom-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

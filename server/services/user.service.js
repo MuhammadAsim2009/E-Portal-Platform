@@ -95,9 +95,16 @@ export const findUserByEmail = async (email) => {
 
 export const findUserById = async (id) => {
   try {
-    const sql = 'SELECT user_id, name, email, role, mfa_enabled, created_at FROM users WHERE user_id = $1;';
+    const sql = `
+      SELECT u.user_id, u.name, u.email, u.role, u.mfa_enabled, u.created_at,
+             f.department, f.designation
+      FROM users u
+      LEFT JOIN faculty f ON u.user_id = f.user_id
+      WHERE u.user_id = $1;
+    `;
     const { rows } = await query(sql, [id]);
     return rows[0];
+
   } catch (err) {
     if (err.code === 'ECONNREFUSED') {
       const u = mockUsers.find(u => u.user_id === id);

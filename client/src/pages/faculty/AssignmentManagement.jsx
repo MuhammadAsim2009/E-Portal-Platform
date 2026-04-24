@@ -1,18 +1,22 @@
 import usePageTitle from '../../hooks/usePageTitle';
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { FileText, Plus, Trash2, Calendar, Clock, BarChart2, X, CheckCircle2, AlertCircle } from 'lucide-react';
+import { FileText, Plus, Trash2, Calendar, Clock, BarChart2, X, CheckCircle2, AlertCircle, AlertTriangle, ChevronRight } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
+
 const AssignmentManagement = () => {
   usePageTitle('Assignment Management');
-  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [courses, setCourses] = useState([]);
-  const [selectedSection, setSelectedSection] = useState(searchParams.get('section') || '');
+  const [selectedSection, setSelectedSection] = useState('');
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   // Form State
   const [formData, setFormData] = useState({
     title: '',
@@ -21,34 +25,67 @@ const AssignmentManagement = () => {
     max_marks: 10,
     submission_type: 'file'
   });
+
   useEffect(() => {
     api.get('/faculty/courses')
       .then(res => {
-        setCourses(res.data);
-        if (!selectedSection && res.data.length > 0) setSelectedSection(res.data[0].section_id);
+        const courseData = Array.isArray(res.data) ? res.data : (res.data.courses || []);
+        setCourses(courseData);
+        
+        const urlSection = searchParams.get('section');
+        if (courseData.length > 0) {
+          // If URL has a section and it exists in our courses, use it
+          if (urlSection && courseData.some(c => c.section_id === urlSection)) {
+            setSelectedSection(urlSection);
+          } else {
+            // Default to first course if no valid URL section
+            setSelectedSection(courseData[0].section_id);
+          }
+        }
       })
       .catch(() => {
-        setCourses([
-          { section_id: '1', course_code: 'CS-201', section_name: 'A', title: 'Data Structures' },
-        ]);
-        if (!selectedSection) setSelectedSection('1');
+        toast.error("Failed to load courses");
       });
-  }, []);
+  }, []); // Initial load only
+
   const fetchAssignments = async () => {
     if (!selectedSection) return;
     setLoading(true);
     try {
       const res = await api.get(`/faculty/sections/${selectedSection}/assignments`);
-      setAssignments(res.data);
+      setAssignments(Array.isArray(res.data) ? res.data : (res.data.assignments || []));
     } catch {
       setAssignments([]);
     } finally {
       setLoading(false);
     }
   };
+
   useEffect(() => {
-    fetchAssignments();
+    if (selectedSection) {
+      fetchAssignments();
+      // Only update search params if it's different to avoid redundant history entries
+      if (searchParams.get('section') !== selectedSection) {
+        setSearchParams({ section: selectedSection }, { replace: true });
+      }
+    }
   }, [selectedSection]);
+
+  const handleDelete = async () => {
+    if (!showDeleteModal) return;
+    setIsSubmitting(true);
+    try {
+      await api.delete(`/faculty/assignments/${showDeleteModal.assignment_id}`);
+      toast.success("Assignment deleted successfully");
+      setShowDeleteModal(null);
+      fetchAssignments();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to delete assignment");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -64,46 +101,43 @@ const AssignmentManagement = () => {
       setIsSubmitting(false);
     }
   };
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this assignment? All submissions will be lost.")) return;
-    try {
-      await api.delete(`/faculty/assignments/${id}`);
-      toast.success("Assignment deleted");
-      fetchAssignments();
-    } catch {
-      toast.error("Failed to delete assignment");
-    }
-  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Toaster position="top-right" />
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <FileText size={22} className="text-violet-600" /> Assignment Portal
-          </h1>
-          <p className="text-slate-500 mt-1 text-sm font-medium">Create and manage evaluations for your students.</p>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Assignment Management</h1>
+          <p className="text-slate-500 font-medium">Create and manage academic tasks for your students</p>
         </div>
-        <div className="flex items-center gap-3">
-          <select
-            value={selectedSection}
-            onChange={e => setSelectedSection(e.target.value)}
-            className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold bg-white focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all appearance-none cursor-pointer"
-          >
-            {courses.map(c => (
-              <option key={c.section_id} value={c.section_id}>
-                {c.course_code} — Sec {c.section_name}
-              </option>
-            ))}
-          </select>
+        
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative group">
+            <select
+              value={selectedSection}
+              onChange={e => setSelectedSection(e.target.value)}
+              className="pl-4 pr-10 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer"
+            >
+              {courses.map(c => (
+                <option key={c.section_id} value={c.section_id}>
+                  {c.course_code} — Sec {c.section_name}
+                </option>
+              ))}
+            </select>
+            <ChevronRight size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none rotate-90" />
+          </div>
+          
           <button 
             onClick={() => setShowCreateModal(true)}
-            className="px-5 py-2.5 bg-violet-600 text-white font-bold rounded-xl hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 flex items-center gap-2"
+            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-all font-bold shadow-lg shadow-indigo-500/25"
           >
-            <Plus size={18} /> New Assignment
+            <Plus size={20} />
+            <span>New Assignment</span>
           </button>
         </div>
       </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
           [...Array(3)].map((_, i) => (
@@ -117,20 +151,26 @@ const AssignmentManagement = () => {
           </div>
         ) : (
           assignments.map(a => (
-            <div key={a.assignment_id} className="bg-white border border-slate-200 rounded-[2rem] p-8 hover:shadow-2xl hover:border-violet-200 transition-all group relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => handleDelete(a.assignment_id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+            <div key={a.assignment_id} className="bg-white border border-slate-200 rounded-[2rem] p-8 hover:shadow-2xl hover:border-violet-200 transition-all group relative overflow-hidden flex flex-col h-full">
+               <div className="absolute top-4 right-4 z-10">
+                  <button 
+                    onClick={() => setShowDeleteModal(a)} 
+                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-95 bg-white shadow-sm border border-slate-100"
+                    title="Delete Assignment"
+                  >
                      <Trash2 size={18} />
                   </button>
                </div>
+               
                <div className="mb-6">
                   <span className="px-3 py-1 bg-violet-50 text-violet-600 text-[10px] font-black tracking-widest rounded-lg border border-violet-100 uppercase">
                      {a.submission_type || 'Manual'} Task
                   </span>
                   <h3 className="text-xl font-bold text-slate-900 mt-4 leading-tight">{a.title}</h3>
-                  <p className="text-slate-500 text-sm mt-2 line-clamp-2">{a.description || 'No description provided.'}</p>
+                  <p className="text-slate-500 text-sm mt-2 line-clamp-2 min-h-[40px]">{a.description || 'No description provided.'}</p>
                </div>
-               <div className="space-y-4 pt-6 border-t border-slate-100">
+
+               <div className="space-y-4 pt-6 border-t border-slate-100 mt-auto">
                   <div className="flex items-center justify-between text-sm">
                      <div className="flex items-center gap-2 text-slate-500">
                         <Calendar size={16} /> 
@@ -148,13 +188,18 @@ const AssignmentManagement = () => {
                      <span className="font-bold text-slate-900">{a.max_marks}</span>
                   </div>
                </div>
-               <button className="mt-8 w-full py-4 bg-slate-900 text-white rounded-2xl font-bold opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all flex items-center justify-center gap-2">
+
+               <button 
+                  onClick={() => navigate(`/faculty/assignments/${a.assignment_id}/submissions`)}
+                  className="mt-8 w-full py-4 bg-slate-900 text-white rounded-2xl font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 hover:bg-slate-800 shadow-xl shadow-slate-200"
+               >
                   View Submissions <Clock size={18} />
                </button>
             </div>
           ))
         )}
       </div>
+
       {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -169,6 +214,7 @@ const AssignmentManagement = () => {
                       <X size={24} className="text-slate-400" />
                    </button>
                 </div>
+
                 <form onSubmit={handleCreate} className="space-y-6">
                    <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Assignment Title</label>
@@ -181,6 +227,7 @@ const AssignmentManagement = () => {
                         className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 font-bold text-slate-800 transition-all"
                       />
                    </div>
+                   
                    <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Description / Instructions</label>
                       <textarea 
@@ -191,6 +238,7 @@ const AssignmentManagement = () => {
                         className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 font-medium text-slate-700 transition-all"
                       />
                    </div>
+
                    <div className="grid grid-cols-2 gap-6">
                       <div>
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Due Date</label>
@@ -213,6 +261,7 @@ const AssignmentManagement = () => {
                         />
                       </div>
                    </div>
+
                    <div className="pt-6 border-t border-slate-100 flex gap-4">
                       <button 
                         type="button"
@@ -236,7 +285,42 @@ const AssignmentManagement = () => {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+             <div className="p-8 text-center">
+                <div className="w-20 h-20 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                   <AlertTriangle size={40} />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">Delete Assignment?</h3>
+                <p className="text-slate-500 font-medium mb-8">
+                   Are you sure you want to delete <span className="text-slate-900 font-bold">"{showDeleteModal.title}"</span>? 
+                   This action cannot be undone and all student submissions will be permanently lost.
+                </p>
+                <div className="flex gap-4">
+                   <button 
+                     onClick={() => setShowDeleteModal(null)}
+                     className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
+                   >
+                      Cancel
+                   </button>
+                   <button 
+                     onClick={handleDelete}
+                     disabled={isSubmitting}
+                     className="flex-1 py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-100 flex items-center justify-center gap-2"
+                   >
+                      {isSubmitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Trash2 size={18} />}
+                      Delete Now
+                   </button>
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
 export default AssignmentManagement;

@@ -41,6 +41,10 @@ import MyCourses from './pages/faculty/MyCourses';
 import GradeBook from './pages/faculty/GradeBook';
 import AttendancePage from './pages/faculty/AttendancePage';
 import AssignmentManagement from './pages/faculty/AssignmentManagement';
+import AssignmentSubmissions from './pages/faculty/AssignmentSubmissions';
+import AnnouncementsPage from './pages/faculty/AnnouncementsPage';
+import EvaluationManagement from './pages/faculty/EvaluationManagement';
+import NotificationsPage from './pages/faculty/NotificationsPage';
 
 function App() {
   const initAuth = useAuthStore((state) => state.initAuth);
@@ -118,6 +122,10 @@ function App() {
           <Route path="gradebook" element={<GradeBook />} />
           <Route path="attendance" element={<AttendancePage />} />
           <Route path="assignments" element={<AssignmentManagement />} />
+          <Route path="assignments/:assignmentId/submissions" element={<AssignmentSubmissions />} />
+          <Route path="announcements" element={<AnnouncementsPage />} />
+          <Route path="evaluations" element={<EvaluationManagement />} />
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 

@@ -19,7 +19,7 @@ export const getStudentDashboard = async (userId) => {
     const enrolledSql = `
       SELECT 
         e.enrollment_id, e.status, c.title, c.course_code, c.credit_hours,
-        s.section_id, s.section_name, s.schedule_time, s.room,
+        s.section_id, s.section_name, s.day_of_week, s.start_time, s.end_time, s.room,
         f.department, u.name as instructor_name
       FROM enrollments e
       JOIN course_sections s ON e.section_id = s.section_id
@@ -107,7 +107,7 @@ export const getStudentDashboard = async (userId) => {
 export const getAvailableSections = async () => {
   const sql = `
     SELECT 
-      s.section_id, s.section_name, s.schedule_time, s.room, s.max_seats, s.current_seats,
+      s.section_id, s.section_name, s.day_of_week, s.start_time, s.end_time, s.room,
       c.title, c.course_code, c.credit_hours, c.department, c.semester_offered,
       u.name as instructor_name
     FROM course_sections s
@@ -131,5 +131,28 @@ export const getStudentAnnouncements = async (userId) => {
     LIMIT 50
   `;
   const res = await query(sql, [userId]);
+  return res.rows;
+};
+
+export const getStudentGrades = async (userId) => {
+  const userRes = await query('SELECT student_id FROM students WHERE user_id = $1', [userId]);
+  if (userRes.rows.length === 0) throw new Error('Student profile not found');
+  const studentId = userRes.rows[0].student_id;
+
+  const sql = `
+    SELECT 
+      e.enrollment_id, e.grade as final_grade,
+      c.course_code, c.title as course_title,
+      ac.component_id, ac.name as component_name, ac.weightage, ac.max_marks,
+      sm.marks_obtained
+    FROM enrollments e
+    JOIN course_sections cs ON e.section_id = cs.section_id
+    JOIN courses c ON cs.course_id = c.course_id
+    JOIN assessment_components ac ON ac.section_id = cs.section_id
+    LEFT JOIN student_marks sm ON sm.component_id = ac.component_id AND sm.enrollment_id = e.enrollment_id
+    WHERE e.student_id = $1 AND e.status = 'enrolled'
+    ORDER BY c.course_code, ac.component_id
+  `;
+  const res = await query(sql, [studentId]);
   return res.rows;
 };
