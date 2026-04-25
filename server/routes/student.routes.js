@@ -20,6 +20,8 @@ router.post('/swap', studentCtrl.swapModule);
 router.post('/payments', studentCtrl.submitPayment);
 router.post('/assignments/submit', uploadAssignmentS3.single('file'), studentCtrl.submitAssignment);
 router.get('/grades', studentCtrl.getGrades);
+router.get('/submissions/:submissionId/signed-url', studentCtrl.getSubmissionSignedUrl);
+
 
 
 export default router;

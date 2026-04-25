@@ -32,7 +32,8 @@ import {
   Megaphone,
   Pin,
   X,
-  ClipboardList
+  ClipboardList,
+  ExternalLink
 } from 'lucide-react';
 
 import {
@@ -181,6 +182,19 @@ const StudentDashboard = () => {
   const handleSubmission = async (e) => {
     e.preventDefault();
     if (!submissionFile || !showSubmissionModal) return;
+
+    // Client-side validation
+    const allowedTypes = ['.pdf', '.docx', '.zip', '.png', '.jpg', '.jpeg'];
+    const fileExt = submissionFile.name.substring(submissionFile.name.lastIndexOf('.')).toLowerCase();
+    const maxSize = 25 * 1024 * 1024; // 25MB
+
+    if (!allowedTypes.includes(fileExt)) {
+      return toast.error('Invalid file type. Allowed: PDF, DOCX, ZIP, JPG, PNG');
+    }
+    if (submissionFile.size > maxSize) {
+      return toast.error('File too large. Maximum size is 25MB');
+    }
+
     const formData = new FormData();
     formData.append('file', submissionFile);
     formData.append('assignmentId', showSubmissionModal.assignment_id);
@@ -197,6 +211,24 @@ const StudentDashboard = () => {
     } catch (err) {
       console.error('Submission error:', err);
       toast.error(err.response?.data?.message || 'Failed to submit assignment');
+    }
+  };
+  const handleFileAction = async (submissionId, action = 'view') => {
+    try {
+      const res = await api.get(`/student/submissions/${submissionId}/signed-url?action=${action}`);
+      const signedUrl = res.data.url;
+      if (action === 'view') {
+        window.open(signedUrl, '_blank');
+      } else {
+        const link = document.createElement('a');
+        link.href = signedUrl;
+        link.setAttribute('download', '');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (err) {
+      toast.error("Failed to generate secure access link");
     }
   };
   const handlePayment = async () => {
@@ -809,14 +841,14 @@ const StudentDashboard = () => {
                         </div>
                         <h4 className="text-lg font-bold text-slate-800 leading-snug mb-6 group-hover:text-indigo-600 transition-colors uppercase">{course.title}</h4>
                         <div className="space-y-4 mb-8">
-                           <p className="text-sm font-bold text-slate-600 flex items-center gap-3">
+                           <div className="text-sm font-bold text-slate-600 flex items-center gap-3">
                               <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600"><User size={16} /></div>
                               {course.instructor_name || 'Staff'}
-                           </p>
-                           <p className="text-sm font-bold text-slate-500 flex items-center gap-3">
+                           </div>
+                           <div className="text-sm font-bold text-slate-500 flex items-center gap-3">
                               <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600"><Clock size={16} /></div>
                               {course.schedule_time || 'TBD'}
-                           </p>
+                           </div>
                         </div>
                       </div>
                       <button 
@@ -996,6 +1028,8 @@ const StudentDashboard = () => {
                       <tr className="text-left text-xs font-bold text-slate-400 border-b border-slate-100 uppercase tracking-[0.2em]">
                         <th className="pb-6">ITEM DESCRIPTION</th>
                         <th className="pb-6">STATUS</th>
+                        <th className="pb-6">SUBMITTED AT</th>
+                        <th className="pb-6">MY SUBMISSION</th>
                         <th className="pb-6">MARK</th>
                         <th className="pb-6">INSTRUCTOR FEEDBACK</th>
                       </tr>
@@ -1013,6 +1047,27 @@ const StudentDashboard = () => {
                             }`}>
                               {a.marks_obtained !== null ? 'GRADED' : 'EVALUATING'}
                             </span>
+                          </td>
+                          <td className="py-7">
+                            <div className="text-sm font-medium text-slate-700">
+                              {a.submitted_at ? new Date(a.submitted_at).toLocaleString() : '--'}
+                            </div>
+                          </td>
+                          <td className="py-7">
+                            {a.submission_id && a.file_url ? (
+                              <div className="flex items-center gap-3">
+                                <button 
+                                  onClick={() => handleFileAction(a.submission_id, 'download')}
+                                  className="text-emerald-600 hover:text-emerald-800 flex items-center gap-1 transition-colors"
+                                  title="Download Submission"
+                                >
+                                  <Download size={14} />
+                                  <span className="text-[10px] font-bold uppercase">Get</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-slate-300 text-[10px] font-bold italic uppercase">No file</span>
+                            )}
                           </td>
                           <td className="py-7">
                              <div className="text-2xl font-black text-slate-900">{a.marks_obtained ?? '--'}<span className="text-slate-300 font-medium text-sm ml-1 select-none">/ {a.max_marks}</span></div>
@@ -1392,7 +1447,7 @@ const StudentDashboard = () => {
                             {submissionFile ? <CheckCircle size={32} /> : <Upload size={32} />}
                          </div>
                          <p className="text-slate-800 font-bold text-lg">{submissionFile ? submissionFile.name : 'Choose file or drag & drop'}</p>
-                         <p className="text-slate-500 text-sm mt-1 font-medium italic">Format: PDF, DOCX, ZIP (Max 10MB)</p>
+                         <p className="text-slate-500 text-sm mt-1 font-medium italic">Format: PDF, DOCX, ZIP, JPG, PNG (Max 25MB)</p>
                       </label>
                    </div>
                    <div className="mt-10 flex gap-4">

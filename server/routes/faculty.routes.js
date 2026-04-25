@@ -32,7 +32,8 @@ import {
   updateAnnouncement,
   deleteAnnouncement,
   getNotifications,
-  markNotificationAsRead
+  markNotificationAsRead,
+  getSubmissionSignedUrl
 } from '../controllers/faculty.controller.js';
 
 
@@ -67,6 +68,7 @@ router.post('/sections/:sectionId/assignments', createAssignment);
 router.get('/assignments/:assignmentId', getAssignmentById);
 router.get('/assignments/:assignmentId/submissions', getAssignmentSubmissions);
 router.patch('/submissions/:submissionId/grade', gradeSubmission);
+router.get('/submissions/:submissionId/signed-url', getSubmissionSignedUrl);
 router.delete('/assignments/:id', deleteAssignment);
 
 // Course Management Requests

@@ -1,4 +1,5 @@
 import * as facultyService from '../services/faculty.service.js';
+import { getSignedFileUrl } from '../services/s3Service.js';
 
 export const getFacultyDashboard = async (req, res) => {
   try {
@@ -262,3 +263,18 @@ export const markNotificationAsRead = async (req, res) => {
   }
 };
 
+
+export const getSubmissionSignedUrl = async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    const { action = 'view' } = req.query;
+    const submission = await facultyService.getSubmissionById(submissionId);
+    if (!submission || !submission.file_url) {
+      return res.status(404).json({ message: 'Submission file not found' });
+    }
+    const signedUrl = await getSignedFileUrl(submission.file_url, action);
+    res.json({ url: signedUrl });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

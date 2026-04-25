@@ -167,6 +167,10 @@ export const updateGrade = async (enrollmentId, grade) => {
     }
 
     const enrollment = res.rows[0];
+    
+    // Recalculate GPA for student
+    await recalculateStudentGrades(enrollment.student_id);
+
     console.log('Update successful:', enrollment);
 
 
@@ -266,6 +270,15 @@ export const getGradeScale = async () => {
 
 
 export const updateStudentMarks = async (enrollmentId, componentId, marksObtained) => {
+  // Validate marks against max_marks
+  const componentRes = await db.query('SELECT max_marks, section_id FROM assessment_components WHERE component_id = $1', [componentId]);
+  if (componentRes.rows.length === 0) throw new Error('Assessment component not found');
+  const { max_marks, section_id } = componentRes.rows[0];
+  
+  if (marksObtained > max_marks) {
+    throw new Error(`Marks obtained (${marksObtained}) cannot exceed maximum marks (${max_marks})`);
+  }
+
   const res = await db.query(
     `INSERT INTO student_marks (enrollment_id, component_id, marks_obtained)
      VALUES ($1, $2, $3)
@@ -274,8 +287,95 @@ export const updateStudentMarks = async (enrollmentId, componentId, marksObtaine
      RETURNING *`,
     [enrollmentId, componentId, marksObtained]
   );
+
+  // Trigger GPA and Grade recalculation for this student
+  const enrollmentRes = await db.query('SELECT student_id FROM enrollments WHERE enrollment_id = $1', [enrollmentId]);
+  if (enrollmentRes.rows.length > 0) {
+    await recalculateStudentGrades(enrollmentRes.rows[0].student_id);
+  }
+
   return res.rows[0];
 };
+
+/**
+ * Recalculates all grades and final GPA for a student
+ */
+export const recalculateStudentGrades = async (studentId) => {
+  try {
+    // 1. Get all active enrollments for the student
+    const enrollments = await db.query(
+      `SELECT e.enrollment_id, e.section_id, c.credit_hours 
+       FROM enrollments e
+       JOIN course_sections cs ON e.section_id = cs.section_id
+       JOIN courses c ON cs.course_id = c.course_id
+       WHERE e.student_id = $1 AND e.status = 'enrolled'`,
+      [studentId]
+    );
+
+    for (const enrollment of enrollments.rows) {
+      const { enrollment_id, section_id } = enrollment;
+
+      // 2. Calculate total weighted score for this enrollment
+      const marksRes = await db.query(
+        `SELECT sm.marks_obtained, ac.max_marks, ac.weightage
+         FROM student_marks sm
+         JOIN assessment_components ac ON sm.component_id = ac.component_id
+         WHERE sm.enrollment_id = $1 AND ac.section_id = $2`,
+        [enrollment_id, section_id]
+      );
+
+      let totalScore = 0;
+      let totalWeightage = 0;
+
+      marksRes.rows.forEach(m => {
+        const contribution = (parseFloat(m.marks_obtained) / m.max_marks) * m.weightage;
+        totalScore += contribution;
+        totalWeightage += m.weightage;
+      });
+
+      // Normalize if weightage doesn't sum to 100 yet (optional, but safer)
+      // Usually it should sum to 100.
+      
+      // 3. Find letter grade and points from scale
+      const scaleRes = await db.query(
+        `SELECT letter_grade, grade_points 
+         FROM grade_scale 
+         WHERE $1 >= min_score AND $1 <= max_score 
+         ORDER BY min_score DESC LIMIT 1`,
+        [Math.round(totalScore)]
+      );
+
+      if (scaleRes.rows.length > 0) {
+        const { letter_grade, grade_points } = scaleRes.rows[0];
+        await db.query(
+          `UPDATE enrollments SET grade = $1, grade_points = $2 WHERE enrollment_id = $3`,
+          [letter_grade, grade_points, enrollment_id]
+        );
+      }
+    }
+
+    // 4. Calculate Final GPA
+    // GPA = Sum(points * credits) / Sum(credits)
+    const gpaRes = await db.query(
+      `SELECT 
+         SUM(e.grade_points * c.credit_hours) / NULLIF(SUM(c.credit_hours), 0) as gpa
+       FROM enrollments e
+       JOIN course_sections cs ON e.section_id = cs.section_id
+       JOIN courses c ON cs.course_id = c.course_id
+       WHERE e.student_id = $1 AND e.grade IS NOT NULL AND e.status = 'enrolled'`,
+      [studentId]
+    );
+
+    if (gpaRes.rows.length > 0 && gpaRes.rows[0].gpa !== null) {
+      const newGPA = parseFloat(gpaRes.rows[0].gpa).toFixed(2);
+      await db.query(`UPDATE students SET gpa = $1 WHERE student_id = $2`, [newGPA, studentId]);
+    }
+
+  } catch (err) {
+    console.error('GPA Recalculation Error:', err);
+  }
+};
+
 
 
 // ─────────────────────── ATTENDANCE ───────────────────────
@@ -527,12 +627,26 @@ export const gradeSubmission = async (submissionId, marks, feedback, userId) => 
   const facultyRes = await db.query(`SELECT faculty_id FROM faculty WHERE user_id = $1`, [userId]);
   const facultyId = facultyRes.rows[0]?.faculty_id;
   
+  // Validate marks
+  const assignmentRes = await db.query(`
+    SELECT a.max_marks FROM assignments a
+    JOIN submissions s ON s.assignment_id = a.assignment_id
+    WHERE s.submission_id = $1
+  `, [submissionId]);
+  
+  if (assignmentRes.rows.length > 0) {
+    if (marks > assignmentRes.rows[0].max_marks) {
+      throw new Error(`Marks obtained (${marks}) cannot exceed maximum marks (${assignmentRes.rows[0].max_marks})`);
+    }
+  }
+
   const res = await db.query(`
     UPDATE submissions 
     SET marks_obtained = $1, feedback = $2, graded_by = $3, graded_at = NOW()
     WHERE submission_id = $4
     RETURNING *
   `, [marks, feedback, facultyId, submissionId]);
+
   
   const submission = res.rows[0];
   if (submission) {
@@ -739,3 +853,11 @@ export const markNotificationRead = async (id, userId) => {
   return { success: true };
 };
 
+
+export const getSubmissionById = async (submissionId) => {
+  const res = await db.query(
+    'SELECT submission_id, file_url FROM submissions WHERE submission_id = $1',
+    [submissionId]
+  );
+  return res.rows[0];
+};

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import usePageTitle from '../../hooks/usePageTitle';
 import api from '../../services/api';
-import { FileText, ChevronLeft, CheckCircle2, Clock, AlertCircle, ExternalLink, MessageSquare, Save } from 'lucide-react';
+import { FileText, ChevronLeft, CheckCircle2, Clock, AlertCircle, ExternalLink, MessageSquare, Save, Download } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 
 const AssignmentSubmissions = () => {
@@ -38,7 +38,30 @@ const AssignmentSubmissions = () => {
       setSubmissions(submissions.map(s => s.submission_id === subId ? { ...s, marks_obtained: marks, feedback: feedback } : s));
       setGrading(null);
     } catch (err) {
-      toast.error("Failed to update grade");
+      const errorMsg = err.response?.data?.message || "Failed to update grade";
+      toast.error(errorMsg);
+    }
+  };
+
+  const handleFileAction = async (submissionId, action = 'view') => {
+    try {
+      const res = await api.get(`/faculty/submissions/${submissionId}/signed-url?action=${action}`);
+      const signedUrl = res.data.url;
+      
+      if (action === 'view') {
+        window.open(signedUrl, '_blank');
+      } else {
+        const link = document.createElement('a');
+        link.href = signedUrl;
+        // Pre-signed URLs often don't allow renaming via 'download' attribute 
+        // due to Content-Disposition headers from S3, but this is the best we can do client-side
+        link.setAttribute('download', '');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (err) {
+      toast.error("Failed to generate secure access link");
     }
   };
 
@@ -129,9 +152,17 @@ const AssignmentSubmissions = () => {
                       )}
                     </td>
                     <td className="px-6 py-5">
-                      <a href={s.file_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-violet-600 font-bold text-sm hover:underline">
-                        View File <ExternalLink size={14} />
-                      </a>
+                      {s.file_url ? (
+                        <button
+                          onClick={() => handleFileAction(s.submission_id, 'download')}
+                          className="flex items-center gap-1.5 text-emerald-600 font-bold text-sm hover:underline"
+                          title="Download submission"
+                        >
+                          <Download size={14} /> Download
+                        </button>
+                      ) : (
+                        <span className="text-slate-300 text-xs font-bold italic">No file</span>
+                      )}
                     </td>
                     <td className="px-6 py-5 text-center">
                       <span className={`text-sm font-black ${s.marks_obtained !== null ? 'text-slate-900' : 'text-slate-300'}`}>

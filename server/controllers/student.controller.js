@@ -3,6 +3,7 @@ import * as studentService from '../services/student.service.js';
 import { logAction, createNotification } from '../services/admin.service.js';
 import { notify } from '../services/notification.service.js';
 import * as db from '../config/db.js';
+import { getSignedFileUrl } from '../services/s3Service.js';
 
 /**
  * Fetch the metrics for the student dashboard
@@ -245,3 +246,34 @@ export const getGrades = async (req, res) => {
     res.status(500).json({ message: 'Error fetching grades breakdown' });
   }
 };
+
+/**
+ * Get a pre-signed URL for a submission file
+ */
+export const getSubmissionSignedUrl = async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    const { action = 'view' } = req.query;
+    
+    // Ensure the student owns this submission
+    const studentRes = await db.query('SELECT student_id FROM students WHERE user_id = $1', [req.user.id]);
+    if (studentRes.rows.length === 0) throw new Error('Student profile not found');
+    const studentId = studentRes.rows[0].student_id;
+
+    const subRes = await db.query(
+      'SELECT file_url FROM submissions WHERE submission_id = $1 AND student_id = $2',
+      [submissionId, studentId]
+    );
+
+    if (subRes.rows.length === 0 || !subRes.rows[0].file_url) {
+      return res.status(404).json({ message: 'Submission file not found or access denied' });
+    }
+
+    const signedUrl = await getSignedFileUrl(subRes.rows[0].file_url, action);
+    res.json({ url: signedUrl });
+  } catch (err) {
+    console.error('Signed URL error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
