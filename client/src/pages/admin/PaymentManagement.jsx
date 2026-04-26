@@ -9,14 +9,18 @@ import {
 import api from '../../services/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import useAuthStore from '../../store/authStore';
 const PaymentManagement = () => {
   usePageTitle('Payment Management');
+  const { siteSettings } = useAuthStore();
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [actionLoading, setActionLoading] = useState(null);
   const [selectedPayment, setSelectedPayment] = useState(null);
+  const [editTxid, setEditTxid] = useState('');
+  const [receiptUrl, setReceiptUrl] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const [waiverModal, setWaiverModal] = useState({ isOpen: false, id: null, status: '' });
   const [justification, setJustification] = useState('');
@@ -44,6 +48,23 @@ const PaymentManagement = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const loadReceipt = async () => {
+      if (selectedPayment && selectedPayment.receipt_url) {
+        try {
+          const res = await api.get(`/admin/payments/${selectedPayment.payment_id}/receipt-url`);
+          setReceiptUrl(res.data.url);
+        } catch (err) {
+          console.error('Failed to load receipt:', err);
+          setReceiptUrl(null);
+        }
+      } else {
+        setReceiptUrl(null);
+      }
+    };
+    loadReceipt();
+  }, [selectedPayment]);
   useEffect(() => {
     fetchPayments();
     const fetchData = async () => {
@@ -58,11 +79,20 @@ const PaymentManagement = () => {
     };
     fetchData();
   }, []);
-  const handleStatusUpdate = async (id, status, justificationText = null) => {
+  const handleStatusUpdate = async (id, status, justificationText = null, transactionId = null) => {
     setActionLoading(id);
     try {
-      await api.patch(`/admin/payments/${id}/status`, { status, waiver_justification: justificationText });
-      setPayments(payments.map(p => p.payment_id === id ? { ...p, status, waiver_justification: justificationText } : p));
+      await api.patch(`/admin/payments/${id}/status`, { 
+        status, 
+        waiver_justification: justificationText,
+        transaction_id: transactionId
+      });
+      setPayments(payments.map(p => p.payment_id === id ? { 
+        ...p, 
+        status, 
+        waiver_justification: justificationText,
+        transaction_id: transactionId || p.transaction_id
+      } : p));
       setWaiverModal({ isOpen: false, id: null, status: '' });
       setJustification('');
       showToast('success', `Payment status updated to ${status}`);
@@ -104,7 +134,7 @@ const PaymentManagement = () => {
         p.transaction_id || 'N/A',
         p.student_name,
         p.fee_type || 'General Fee',
-        `Rs. ${parseFloat(p.amount_paid).toLocaleString()}`,
+        `PKR ${parseFloat(p.amount_paid).toLocaleString()}`,
         new Date(p.payment_date).toLocaleDateString(),
         p.status.toUpperCase()
       ]);
@@ -115,7 +145,8 @@ const PaymentManagement = () => {
         headStyles: { fillColor: [15, 23, 42] },
         styles: { fontSize: 8 }
       });
-      doc.save(`EPortal_Payments_${new Date().getTime()}.pdf`);
+      const sitePrefix = siteSettings?.siteName?.replace(/\s+/g, '_') || 'EPortal';
+      doc.save(`${sitePrefix}_Payments_${new Date().getTime()}.pdf`);
     } catch (err) {
       console.error('PDF Export failed:', err);
     } finally {
@@ -149,7 +180,7 @@ const PaymentManagement = () => {
         </head>
         <body>
           <div class="header">
-            <div class="logo">E-PORTAL</div>
+            <div class="logo">${siteSettings?.siteName?.toUpperCase() || 'E-PORTAL'}</div>
             <div>INSTITUTIONAL FEE VOUCHER</div>
             <div>${new Date(payment.payment_date).toLocaleString()}</div>
           </div>
@@ -161,12 +192,12 @@ const PaymentManagement = () => {
           <div class="row"><span class="label">METHOD:</span> <span>${payment.payment_method}</span></div>
           <div class="row total">
             <span>AMOUNT PAID:</span>
-            <span>Rs. ${parseFloat(payment.amount_paid).toLocaleString()}</span>
+            <span>PKR ${parseFloat(payment.amount_paid).toLocaleString()}</span>
           </div>
           <div class="footer">
             <div style="font-weight: bold">STATUS: ${payment.status.toUpperCase()}</div>
             <div style="margin-top: 10px">This is a computer generated receipt.</div>
-            <div>Thank you for using E-Portal.</div>
+            <div>Thank you for using ${siteSettings?.siteName || 'E-Portal'}.</div>
           </div>
           <script>
             window.onload = function() {
@@ -232,7 +263,7 @@ const PaymentManagement = () => {
         {[
           { label: 'Pending Verification', value: payments.filter(p => p.status === 'pending').length, icon: Clock, color: 'indigo' },
           { label: 'Accepted Today', value: payments.filter(p => p.status === 'accepted' && new Date(p.payment_date).toDateString() === new Date().toDateString()).length, icon: CheckCircle2, color: 'emerald' },
-          { label: 'Gross Revenue', value: `Rs ${payments.reduce((acc, curr) => acc + parseFloat(curr.amount_paid), 0).toLocaleString()}`, icon: CreditCard, color: 'violet' }
+          { label: 'Gross Revenue', value: `PKR ${payments.reduce((acc, curr) => acc + parseFloat(curr.amount_paid), 0).toLocaleString()}`, icon: CreditCard, color: 'violet' }
         ].map((stat, idx) => (
           <div key={idx} className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm hover:shadow-md transition-shadow group">
             <div className="flex items-center justify-between mb-2">
@@ -303,7 +334,7 @@ const PaymentManagement = () => {
                     </td>
                     <td className="px-8 py-6 text-center">
                       <div className="text-sm font-black text-slate-900 items-center justify-center flex tabular-nums">
-                        Rs {parseFloat(p.amount_paid).toLocaleString()}
+                        PKR {parseFloat(p.amount_paid).toLocaleString()}
                       </div>
                       <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Confirmed Yield</div>
                     </td>
@@ -314,6 +345,17 @@ const PaymentManagement = () => {
                     </td>
                     <td className="px-8 py-6 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {/* View button — always visible */}
+                        <button 
+                          onClick={() => {
+                            setSelectedPayment(p);
+                            setEditTxid(p.transaction_id || '');
+                          }}
+                          className="p-2 bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-all border border-slate-100"
+                          title="View Details"
+                        >
+                          <Eye size={16} />
+                        </button>
                         {p.status === 'pending' && (
                           <>
                             <button 
@@ -324,14 +366,7 @@ const PaymentManagement = () => {
                             >
                               <CheckCircle size={16} />
                             </button>
-                             <button 
-                              disabled={actionLoading === p.payment_id}
-                              onClick={() => setWaiverModal({ isOpen: true, id: p.payment_id, status: 'waived' })}
-                              className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-all disabled:opacity-50 border border-indigo-100/50"
-                              title="Waive Fee"
-                            >
-                              <DollarSign size={16} />
-                            </button>
+
                             <button 
                               disabled={actionLoading === p.payment_id}
                               onClick={() => handleStatusUpdate(p.payment_id, 'rejected')}
@@ -342,25 +377,14 @@ const PaymentManagement = () => {
                             </button>
                           </>
                         )}
-                        {(p.status === 'accepted' || p.status === 'waived') && (
-                          <>
-                            <button 
-                              onClick={() => setSelectedPayment(p)}
-                              className="p-2 bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-all border border-slate-100"
-                              title="See Details"
-                            >
-                              <Eye size={16} />
-                            </button>
-                            {p.status === 'accepted' && (
-                              <button 
-                                onClick={() => handlePrintInvoice(p)}
-                                className="p-2 bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-all border border-slate-100"
-                                title="Print Invoice"
-                              >
-                                <Printer size={16} />
-                              </button>
-                            )}
-                          </>
+                        {p.status === 'accepted' && (
+                          <button 
+                            onClick={() => handlePrintInvoice(p)}
+                            className="p-2 bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-all border border-slate-100"
+                            title="Print Invoice"
+                          >
+                            <Printer size={16} />
+                          </button>
                         )}
                       </div>
                     </td>
@@ -380,74 +404,212 @@ const PaymentManagement = () => {
           </table>
         </div>
       </div>
-      {/* Invoice Modal */}
+      {/* Payment Detail Modal */}
       {selectedPayment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="text-lg font-black text-slate-900 tracking-tight">Transaction Details</h3>
-              <button onClick={() => setSelectedPayment(null)} className="p-2 hover:bg-white rounded-xl transition-all">
-                <X size={20} className="text-slate-400" />
-              </button>
-            </div>
-            <div className="max-h-[90vh] overflow-y-auto scrollbar-hide">
-              <div className="p-8 space-y-8">
-              <div className="flex justify-center flex-col items-center gap-2">
-                 <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100 rotate-3">
-                    <CreditCard size={32} />
-                 </div>
-                 <div className="text-2xl font-black text-slate-900 mt-2 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis w-full text-center">
-                    Rs {parseFloat(selectedPayment.amount_paid).toLocaleString()}
-                 </div>
-                 <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${statusColors[selectedPayment.status]}`}>
-                    {selectedPayment.status}
-                 </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-8">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tx ID</p>
-                  <p className="text-sm font-bold text-slate-900">{selectedPayment.transaction_id || 'N/A'}</p>
+          <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-200">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center">
+                  <Eye size={18} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Date</p>
-                  <p className="text-sm font-bold text-slate-900">{new Date(selectedPayment.payment_date).toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Student</p>
-                  <p className="text-sm font-bold text-slate-900">{selectedPayment.student_name}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Email</p>
-                  <p className="text-sm font-bold text-slate-600">{selectedPayment.student_email}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Fee Component</p>
-                  <p className="text-sm font-bold text-slate-900">{selectedPayment.fee_type || 'General Fee'}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Channel</p>
-                  <p className="text-sm font-bold text-slate-900">{selectedPayment.payment_method}</p>
+                  <h3 className="text-base font-black text-slate-900 tracking-tight">Payment & Registration Details</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Full submission review</p>
                 </div>
               </div>
-              {selectedPayment.waiver_justification && (
-                <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100/50">
-                   <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">Administrative Justification</p>
-                   <p className="text-sm font-medium text-slate-700 leading-relaxed italic">"{selectedPayment.waiver_justification}"</p>
-                </div>
-              )}
-              <div className="pt-6">
-                <button 
-                  onClick={() => handlePrintInvoice(selectedPayment)}
-                  className="w-full flex items-center justify-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl text-[13px] uppercase tracking-widest transition-all shadow-lg shadow-indigo-100 active:scale-[0.98]"
-                >
-                  <Printer size={18} />
-                  Print Official Invoice
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${statusColors[selectedPayment.status] || 'bg-slate-100 text-slate-500'}`}>
+                  {selectedPayment.status}
+                </span>
+                <button onClick={() => setSelectedPayment(null)} className="p-2 hover:bg-slate-200 rounded-xl transition-all">
+                  <X size={18} className="text-slate-400" />
                 </button>
+              </div>
+            </div>
+
+            <div className="max-h-[78vh] overflow-y-auto scrollbar-hide">
+              <div className="p-6 space-y-6">
+
+                {/* Amount Hero */}
+                <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                  <div>
+                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Amount Paid</p>
+                    <p className="text-2xl font-black text-indigo-700 mt-0.5">PKR {parseFloat(selectedPayment.amount_paid).toLocaleString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Method</p>
+                    <p className="text-sm font-bold text-slate-700 mt-0.5">{selectedPayment.payment_method}</p>
+                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">{selectedPayment.transaction_id || 'No TX ID'}</p>
+                  </div>
+                </div>
+
+                {/* Student Details */}
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <User size={12} /> Student Information
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: 'Full Name', val: selectedPayment.student_name },
+                      { label: 'Admission ID', val: selectedPayment.admission_id || 'N/A' },
+                      { label: 'Email', val: selectedPayment.student_email },
+                      { label: 'Phone', val: selectedPayment.student_phone || 'N/A' },
+                      { label: 'Date of Birth', val: selectedPayment.date_of_birth ? new Date(selectedPayment.date_of_birth).toLocaleDateString() : 'N/A' },
+                      { label: 'Payment Date', val: new Date(selectedPayment.payment_date).toLocaleString() },
+                    ].map((item, i) => (
+                      <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{item.label}</p>
+                        <p className="text-sm font-bold text-slate-900 truncate">{item.val}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Enrollment / Registration Details */}
+                {selectedPayment.course_title && (
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <Calendar size={12} /> Course Registration
+                    </p>
+                    <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-xs font-black text-emerald-700">{selectedPayment.course_code} — {selectedPayment.course_title}</p>
+                          <p className="text-[11px] font-bold text-emerald-500 mt-0.5">Section {selectedPayment.section_name} • {selectedPayment.semester || 'Current Semester'}</p>
+                        </div>
+                        <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
+                          selectedPayment.enrollment_status === 'enrolled' ? 'bg-emerald-100 text-emerald-700' :
+                          selectedPayment.enrollment_status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                          'bg-slate-100 text-slate-500'
+                        }`}>{selectedPayment.enrollment_status || 'N/A'}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-emerald-200/60">
+                        {[
+                          { label: 'Instructor', val: selectedPayment.faculty_name || 'TBD' },
+                          { label: 'Room', val: selectedPayment.room || 'TBD' },
+                          { label: 'Schedule', val: selectedPayment.day_of_week ? `${selectedPayment.day_of_week.split(', ').map(d => d.slice(0,3)).join('/')} • ${selectedPayment.start_time}` : 'TBD' },
+                        ].map((item, i) => (
+                          <div key={i}>
+                            <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">{item.label}</p>
+                            <p className="text-[11px] font-bold text-slate-700 mt-0.5">{item.val}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Fee Details */}
+                {(selectedPayment.fee_type || selectedPayment.semester) && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Fee Type</p>
+                      <p className="text-sm font-bold text-slate-900">{selectedPayment.fee_type || 'General Fee'}</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Semester</p>
+                      <p className="text-sm font-bold text-slate-900">{selectedPayment.semester || 'N/A'}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Receipt */}
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <FileText size={12} /> Payment Receipt
+                  </p>
+                  {receiptUrl ? (
+                    <div className="space-y-3">
+                      {/* Try to show as image first */}
+                      <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
+                        <img
+                          src={receiptUrl}
+                          alt="Payment Receipt"
+                          className="w-full max-h-64 object-contain"
+                          onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                        />
+                        <div style={{display:'none'}} className="items-center justify-center p-8 text-slate-400">
+                          <FileText size={32} className="mx-auto mb-2 opacity-40" />
+                          <p className="text-xs font-bold text-center">Preview not available for this file type</p>
+                        </div>
+                      </div>
+                      <a
+                        href={receiptUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors font-bold text-sm border border-indigo-100"
+                      >
+                        <FileText size={16} /> Open Receipt in New Tab
+                      </a>
+                    </div>
+                  ) : selectedPayment.receipt_url ? (
+                    <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 text-center">
+                      <p className="text-xs font-bold text-amber-600">Loading receipt...</p>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center">
+                      <FileText size={24} className="mx-auto mb-1 text-slate-300" />
+                      <p className="text-xs font-bold text-slate-400">No receipt uploaded</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Waiver Note */}
+                {selectedPayment.waiver_justification && (
+                  <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">Administrative Note</p>
+                    <p className="text-sm font-medium text-slate-700 leading-relaxed italic">"{selectedPayment.waiver_justification}"</p>
+                  </div>
+                )}
+
+                {/* Actions Footer */}
+                <div className="flex gap-3 pt-2">
+                  {selectedPayment.status === 'pending' && (
+                    <div className="flex flex-col flex-1 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Confirm Transaction ID</label>
+                        <input 
+                          type="text"
+                          placeholder="Verify TXID before accepting..."
+                          className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-emerald-500 transition-all"
+                          value={editTxid}
+                          onChange={(e) => setEditTxid(e.target.value)}
+                        />
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          disabled={actionLoading === selectedPayment.payment_id}
+                          onClick={() => { handleStatusUpdate(selectedPayment.payment_id, 'accepted', null, editTxid); setSelectedPayment(null); }}
+                          className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl text-[11px] uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-200"
+                        >
+                          <CheckCircle size={16} /> Accept Payment
+                        </button>
+                        <button
+                          disabled={actionLoading === selectedPayment.payment_id}
+                          onClick={() => { handleStatusUpdate(selectedPayment.payment_id, 'rejected'); setSelectedPayment(null); }}
+                          className="flex-1 py-3 bg-rose-50 hover:bg-rose-100 text-rose-600 font-black rounded-2xl text-[11px] uppercase tracking-widest transition-all disabled:opacity-50 border border-rose-100 flex items-center justify-center gap-2"
+                        >
+                          <XCircle size={16} /> Reject
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {(selectedPayment.status === 'accepted' || selectedPayment.status === 'waived') && (
+                    <button
+                      onClick={() => handlePrintInvoice(selectedPayment)}
+                      className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                    >
+                      <Printer size={16} /> Print Invoice
+                    </button>
+                  )}
+                </div>
+
               </div>
             </div>
           </div>
         </div>
-      </div>
       )}
       {/* Waiver Justification Modal */}
       {waiverModal.isOpen && (

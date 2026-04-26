@@ -20,7 +20,7 @@ const navLinks = [
 
 const FacultyLayout = () => {
   const [open, setOpen] = useState(false);
-  const { user, logout } = useAuthStore();
+  const { user, logout, siteSettings } = useAuthStore();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -35,64 +35,84 @@ const FacultyLayout = () => {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 w-72 bg-slate-900 dark:bg-slate-900/50 backdrop-blur-xl border-r border-slate-800/50 text-white flex flex-col z-50 transform transition-all duration-300 ease-in-out ${open ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="flex items-center gap-3 px-8 py-8">
-          <div className="w-10 h-10 bg-indigo-500 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/20 rotate-3">
-            <GraduationCap size={22} className="text-white" />
+      <aside className={`fixed lg:static inset-y-0 left-0 w-72 bg-slate-900 border-r border-slate-800 text-white flex flex-col z-50 transform transition-all duration-500 ease-in-out ${open ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}`}>
+        <div className="flex items-center justify-between h-24 px-8 border-b border-slate-800/50">
+          <div className="flex items-center gap-4 group cursor-pointer">
+            <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-500/20 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
+               <GraduationCap size={22} strokeWidth={2.5} />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xl font-black tracking-tight text-white leading-none">{siteSettings?.siteName || 'E-Portal'}</span>
+              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.2em] mt-1">Faculty Hub</span>
+            </div>
           </div>
-          <div>
-            <p className="font-black text-lg tracking-tight text-white leading-tight">EduSphere</p>
-            <p className="text-[10px] uppercase tracking-widest text-indigo-400 font-bold">Faculty Hub</p>
-          </div>
-          <button onClick={() => setOpen(false)} className="ml-auto lg:hidden text-slate-400 hover:text-white p-2 hover:bg-slate-800 rounded-lg">
+          <button onClick={() => setOpen(false)} className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors rounded-xl hover:bg-slate-800">
             <X size={20} />
           </button>
         </div>
 
-        <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto custom-scrollbar">
-          <div className="px-4 mb-4">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Navigation</p>
+        <nav className="flex-1 px-5 py-8 space-y-8 overflow-y-auto custom-scrollbar">
+          <div>
+            <div className="flex items-center justify-between px-4 mb-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">Navigation</p>
+              <div className="h-[1px] flex-1 ml-4 bg-gradient-to-r from-slate-800 to-transparent" />
+            </div>
+            <div className="space-y-1.5">
+              {navLinks.map(({ to, icon: Icon, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  onClick={() => setOpen(false)}
+                  className={({ isActive }) =>
+                    `flex items-center px-4 py-3.5 text-sm font-bold rounded-2xl transition-all duration-300 group relative overflow-hidden ${
+                      isActive 
+                        ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/20 scale-[1.02]' 
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/50 hover:translate-x-1'
+                    }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      {isActive && (
+                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-transparent pointer-events-none" />
+                      )}
+                      <div className={`transition-all duration-300 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-indigo-400'}`}>
+                        <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                      </div>
+                      <span className="ml-3.5 tracking-tight flex-1">{label}</span>
+                      {isActive && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
           </div>
-          {navLinks.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all group relative overflow-hidden ${
-                  isActive
-                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-xl shadow-indigo-500/20'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                }`
-              }
-            >
-              <Icon size={19} className="relative z-10" />
-              <span className="flex-1 relative z-10">{label}</span>
-              <ChevronRight size={14} className={`relative z-10 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-1`} />
-            </NavLink>
-          ))}
         </nav>
 
-        <div className="p-6 bg-slate-900/50 border-t border-slate-800/50">
-          <div className="flex items-center gap-4 mb-6 px-2">
-            <div className="relative">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white font-bold text-base shadow-lg">
-                {user?.name?.[0]?.toUpperCase() || 'F'}
+        <div className="p-6 border-t border-slate-800/50 bg-slate-900/40 backdrop-blur-sm">
+           <div className="flex items-center p-4 bg-slate-800/40 rounded-3xl border border-slate-700/50 group transition-all duration-500 hover:bg-slate-800/60 hover:border-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/10">
+              <div className="relative">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-black shadow-lg shadow-indigo-500/20 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6">
+                  {user?.name?.[0]?.toUpperCase() || 'F'}
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-slate-900 rounded-full shadow-sm" />
               </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-white truncate">{user?.name || 'Faculty'}</p>
-              <p className="text-[10px] font-medium text-slate-500 truncate uppercase tracking-wider">Online</p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center justify-center gap-2 w-full px-4 py-3 text-sm font-bold text-slate-400 hover:text-white hover:bg-red-500/10 hover:border-red-500/20 border border-transparent rounded-2xl transition-all"
-          >
-            <LogOut size={18} className="text-red-500" /> 
-            <span>Log Out</span>
-          </button>
+              <div className="ml-3 overflow-hidden flex-1">
+                <p className="text-[13px] font-black text-white truncate leading-tight tracking-tight">{user?.full_name || user?.name || 'Faculty'}</p>
+                <div className="text-[9px] text-slate-500 font-black uppercase tracking-[0.15em] mt-1.5 flex items-center gap-1.5">
+                  <div className="w-1 h-1 rounded-full bg-emerald-500" /> Active Hub
+                </div>
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="p-3 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-2xl transition-all active:scale-90"
+                title="Sign Out"
+              >
+                <LogOut size={18} strokeWidth={2.5} />
+              </button>
+           </div>
         </div>
       </aside>
 

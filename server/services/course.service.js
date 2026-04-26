@@ -1,4 +1,4 @@
-import { query } from '../config/db.js';
+import { query, pool } from '../config/db.js';
 
 // Fallbacks for mock data when Postgres is offline
 const mockCourses = [
@@ -16,13 +16,17 @@ const mockEnrollments = [];
 export const getAvailableSections = async () => {
   try {
     const sql = `
-      SELECT 
-        s.section_id, s.section_name, s.max_seats, s.current_seats, s.schedule_time,
+      SELECT
+        s.section_id, s.section_name,
+        c.max_seats,
+        (SELECT COUNT(*) FROM enrollments e WHERE e.section_id = s.section_id AND e.status = 'enrolled') as current_seats,
+        s.day_of_week, s.start_time, s.end_time,
         c.course_id, c.course_code, c.title, c.credit_hours, c.department,
-        f.full_name as faculty_name
+        u.name as faculty_name
       FROM course_sections s
       JOIN courses c ON s.course_id = c.course_id
       LEFT JOIN faculty f ON s.faculty_id = f.faculty_id
+      LEFT JOIN users u ON f.user_id = u.user_id
       WHERE c.is_active = true
     `;
     const { rows } = await query(sql);
@@ -38,48 +42,95 @@ export const getAvailableSections = async () => {
   }
 };
 
-export const enrollStudent = async (studentId, sectionId) => {
+export const enrollStudent = async (studentId, sectionId, paymentMethod, receiptUrl, transactionId = null) => {
+  console.log('>>> COURSE SERVICE ENROLL STUDENT HIT <<<', { studentId, sectionId, transactionId });
+  const client = await pool.connect();
+  
   try {
-    // 0. Check for delinquent fees (Financial Safety Valve)
+    await client.query('BEGIN');
+
+    // 0. Check for delinquent fees
     const feeSql = `SELECT count(*) FROM fees WHERE student_id = $1 AND status = 'pending' AND due_date < NOW()`;
-    const feeRes = await query(feeSql, [studentId]);
+    const feeRes = await client.query(feeSql, [studentId]);
     if (parseInt(feeRes.rows[0].count) > 0) {
-      throw new Error('Course registration blocked: You have outstanding delinquent fees. Please settle your account at the finance office to continue.');
+      throw new Error('Course registration blocked: You have outstanding delinquent fees.');
     }
 
-    // 1. Begin transaction / Check seats
-    const checkSql = 'SELECT max_seats, current_seats FROM course_sections WHERE section_id = $1';
-    const checkRes = await query(checkSql, [sectionId]);
+    // 1. Check seats and course details
+    const checkSql = `
+      SELECT cs.max_seats, 
+      (SELECT COUNT(*) FROM enrollments e WHERE e.section_id = cs.section_id AND e.status = 'enrolled') as current_seats, 
+      c.title, c.course_code
+      FROM course_sections cs
+      JOIN courses c ON cs.course_id = c.course_id
+      WHERE cs.section_id = $1
+    `;
+    const checkRes = await client.query(checkSql, [sectionId]);
     if (checkRes.rows.length === 0) throw new Error('Section not found');
-    
-    if (checkRes.rows[0].current_seats >= checkRes.rows[0].max_seats) {
+    if (parseInt(checkRes.rows[0].current_seats) >= checkRes.rows[0].max_seats) {
       throw new Error('Section is full');
     }
 
-    // 2. Insert enrollment
-    const insertSql = `
-      INSERT INTO enrollments (student_id, section_id)
-      VALUES ($1, $2)
+    // 2. Check if already enrolled or pending (to give specific error messages)
+    const existingSql = `SELECT status FROM enrollments WHERE student_id = $1 AND section_id = $2`;
+    const existingRes = await client.query(existingSql, [studentId, sectionId]);
+    if (existingRes.rows.length > 0) {
+      const status = existingRes.rows[0].status;
+      if (status === 'enrolled') throw new Error('You are already enrolled in this section');
+      if (status === 'pending') throw new Error('Your enrollment request for this section is already pending verification');
+    }
+
+    // 3. Create or Update enrollment (status='pending') using atomic ON CONFLICT
+    const enrolSql = `
+      INSERT INTO enrollments (student_id, section_id, status, enrollment_date)
+      VALUES ($1, $2, 'pending', NOW())
+      ON CONFLICT (student_id, section_id) 
+      DO UPDATE SET 
+        status = 'pending', 
+        enrollment_date = NOW()
       RETURNING *
     `;
-    const { rows } = await query(insertSql, [studentId, sectionId]);
+    const enrolRes = await client.query(enrolSql, [studentId, sectionId]);
+    const enrollment = enrolRes.rows[0];
 
-    // 3. Increment seats
-    await query('UPDATE course_sections SET current_seats = current_seats + 1 WHERE section_id = $1', [sectionId]);
+    // 4. Calculate total fee from fee_structures (Fee Matrix)
+    const feeStructureRes = await client.query(`
+      SELECT SUM(amount) as total_amount 
+      FROM fee_structures 
+      WHERE (section_id = $1 OR (course_id = (SELECT course_id FROM course_sections WHERE section_id = $1) AND section_id IS NULL))
+      AND is_active = true
+    `, [sectionId]);
 
-    return rows[0];
-  } catch (err) {
-    if (err.code === 'ECONNREFUSED') {
-      const sec = mockSections.find(s => s.section_id === sectionId);
-      if (!sec) throw new Error('Section not found');
-      if (sec.current_seats >= sec.max_seats) throw new Error('Section is full');
-      
-      const enr = { student_id: studentId, section_id: sectionId, status: 'enrolled' };
-      mockEnrollments.push(enr);
-      sec.current_seats++;
-      return enr;
+    const amount = parseFloat(feeStructureRes.rows[0].total_amount || 0);
+
+    if (amount <= 0) {
+      throw new Error('Enrollment blocked: No active fee structure found for this course/section in the Fee Matrix. Please contact administration.');
     }
+
+    // 5. Create Fee record
+    const feeInsertSql = `
+      INSERT INTO fees (student_id, semester, fee_type, amount, status, due_date, notes, section_id)
+      VALUES ($1, 'Current', 'Course Registration', $2, 'pending', NOW(), $3, $4)
+      RETURNING fee_id
+    `;
+    const feeRes2 = await client.query(feeInsertSql, [studentId, amount, `Enrollment for ${checkRes.rows[0].course_code} | SectionID: ${sectionId}`, sectionId]);
+    const feeId = feeRes2.rows[0].fee_id;
+
+    // 6. Create Payment record
+    const paymentInsertSql = `
+      INSERT INTO payments (student_id, fee_id, amount_paid, payment_method, receipt_url, status, transaction_id)
+      VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+      RETURNING *
+    `;
+    await client.query(paymentInsertSql, [studentId, feeId, amount, paymentMethod, receiptUrl, transactionId]);
+
+    await client.query('COMMIT');
+    return enrollment;
+  } catch (err) {
+    await client.query('ROLLBACK');
     throw err;
+  } finally {
+    client.release();
   }
 };
 
@@ -97,8 +148,8 @@ export const dropStudent = async (studentId, sectionId) => {
     `;
     const { rows } = await query(updateSql, [studentId, sectionId]);
 
-    // Decrement seats
-    await query('UPDATE course_sections SET current_seats = GREATEST(0, current_seats - 1) WHERE section_id = $1', [sectionId]);
+    // Seat count is handled dynamically by subqueries in the dashboard/available courses list.
+    // No physical current_seats column exists in the database.
 
     return rows[0];
   } catch (err) {
@@ -109,7 +160,6 @@ export const dropStudent = async (studentId, sectionId) => {
 
 export const swapStudent = async (studentId, oldSectionId, newSectionId) => {
   // Use a transaction for atomicity
-  const { pool } = await import('../config/db.js');
   const client = await pool.connect();
   
   try {
@@ -128,20 +178,30 @@ export const swapStudent = async (studentId, oldSectionId, newSectionId) => {
     if (checkOldRes.rows.length === 0) throw new Error('Existing enrollment record not found');
 
     // 3. Check seats for new section
-    const checkNewSql = 'SELECT max_seats, current_seats FROM course_sections WHERE section_id = $1';
+    const checkNewSql = `
+      SELECT 
+        c.max_seats, 
+        (SELECT COUNT(*) FROM enrollments e WHERE e.section_id = s.section_id AND e.status = 'enrolled') as current_seats
+      FROM course_sections s
+      JOIN courses c ON s.course_id = c.course_id
+      WHERE s.section_id = $1
+    `;
     const checkNewRes = await client.query(checkNewSql, [newSectionId]);
     if (checkNewRes.rows.length === 0) throw new Error('New section not found');
-    if (checkNewRes.rows[0].current_seats >= checkNewRes.rows[0].max_seats) {
+    if (parseInt(checkNewRes.rows[0].current_seats) >= parseInt(checkNewRes.rows[0].max_seats)) {
       throw new Error('Target section is full');
     }
 
     // 4. Drop old
     await client.query(`UPDATE enrollments SET status = 'dropped' WHERE student_id = $1 AND section_id = $2`, [studentId, oldSectionId]);
-    await client.query('UPDATE course_sections SET current_seats = GREATEST(0, current_seats - 1) WHERE section_id = $1', [oldSectionId]);
 
-    // 5. Enroll new
-    await client.query(`INSERT INTO enrollments (student_id, section_id) VALUES ($1, $2)`, [studentId, newSectionId]);
-    await client.query('UPDATE course_sections SET current_seats = current_seats + 1 WHERE section_id = $1', [newSectionId]);
+    // 5. Enroll new (Using UPSERT to handle previously dropped records)
+    await client.query(`
+      INSERT INTO enrollments (student_id, section_id, status, enrollment_date) 
+      VALUES ($1, $2, 'enrolled', NOW())
+      ON CONFLICT (student_id, section_id) 
+      DO UPDATE SET status = 'enrolled', enrollment_date = NOW()
+    `, [studentId, newSectionId]);
 
     await client.query('COMMIT');
     return { success: true };

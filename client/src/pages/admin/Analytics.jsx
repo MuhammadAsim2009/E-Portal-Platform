@@ -26,8 +26,10 @@ import {
 } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import useAuthStore from '../../store/authStore';
 const Analytics = () => {
   usePageTitle('Analytics');
+  const { siteSettings } = useAuthStore();
   const [data, setData] = useState({ 
     stats: { totalRevenue: 0, collectionRate: 0, pendingAmount: 0 }, 
     incomePerCourse: [] 
@@ -107,7 +109,7 @@ const Analytics = () => {
           doc.setPage(i);
           doc.setFontSize(8);
           doc.setTextColor(150);
-          doc.text(`Page ${i} of ${pageCount} - Confidential E-Portal Intelligence`, 14, 285);
+          doc.text(`Page ${i} of ${pageCount} - Confidential ${siteSettings?.siteName || 'E-Portal'} Intelligence`, 14, 285);
         }
         doc.save(`EPortal_Analytics_${new Date().getTime()}.pdf`);
         showToast('success', 'PDF Performance Report generated successfully');

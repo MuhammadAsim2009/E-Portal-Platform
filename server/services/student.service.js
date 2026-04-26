@@ -4,7 +4,7 @@ export const getStudentDashboard = async (userId) => {
   try {
     // Look up student_id from user_id, joining with users table to get the name
     const userSql = `
-      SELECT s.student_id, s.gpa, s.program, s.semester, s.contact_number, u.name as full_name
+      SELECT s.student_id, s.gpa, s.program, s.semester, s.contact_number, s.gender, s.date_of_birth, s.cnic, u.name as full_name, u.email
       FROM students s
       JOIN users u ON s.user_id = u.user_id
       WHERE s.user_id = $1
@@ -19,14 +19,17 @@ export const getStudentDashboard = async (userId) => {
     const enrolledSql = `
       SELECT 
         e.enrollment_id, e.status, c.title, c.course_code, c.credit_hours,
-        s.section_id, s.section_name, s.day_of_week, s.start_time, s.end_time, s.room,
+        s.section_id, s.section_name, s.day_of_week, 
+        TO_CHAR(s.start_time::TIME, 'HH12:MI AM') as start_time, 
+        TO_CHAR(s.end_time::TIME, 'HH12:MI AM') as end_time, 
+        s.room,
         f.department, u.name as instructor_name
       FROM enrollments e
       JOIN course_sections s ON e.section_id = s.section_id
       JOIN courses c ON s.course_id = c.course_id
       LEFT JOIN faculty f ON s.faculty_id = f.faculty_id
       LEFT JOIN users u ON f.user_id = u.user_id
-      WHERE e.student_id = $1 AND e.status = 'enrolled'
+      WHERE e.student_id = $1 AND e.status IN ('enrolled', 'pending')
 
     `;
     const enrolledRes = await query(enrolledSql, [studentId]);
@@ -107,15 +110,19 @@ export const getStudentDashboard = async (userId) => {
 export const getAvailableSections = async () => {
   const sql = `
     SELECT 
-      s.section_id, s.section_name, s.day_of_week, s.start_time, s.end_time, s.room,
-      c.title, c.course_code, c.credit_hours, c.department, c.semester_offered,
-      u.name as instructor_name
+      s.section_id, s.section_name, s.day_of_week, 
+      TO_CHAR(s.start_time::TIME, 'HH12:MI AM') as start_time, 
+      TO_CHAR(s.end_time::TIME, 'HH12:MI AM') as end_time, 
+      s.room,
+      (SELECT COUNT(*) FROM enrollments e WHERE e.section_id = s.section_id AND e.status = 'enrolled') as current_seats,
+      c.title, c.course_code, c.credit_hours, c.department, c.semester_offered, c.max_seats,
+      u.name as instructor_name,
+      (SELECT SUM(amount) FROM fee_structures fs WHERE (fs.section_id = s.section_id OR (fs.course_id = c.course_id AND fs.section_id IS NULL)) AND fs.is_active = true) as enrollment_fee
     FROM course_sections s
     JOIN courses c ON s.course_id = c.course_id
     LEFT JOIN faculty f ON s.faculty_id = f.faculty_id
     LEFT JOIN users u ON f.user_id = u.user_id
     WHERE c.is_active = true
-
   `;
   const res = await query(sql);
   return res.rows;

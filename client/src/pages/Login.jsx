@@ -12,7 +12,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated, user } = useAuthStore();
+  const { login, isAuthenticated, user, siteSettings } = useAuthStore();
   // If already authenticated, redirect to the correct dashboard immediately
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -61,7 +61,7 @@ const Login = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent z-20"></div>
         <img 
           src="/auth-bg.png" 
-          alt="E-Portal Access" 
+          alt={`${siteSettings?.siteName || 'E-Portal'} Access`}
           className="absolute inset-0 object-cover w-full h-full scale-105"
         />
         <div className="absolute bottom-0 left-0 right-0 z-30 p-16 xl:p-24 text-white">
@@ -69,7 +69,7 @@ const Login = () => {
             <div className="bg-white/20 backdrop-blur-md p-3 rounded-2xl border border-white/30">
               <LogIn className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight">E-Portal</h1>
+            <h1 className="text-3xl font-extrabold tracking-tight">{siteSettings?.siteName || 'E-Portal'}</h1>
           </div>
           <h2 className="text-5xl font-bold leading-tight mb-6 tracking-tight text-white/95 drop-shadow-lg">
             Welcome back to <br />

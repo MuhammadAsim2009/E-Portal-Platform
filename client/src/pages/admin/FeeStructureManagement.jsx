@@ -7,7 +7,7 @@ import {
   Layers, Info, AlertCircle, CheckCircle2, MoreVertical, X, Edit2
 } from 'lucide-react';
 
-const categories = ['Tuition Fee', 'Admission Fee', 'Library Fee', 'Lab Fee', 'Examination Fee', 'Sports Fee', 'Security Deposit'];
+const categories = ['Semester Fee', 'Tuition Fee', 'Admission Fee', 'Library Fee', 'Lab Fee', 'Examination Fee', 'Sports Fee', 'Security Deposit'];
 const programs = ['BSCS', 'BSIT', 'BBA', 'MCS', 'MBA', 'PhD CS'];
 
 const FeeStructureManagement = () => {
@@ -278,21 +278,12 @@ const FeeStructureManagement = () => {
                 </div>
 
                 <form onSubmit={handleCreate} className="space-y-6">
-                  <div className="grid grid-cols-2 gap-5 mb-6">
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Course Selection</label>
-                       <select name="course_id" required className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-600/10 outline-none transition-all">
-                         <option value="">Select Curriculum</option>
-                         {courses.map(c => <option key={c.course_id} value={c.course_id}>{c.title}</option>)}
-                       </select>
-                    </div>
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Designated Section</label>
-                       <select name="section_id" required className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-600/10 outline-none transition-all">
-                         <option value="">Select Cohort</option>
-                         {sections.map(s => <option key={s.section_id} value={s.section_id}>{s.section_name}</option>)}
-                       </select>
-                    </div>
+                  <div className="mb-6 space-y-2">
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Course Selection</label>
+                     <select name="course_id" required className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-600/10 outline-none transition-all">
+                       <option value="">Select Curriculum</option>
+                       {courses.map(c => <option key={c.course_id} value={c.course_id}>{c.title}</option>)}
+                     </select>
                   </div>
 
                   <div className="mb-6 space-y-2">
@@ -349,29 +340,16 @@ const FeeStructureManagement = () => {
                 </div>
 
                 <form onSubmit={handleUpdate} className="space-y-6">
-                  <div className="grid grid-cols-2 gap-5 mb-6">
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Course Unit</label>
-                       <select 
-                         name="course_id" 
-                         required 
-                         defaultValue={editModal.data.course_id}
-                         className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-600/10 outline-none transition-all"
-                       >
-                         {courses.map(c => <option key={c.course_id} value={c.course_id}>{c.title}</option>)}
-                       </select>
-                    </div>
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Cohort Unit</label>
-                       <select 
-                         name="section_id" 
-                         required 
-                         defaultValue={editModal.data.section_id}
-                         className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-600/10 outline-none transition-all"
-                       >
-                         {sections.map(s => <option key={s.section_id} value={s.section_id}>{s.section_name}</option>)}
-                       </select>
-                    </div>
+                  <div className="mb-6 space-y-2">
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Course Unit</label>
+                     <select 
+                       name="course_id" 
+                       required 
+                       defaultValue={editModal.data.course_id}
+                       className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-600/10 outline-none transition-all"
+                     >
+                       {courses.map(c => <option key={c.course_id} value={c.course_id}>{c.title}</option>)}
+                     </select>
                   </div>
 
                   <div className="mb-6 space-y-2">
@@ -402,7 +380,7 @@ const FeeStructureManagement = () => {
                   </div>
 
                   <div className="flex gap-4 pt-4 border-t border-slate-50">
-                    <button type="button" onClick={() => setEditModal({ show: false, data: null })} className="flex-1 py-4 rounded-2xl bg-slate-50 text-slate-600 font-black text-[11px] uppercase tracking-widest hover:bg-slate-100 transition-all text-slate-600">
+                    <button type="button" onClick={() => setEditModal({ show: false, data: null })} className="flex-1 py-4 rounded-2xl bg-slate-50 text-slate-600 font-black text-[11px] uppercase tracking-widest hover:bg-slate-100 transition-all">
                       Cancel
                     </button>
                     <button type="submit" disabled={isSubmitting} className="flex-[2] py-4 rounded-2xl bg-slate-900 text-white font-black text-[11px] uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-200">

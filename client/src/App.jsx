@@ -78,6 +78,7 @@ function App() {
           <Route path="assignments" element={<StudentDashboard />} />
           <Route path="academic" element={<StudentDashboard />} />
           <Route path="finance" element={<StudentDashboard />} />
+          <Route path="settings" element={<StudentDashboard />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 

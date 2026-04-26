@@ -21,8 +21,10 @@ import {
   UserMinus,
   Download as DownloadIcon
 } from 'lucide-react';
+import useAuthStore from '../../store/authStore';
 const TimetableManagement = () => {
   usePageTitle('Timetable Management');
+  const { siteSettings } = useAuthStore();
   const [sections, setSections] = useState([]);
   const [faculty, setFaculty] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -239,7 +241,7 @@ const TimetableManagement = () => {
     const icsContent = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//E-Portal//Institutional Timetable//EN',
+      `PRODID:-//${siteSettings?.siteName || 'E-Portal'}//Institutional Timetable//EN`,
       'BEGIN:VEVENT',
       `UID:${selectedSection.section_id}@eportal.edu`,
       `DTSTAMP:${now}`,

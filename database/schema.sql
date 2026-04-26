@@ -130,7 +130,8 @@ CREATE TABLE payments (
   payment_date TIMESTAMP DEFAULT NOW(),
   transaction_id VARCHAR(100),
   payment_method VARCHAR(50),
-  receipt_url TEXT
+  receipt_url TEXT,
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'waived'))
 );
 
 CREATE TABLE IF NOT EXISTS fee_structures (

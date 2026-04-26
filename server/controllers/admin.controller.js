@@ -1,5 +1,7 @@
 import * as adminService from '../services/admin.service.js';
 import { sendEmail } from '../services/email.service.js';
+import { getSignedFileUrl } from '../services/s3Service.js';
+import db from '../config/db.js';
 
 const isValidUUID = (uuid) => {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -229,17 +231,20 @@ export const deleteUser = async (req, res) => {
       ipAddress: req.ip
     });
 
+    const settings = await adminService.getSiteSettings();
+    const siteName = settings.siteName || 'E-Portal';
+
     if (user) {
       try {
         await sendEmail({
           to: user.email,
-          subject: 'Account Permanently Deleted',
-          text: 'Your institutional account has been permanently removed by the administrator.',
+          subject: `Account Permanently Deleted - ${siteName}`,
+          text: `Your institutional account has been permanently removed from the ${siteName} Platform by the administrator.`,
           html: `
             <div style="font-family: 'Inter', sans-serif; padding: 40px; background: #f8fafc;">
               <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 40px; border: 1px solid #e2e8f0;">
                 <h2 style="color: #dc2626; margin-bottom: 16px;">Account Termination Notice</h2>
-                <p style="color: #475569; font-size: 16px; line-height: 1.6;">Hello ${user.name}, this is a formal notification that your institutional account (${user.email}) has been permanently removed from the E-Portal Platform by the administration.</p>
+                <p style="color: #475569; font-size: 16px; line-height: 1.6;">Hello ${user.name}, this is a formal notification that your institutional account (${user.email}) has been permanently removed from the ${siteName} Platform by the administration.</p>
                 <p style="color: #475569; font-size: 14px; margin-top: 20px;">All associated data has been purged. If you believe this action was taken in error, please contact the administrative office immediately.</p>
               </div>
             </div>
@@ -280,10 +285,13 @@ export const createAdminUser = async (req, res) => {
       ipAddress: req.ip
     });
 
+    const settings = await adminService.getSiteSettings();
+    const siteName = settings.siteName || 'E-Portal';
+
     try {
       await sendEmail({
         to: email,
-        subject: `Welcome to E-Portal - ${role.charAt(0).toUpperCase() + role.slice(1)} Account Created`,
+        subject: `Welcome to ${siteName} - ${role.charAt(0).toUpperCase() + role.slice(1)} Account Created`,
         text: `Hello ${name}, your institutional account has been successfully provisioned. Link: ${process.env.CLIENT_URL || 'http://localhost:5173/login'}`,
         html: `
           <div style="font-family: 'Inter', system-ui, sans-serif; padding: 40px; background-color: #f8fafc;">
@@ -713,8 +721,10 @@ export const getPayments = async (req, res) => {
 export const updatePaymentStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, waiver_justification } = req.body;
-    const payment = await adminService.updatePaymentStatus(id, status, waiver_justification);
+    const { status, waiver_justification, transaction_id, transactionId } = req.body;
+    const effectiveTxId = transaction_id || transactionId;
+    
+    const payment = await adminService.updatePaymentStatus(id, status, waiver_justification, effectiveTxId);
     
     await adminService.logAction({
       userId: req.user.id,
@@ -727,7 +737,25 @@ export const updatePaymentStatus = async (req, res) => {
 
     res.json(payment);
   } catch (err) {
+    console.error('[PaymentStatus] Error:', err.message, err.stack);
     res.status(400).json({ message: err.message });
+  }
+};
+
+export const getPaymentReceiptUrl = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const paymentRes = await db.query('SELECT receipt_url FROM payments WHERE payment_id = $1', [id]);
+    
+    if (paymentRes.rows.length === 0 || !paymentRes.rows[0].receipt_url) {
+      return res.status(404).json({ message: 'Receipt not found' });
+    }
+
+    const signedUrl = await getSignedFileUrl(paymentRes.rows[0].receipt_url, 'view');
+    res.json({ url: signedUrl });
+  } catch (err) {
+    console.error('Signed URL error:', err);
+    res.status(500).json({ message: err.message });
   }
 };
 

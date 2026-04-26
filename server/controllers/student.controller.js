@@ -4,6 +4,7 @@ import { logAction, createNotification } from '../services/admin.service.js';
 import { notify } from '../services/notification.service.js';
 import * as db from '../config/db.js';
 import { getSignedFileUrl } from '../services/s3Service.js';
+import * as adminService from '../services/admin.service.js';
 
 /**
  * Fetch the metrics for the student dashboard
@@ -45,30 +46,100 @@ export const getAvailableCourses = async (req, res) => {
 };
 
 /**
- * Enroll a student into a section
+ * Get site settings relevant for students (e.g. payment details)
  */
-export const enrollModule = async (req, res) => {
+export const getSiteSettings = async (req, res) => {
   try {
-    const { sectionId } = req.body;
+    const settings = await adminService.getSiteSettings();
+    // Filter out any sensitive settings if necessary
+    // For now, only provide what's needed for payment
+    res.status(200).json(settings);
+  } catch (err) {
+    console.error('Settings fetch error:', err);
+    res.status(500).json({ message: 'Error fetching site settings' });
+  }
+};
+
+/**
+ * Update student profile data (excluding email and GPA)
+ */
+export const updateSettings = async (req, res) => {
+  try {
+    const { contact_number, gender, date_of_birth, cnic } = req.body;
     
     // Get actual student_id from logged in user
     const studentRes = await db.query('SELECT student_id FROM students WHERE user_id = $1', [req.user.id]);
     if (studentRes.rows.length === 0) throw new Error('Student profile not found');
     const studentId = studentRes.rows[0].student_id;
 
-    const result = await courseService.enrollStudent(studentId, sectionId);
-    
+    await db.query(
+      `UPDATE students 
+       SET contact_number = COALESCE($1, contact_number),
+           gender = COALESCE($2, gender),
+           date_of_birth = COALESCE($3, date_of_birth),
+           cnic = COALESCE($4, cnic)
+       WHERE student_id = $5`,
+      [contact_number, gender, date_of_birth, cnic, studentId]
+    );
+
     await logAction({
       userId: req.user.id,
-      action: 'COURSE_ENROLL',
-      target: sectionId,
-      details: `Enrolled in section ID: ${sectionId}`,
+      action: 'PROFILE_UPDATE',
+      target: studentId,
+      details: 'Student updated their profile settings.',
       ipAddress: req.ip
     });
 
-    res.status(200).json({ message: 'Successfully enrolled!', enrollment: result });
+    res.status(200).json({ message: 'Settings updated successfully' });
   } catch (err) {
-    console.error('Enrollment error:', err);
+    console.error('Settings update error:', err);
+    res.status(500).json({ message: err.message || 'Error updating settings' });
+  }
+};
+
+/**
+ * Enroll a student into a section
+ */
+export const enrollModule = async (req, res) => {
+  console.log('>>> ENROLL MODULE CONTROLLER HIT <<<');
+  try {
+    const { sectionId, paymentMethod, transactionId } = req.body;
+    const receiptFile = req.file;
+
+    if (!sectionId || !paymentMethod || !receiptFile) {
+      return res.status(400).json({ message: 'Missing required fields: sectionId, paymentMethod, or receipt' });
+    }
+
+    const receiptUrl = receiptFile.location || `/uploads/receipts/${receiptFile.filename}`;
+    
+    // Get actual student_id from logged in user
+    const studentRes = await db.query('SELECT student_id FROM students WHERE user_id = $1', [req.user.id]);
+    if (studentRes.rows.length === 0) throw new Error('Student profile not found');
+    const studentId = studentRes.rows[0].student_id;
+
+    // Call service with extended parameters
+    const result = await courseService.enrollStudent(studentId, sectionId, paymentMethod, receiptUrl, transactionId);
+    
+    await logAction({
+      userId: req.user.id,
+      action: 'COURSE_ENROLL_REQUEST',
+      target: sectionId,
+      details: `Requested enrollment in section ID: ${sectionId} with payment ${paymentMethod}`,
+      ipAddress: req.ip
+    });
+
+    res.status(200).json({ 
+      message: 'Enrollment request submitted! Admin will verify your payment receipt soon.', 
+      enrollment: result 
+    });
+  } catch (err) {
+    console.error('CRITICAL ENROLLMENT ERROR:', {
+      message: err.message,
+      detail: err.detail,
+      constraint: err.constraint,
+      table: err.table,
+      stack: err.stack
+    });
     res.status(400).json({ message: err.message || 'Enrollment failed' });
   }
 };
@@ -130,8 +201,15 @@ export const swapModule = async (req, res) => {
 
 export const submitPayment = async (req, res) => {
   try {
-    const { fee_id, amount, transaction_id, payment_method, receipt_url } = req.body;
+    const { fee_id, amount, transaction_id, payment_method } = req.body;
     
+    // For S3 uploads using multer-s3, the URL is available at req.file.location
+    const receipt_url = req.file ? req.file.location : null;
+
+    if (!receipt_url) {
+      return res.status(400).json({ message: 'Receipt upload is required' });
+    }
+
     const studentRes = await db.query('SELECT student_id FROM students WHERE user_id = $1', [req.user.id]);
     const studentId = studentRes.rows[0].student_id;
 

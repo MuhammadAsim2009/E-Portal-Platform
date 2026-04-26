@@ -1,7 +1,7 @@
 import * as userService from '../services/user.service.js';
 import * as authService from '../services/auth.service.js';
 import { sendEmail } from '../services/email.service.js';
-import { logAction, createNotification } from '../services/admin.service.js';
+import { logAction, createNotification, getSiteSettings } from '../services/admin.service.js';
 import { notify } from '../services/notification.service.js';
 import crypto from 'crypto';
 import * as db from '../config/db.js';
@@ -285,23 +285,26 @@ export const getMe = async (req, res) => {
   try {
     const token = req.cookies?.accessToken || req.headers.authorization?.split(' ')[1];
     
+    // Fetch global site settings for branding/ui config
+    const siteSettings = await getSiteSettings();
+    
     if (!token) {
-      return res.status(200).json({ authenticated: false, user: null });
+      return res.status(200).json({ authenticated: false, user: null, siteSettings });
     }
 
     let decoded;
     try {
       decoded = authService.verifyAccessToken(token);
     } catch {
-      return res.status(200).json({ authenticated: false, user: null });
+      return res.status(200).json({ authenticated: false, user: null, siteSettings });
     }
 
     const user = await userService.findUserById(decoded.id);
     if (!user) {
-      return res.status(200).json({ authenticated: false, user: null });
+      return res.status(200).json({ authenticated: false, user: null, siteSettings });
     }
 
-    res.status(200).json({ authenticated: true, user });
+    res.status(200).json({ authenticated: true, user, siteSettings });
   } catch (error) {
     console.error('getMe error:', error);
     res.status(500).json({ message: 'Error retrieving user session.' });

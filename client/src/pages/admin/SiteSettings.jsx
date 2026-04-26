@@ -12,6 +12,7 @@ const TABS = [
   { id: 'general', label: 'General', icon: Globe },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'email', label: 'Email SMTP', icon: Mail },
+  { id: 'payments', label: 'Payment Accounts', icon: Coins },
   { id: 'security', label: 'Security', icon: Shield },
 ];
 const SiteSettings = () => {
@@ -449,6 +450,50 @@ const SiteSettings = () => {
                       value={settings.smtpFromEmail || ''}
                       onChange={e => setSettings({...settings, smtpFromEmail: e.target.value})}
                       className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* Tab: Payments */}
+            {activeTab === 'payments' && (
+              <div className="space-y-12 animate-in slide-in-from-right-4 duration-500">
+                <div className="p-8 bg-indigo-600 rounded-3xl text-white shadow-xl shadow-indigo-100 relative overflow-hidden">
+                   <div className="relative z-10 space-y-2">
+                      <h3 className="text-xl font-black">Fee Payment Gateways</h3>
+                      <p className="opacity-80 text-sm font-medium">Configure bank and mobile wallet details that will be shown to students during course enrollment and fee submission.</p>
+                   </div>
+                   <Coins size={120} className="absolute -bottom-6 -right-6 text-white/5 rotate-12" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Bank Transfer Details</label>
+                    <textarea 
+                      rows={4}
+                      placeholder="Bank Name: HBL&#10;Account Title: E-Portal&#10;IBAN: PK00HABB00000000000000"
+                      value={settings.bankDetails || ''}
+                      onChange={e => setSettings({...settings, bankDetails: e.target.value})}
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-900 resize-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Easypaisa Details</label>
+                    <textarea 
+                      rows={3}
+                      placeholder="Account Title: E-Portal&#10;Account Number: 0300-0000000"
+                      value={settings.easypaisaDetails || ''}
+                      onChange={e => setSettings({...settings, easypaisaDetails: e.target.value})}
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-900 resize-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Jazzcash Details</label>
+                    <textarea 
+                      rows={3}
+                      placeholder="Account Title: E-Portal&#10;Account Number: 0300-0000000"
+                      value={settings.jazzcashDetails || ''}
+                      onChange={e => setSettings({...settings, jazzcashDetails: e.target.value})}
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-900 resize-none"
                     />
                   </div>
                 </div>

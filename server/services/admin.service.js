@@ -503,7 +503,9 @@ export const getAllSections = async () => {
     const res = await db.query(`
       SELECT 
         s.section_id, s.course_id, s.faculty_id, s.section_name, s.room,
-        s.day_of_week, s.start_time, s.end_time,
+        s.day_of_week, 
+        TO_CHAR(s.start_time, 'HH12:MI AM') as start_time, 
+        TO_CHAR(s.end_time, 'HH12:MI AM') as end_time,
         c.title as course_title, c.course_code,
         c.max_seats,
         (SELECT COUNT(*) FROM enrollments e WHERE e.section_id = s.section_id AND e.status = 'enrolled') as current_seats,
@@ -821,10 +823,14 @@ export const enrollStudentInSection = async (sectionId, studentId) => {
     throw new Error('Administrative enrollment blocked: This student has outstanding delinquent fees. Financial settlement is required before further enrollment.');
   }
 
-  const checkRes = await db.query('SELECT 1 FROM enrollments WHERE student_id = $1 AND section_id = $2', [studentId, sectionId]);
-  if (checkRes.rows.length > 0) throw new Error('Student already enrolled in this section');
+  const checkRes = await db.query('SELECT status FROM enrollments WHERE student_id = $1 AND section_id = $2', [studentId, sectionId]);
+  if (checkRes.rows.length > 0) {
+    const status = checkRes.rows[0].status;
+    if (status === 'enrolled') throw new Error('Student is already enrolled in this section');
+    if (status === 'pending') throw new Error('Student already has a pending enrollment request for this section');
+  }
 
-  // Capacity guard: fetch max_seats from courses, count active enrollments
+  // Capacity guard (verified before enrollment/re-activation)
   const capacityRes = await db.query(`
     SELECT c.max_seats,
            (SELECT COUNT(*) FROM enrollments e WHERE e.section_id = $1 AND e.status = 'enrolled') as current_count
@@ -840,9 +846,15 @@ export const enrollStudentInSection = async (sectionId, studentId) => {
     }
   }
 
+  // Atomic Create or Update (e.g. if student was 'dropped')
   const res = await db.query(`
-    INSERT INTO enrollments (student_id, section_id)
-    VALUES ($1, $2) RETURNING *
+    INSERT INTO enrollments (student_id, section_id, status, enrollment_date)
+    VALUES ($1, $2, 'enrolled', NOW())
+    ON CONFLICT (student_id, section_id) 
+    DO UPDATE SET 
+      status = 'enrolled', 
+      enrollment_date = NOW()
+    RETURNING *
   `, [studentId, sectionId]);
   
   return res.rows[0];
@@ -872,70 +884,134 @@ export const removeStudentFromSection = async (sectionId, studentId) => {
 
 export const getAllPayments = async () => {
   const res = await db.query(`
-    SELECT 
-      p.*, 
-      u.name as student_name, 
+    SELECT DISTINCT ON (p.payment_id)
+      p.*,
+      u.name as student_name,
       u.email as student_email,
+      s.student_id as admission_id,
+      s.date_of_birth,
+      s.contact_number as student_phone,
       f.fee_type,
-      f.semester
+      f.semester,
+      e.enrollment_id,
+      e.status as enrollment_status,
+      e.enrollment_date,
+      c.title as course_title,
+      c.course_code,
+      cs.section_name,
+      cs.day_of_week,
+      cs.room,
+      TO_CHAR(cs.start_time, 'HH12:MI AM') as start_time,
+      TO_CHAR(cs.end_time, 'HH12:MI AM') as end_time,
+      fu.name as faculty_name
     FROM payments p
     JOIN students s ON p.student_id = s.student_id
     JOIN users u ON s.user_id = u.user_id
     LEFT JOIN fees f ON p.fee_id = f.fee_id
-    ORDER BY p.payment_date DESC
+    LEFT JOIN enrollments e ON e.student_id = p.student_id
+    LEFT JOIN course_sections cs ON e.section_id = cs.section_id
+    LEFT JOIN courses c ON cs.course_id = c.course_id
+    LEFT JOIN faculty fa ON cs.faculty_id = fa.faculty_id
+    LEFT JOIN users fu ON fa.user_id = fu.user_id
+    ORDER BY p.payment_id, e.enrollment_date DESC
   `);
   return res.rows;
 };
 
-export const updatePaymentStatus = async (paymentId, status, waiver_justification = null) => {
-  let query = `UPDATE payments SET status = $1`;
-  let values = [status, paymentId];
-  
-  if (waiver_justification) {
-    query += `, waiver_justification = $3`;
-    values.push(waiver_justification);
-  }
-  
-  query += ` WHERE payment_id = $2 RETURNING *`;
-  
-  const res = await db.query(query, values);
-  
-  if (res.rowCount === 0) throw new Error('Payment not found');
-  
-  // If accepted, update associated fee to paid
-  if (status === 'accepted') {
-    await db.query(
-      `UPDATE fees SET status = 'paid' 
-       WHERE fee_id = (SELECT fee_id FROM payments WHERE payment_id = $1)`,
-      [paymentId]
-    );
-  } else if (status === 'waived') {
-    await db.query(
-      `UPDATE fees SET status = 'waived', waiver_justification = $2
-       WHERE fee_id = (SELECT fee_id FROM payments WHERE payment_id = $1)`,
-      [paymentId, waiver_justification]
-    );
-  }
-  
-  const payment = res.rows[0];
+export const updatePaymentStatus = async (paymentId, status, waiver_justification = null, transactionId = null) => {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  // Notify student of the status change
-  const studentUserRes = await db.query(
-    "SELECT u.user_id FROM users u JOIN students s ON u.user_id = s.user_id WHERE s.student_id = $1",
-    [payment.student_id]
-  );
-  if (studentUserRes.rowCount > 0) {
-    await notify({
-      userId: studentUserRes.rows[0].user_id,
-      title: `Payment ${status.toUpperCase()}`,
-      message: `Your payment of ${payment.amount_paid} (Txn: ${payment.transaction_id}) has been ${status}. ${waiver_justification ? `Reason: ${waiver_justification}` : ''}`,
-      type: 'payment',
-      priority: status === 'rejected' ? 'high' : 'medium',
-      channels: ['in-app', 'email']
-    });
+    // 1. Update the payment status and transaction ID if provided
+    let query = `UPDATE payments SET status = $1`;
+    let params = [status];
+    
+    if (transactionId) {
+      query += `, transaction_id = $2 WHERE payment_id = $3 RETURNING *`;
+      params.push(transactionId, paymentId);
+    } else {
+      query += ` WHERE payment_id = $2 RETURNING *`;
+      params.push(paymentId);
+    }
+
+    const paymentRes = await client.query(query, params);
+    
+    if (paymentRes.rowCount === 0) {
+      throw new Error('Payment record not found');
+    }
+    
+    const payment = paymentRes.rows[0];
+
+    // 2. Sync with the associated fee record if it exists
+    if (payment.fee_id) {
+      const feeRes = await client.query(`SELECT * FROM fees WHERE fee_id = $1`, [payment.fee_id]);
+      const fee = feeRes.rows[0];
+
+      let feeStatus = null;
+      if (status === 'accepted') feeStatus = 'paid';
+      else if (status === 'waived') feeStatus = 'waived';
+      
+      if (feeStatus) {
+        await client.query(
+          `UPDATE fees SET status = $1, waiver_justification = $2 WHERE fee_id = $3`,
+          [feeStatus, waiver_justification, payment.fee_id]
+        );
+
+        // 2a. If it's a course registration fee, update enrollment status
+        if (fee && fee.fee_type === 'Course Registration' && status === 'accepted') {
+          let sectionId = fee.section_id;
+          
+          // Fallback to parsing notes if section_id is not in the column
+          if (!sectionId && fee.notes) {
+            const sectionIdMatch = fee.notes.match(/SectionID: ([a-f0-9-]{36})/i);
+            if (sectionIdMatch) {
+              sectionId = sectionIdMatch[1];
+            }
+          }
+
+          if (sectionId) {
+            await client.query(
+              `UPDATE enrollments SET status = 'enrolled' WHERE student_id = $1 AND section_id = $2 AND status = 'pending'`,
+              [payment.student_id, sectionId]
+            );
+          }
+        }
+      }
+    }
+
+    await client.query('COMMIT');
+
+    // 3. Notify student asynchronously (outside transaction to avoid blocking)
+    try {
+      const studentUserRes = await db.query(
+        "SELECT u.user_id FROM users u JOIN students s ON u.user_id = s.user_id WHERE s.student_id = $1",
+        [payment.student_id]
+      );
+      
+      if (studentUserRes.rowCount > 0) {
+        await notify({
+          userId: studentUserRes.rows[0].user_id,
+          title: `Payment ${status.toUpperCase()}`,
+          message: `Your payment of PKR ${parseFloat(payment.amount_paid).toLocaleString()} (Txn: ${payment.transaction_id || 'N/A'}) has been ${status}. ${waiver_justification ? `Reason: ${waiver_justification}` : ''}`,
+          type: 'payment',
+          priority: status === 'rejected' ? 'high' : 'medium',
+          channels: ['in-app', 'email']
+        });
+      }
+    } catch (notifyErr) {
+      console.error('Notification failed during payment status update:', notifyErr);
+      // We don't throw here as the transaction is already committed
+    }
+    
+    return payment;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('updatePaymentStatus Error:', err);
+    throw err;
+  } finally {
+    client.release();
   }
-  
-  return payment;
 };
 
 // ─────────────────────── SITE SETTINGS ───────────────────────

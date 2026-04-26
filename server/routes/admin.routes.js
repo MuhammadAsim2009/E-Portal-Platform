@@ -37,6 +37,7 @@ import {
   updatePaymentStatus,
   updateSettings,
   testEmail,
+  getPaymentReceiptUrl,
   getFeeStructures,
   createFeeStructure,
   updateFeeStructure,
@@ -88,6 +89,7 @@ router.get('/notifications/unread-count', getUnreadCount);
 router.patch('/notifications/:id/read', markNotificationAsRead);
 router.get('/payments', getPayments);
 router.patch('/payments/:id/status', updatePaymentStatus);
+router.get('/payments/:id/receipt-url', getPaymentReceiptUrl);
 
 // Course Management
 router.get('/courses', getAllCourses);

@@ -49,7 +49,7 @@ const AdminLayout = () => {
   const [open, setOpen] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const { user, logout } = useAuthStore();
+  const { user, logout, siteSettings } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -92,7 +92,7 @@ const AdminLayout = () => {
             <Shield size={20} className="text-white drop-shadow-md" />
           </div>
           <div className="flex flex-col">
-            <span className="font-bold text-lg tracking-tight text-white leading-none">E-Portal</span>
+            <span className="font-bold text-lg tracking-tight text-white leading-none">{siteSettings?.siteName || 'E-Portal'}</span>
             <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-[0.2em] mt-1.5 opacity-80">Operational Intelligence</span>
           </div>
           <button onClick={() => setOpen(false)} className="ml-auto lg:hidden text-slate-500 hover:text-white transition-colors">

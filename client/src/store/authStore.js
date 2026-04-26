@@ -19,6 +19,7 @@ const useAuthStore = create((set, get) => ({
   user: null,
   isAuthenticated: false,
   loading: true,
+  siteSettings: {},
 
   /**
    * Start 1-hour inactivity watchdog.
@@ -59,10 +60,10 @@ const useAuthStore = create((set, get) => ({
       set({ loading: true });
       const response = await api.get('/auth/me');
       if (response.data.authenticated) {
-        set({ user: response.data.user, isAuthenticated: true, loading: false });
+        set({ user: response.data.user, isAuthenticated: true, loading: false, siteSettings: response.data.siteSettings || {} });
         get().startInactivityTimer();
       } else {
-        set({ user: null, isAuthenticated: false, loading: false });
+        set({ user: null, isAuthenticated: false, loading: false, siteSettings: response.data.siteSettings || {} });
       }
     } catch (error) {
       set({ user: null, isAuthenticated: false, loading: false });

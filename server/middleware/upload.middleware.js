@@ -39,3 +39,6 @@ export const uploadAssignment = multer({
 
 // S3 version of the assignment upload
 export const uploadAssignmentS3 = createS3Upload('assignments');
+
+// S3 version of the payment receipt upload
+export const uploadReceiptS3 = createS3Upload('receipts');

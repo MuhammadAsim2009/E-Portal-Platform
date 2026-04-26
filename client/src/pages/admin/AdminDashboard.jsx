@@ -7,6 +7,7 @@ import {
   Clock, Calendar, Filter, Shield, List
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import useAuthStore from '../../store/authStore';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, BarChart, Bar, Cell
@@ -46,6 +47,7 @@ const StatCard = ({ icon: Icon, label, value, trend, isPositive, color }) => (
 const AdminDashboard = () => {
   usePageTitle('Admin Dashboard');
   const navigate = useNavigate();
+  const { siteSettings } = useAuthStore();
   const [stats, setStats] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +100,7 @@ const AdminDashboard = () => {
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Overview</h1>
           <p className="text-slate-500 mt-1 font-medium flex items-center gap-2 text-sm">
             <Activity size={16} className="text-indigo-500" />
-            Insights and performance metrics for <span className="text-slate-900 font-semibold">E-Portal</span>.
+            Insights and performance metrics for <span className="text-slate-900 font-semibold">{siteSettings?.siteName || 'E-Portal'}</span>.
           </p>
         </div>
       </div>
