@@ -187,7 +187,7 @@ const PaymentManagement = () => {
           <div class="row"><span class="label">TXID:</span> <span>${payment.transaction_id || 'N/A'}</span></div>
           <div class="row"><span class="label">STUDENT:</span> <span>${payment.student_name}</span></div>
           <div class="row"><span class="label">EMAIL:</span> <span>${payment.student_email}</span></div>
-          <div class="row"><span class="label">SEMESTER:</span> <span>${payment.semester}</span></div>
+          <div class="row"><span class="label">SECTION:</span> <span>${payment.semester}</span></div>
           <div class="row"><span class="label">TYPE:</span> <span>${payment.fee_type || 'General Fee'}</span></div>
           <div class="row"><span class="label">METHOD:</span> <span>${payment.payment_method}</span></div>
           <div class="row total">
@@ -330,7 +330,7 @@ const PaymentManagement = () => {
                     </td>
                     <td className="px-8 py-6">
                       <div className="text-[11px] font-black text-slate-700 uppercase tracking-widest">{p.fee_type || 'General Fee'}</div>
-                      <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">{p.semester} - {p.payment_method}</div>
+                      <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">Section: {p.semester || 'N/A'} • {p.payment_method}</div>
                     </td>
                     <td className="px-8 py-6 text-center">
                       <div className="text-sm font-black text-slate-900 items-center justify-center flex tabular-nums">
@@ -509,7 +509,7 @@ const PaymentManagement = () => {
                       <p className="text-sm font-bold text-slate-900">{selectedPayment.fee_type || 'General Fee'}</p>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Semester</p>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Section</p>
                       <p className="text-sm font-bold text-slate-900">{selectedPayment.semester || 'N/A'}</p>
                     </div>
                   </div>
@@ -666,12 +666,12 @@ const PaymentManagement = () => {
                   </div>
                   <div>
                     <h2 className="text-2xl font-black text-slate-900 tracking-tight">Bulk Invoicing</h2>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global Semester Billing Engine</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global Section Billing Engine</p>
                   </div>
                 </div>
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-8 border-dashed">
                   <p className="text-[11px] font-medium text-slate-500 leading-relaxed italic">
-                    This engine will generate fee records for all active students in the target program based on the current Fee Matrix.
+                    This engine will generate fee records for all active students in the target course based on the current Fee Matrix.
                   </p>
                 </div>
                 <form onSubmit={handleBulkGenerate} className="space-y-6">

@@ -15,7 +15,7 @@ const StudentCourses = ({
   handleDownloadTimetable, 
   handleDrop, 
   setSwappingFrom, 
-  setActiveTab, 
+  switchTab, 
   handleExportICS 
 }) => {
   return (
@@ -64,7 +64,7 @@ const StudentCourses = ({
                      <div className="flex flex-col">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Schedule</span>
                         <span className="text-[11px] font-black text-slate-700 uppercase">
-                          {course.day_of_week} | {course.start_time} - {course.end_time}
+                          {course.day_of_week || 'TBD'} | {course.start_time && course.end_time ? `${course.start_time} - ${course.end_time}` : 'TBD'}
                         </span>
                      </div>
                   </div>
@@ -72,16 +72,19 @@ const StudentCourses = ({
 
                <div className="mt-8 flex gap-2">
                   <button 
-                    onClick={() => toast.success('Initializing learning environment... module content view coming soon!', {
-                      icon: '📚',
-                      style: {
-                        borderRadius: '1rem',
-                        background: '#1e293b',
-                        color: '#fff',
-                        fontSize: '12px',
-                        fontWeight: 'bold'
-                      }
-                    })}
+                    onClick={() => {
+                      switchTab('feedback');
+                      toast.success('Loading feedback portal for this module...', {
+                        icon: '📝',
+                        style: {
+                          borderRadius: '1rem',
+                          background: '#1e293b',
+                          color: '#fff',
+                          fontSize: '12px',
+                          fontWeight: 'bold'
+                        }
+                      });
+                    }}
                     className="flex-1 py-4 bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-indigo-600 transition-all shadow-xl shadow-slate-200 hover:shadow-indigo-100 hover:-translate-y-0.5 flex items-center justify-center gap-2"
                   >
                     <Book size={14} /> View Module
@@ -95,7 +98,7 @@ const StudentCourses = ({
                       <X size={18} strokeWidth={2.5} />
                     </button>
                     <button 
-                      onClick={() => { setSwappingFrom(course); setActiveTab('explore'); }}
+                      onClick={() => { setSwappingFrom(course); switchTab('explore'); }}
                       className="p-4 bg-white text-amber-500 rounded-2xl border border-slate-100 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-600 transition-all shadow-sm flex items-center justify-center"
                       title="Swap Section"
                     >
@@ -110,7 +113,7 @@ const StudentCourses = ({
                <Book className="w-12 h-12 text-slate-200 mx-auto mb-4" />
                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No active enrollments</p>
                <button 
-                onClick={() => setActiveTab('explore')}
+                onClick={() => switchTab('explore')}
                 className="mt-4 text-indigo-600 font-bold uppercase text-[10px] tracking-widest hover:text-indigo-700 transition-colors"
                >
                  Explore Modules Now →

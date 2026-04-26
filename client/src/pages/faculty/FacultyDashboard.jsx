@@ -93,7 +93,7 @@ const FacultyDashboard = () => {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Faculty Dashboard</h1>
-          <p className="text-slate-500 mt-2 font-medium">Welcome to {siteSettings?.siteName || 'E-Portal'}! Here's your teaching overview for this semester.</p>
+          <p className="text-slate-500 mt-2 font-medium">Welcome to {siteSettings?.siteName || 'E-Portal'}! Here's your teaching overview for this section.</p>
         </div>
         <div className="flex items-center gap-3">
           <Link to="/faculty/attendance" className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center gap-2 shadow-sm">

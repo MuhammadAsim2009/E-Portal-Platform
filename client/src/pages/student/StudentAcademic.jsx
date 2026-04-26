@@ -57,7 +57,7 @@ const StudentAcademic = ({
           </div>
           
           <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-             <h2 className="text-base font-bold text-slate-900 tracking-tight mb-8">Academic Program</h2>
+             <h2 className="text-base font-bold text-slate-900 tracking-tight mb-8">Academic Record</h2>
              <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 group">
                    <div className="flex items-center gap-4">
@@ -65,7 +65,7 @@ const StudentAcademic = ({
                          <Award size={18} />
                       </div>
                       <div>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Department</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Course</p>
                         <p className="text-xs font-bold text-slate-800 uppercase tracking-tight">{studentInfo.program || 'General Science'}</p>
                       </div>
                    </div>

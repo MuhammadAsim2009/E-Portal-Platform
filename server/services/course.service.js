@@ -1,4 +1,5 @@
 import { query, pool } from '../config/db.js';
+import { recalculateStudentGrades } from './student.service.js';
 
 // Fallbacks for mock data when Postgres is offline
 const mockCourses = [
@@ -103,26 +104,27 @@ export const enrollStudent = async (studentId, sectionId, paymentMethod, receipt
 
     const amount = parseFloat(feeStructureRes.rows[0].total_amount || 0);
 
-    if (amount <= 0) {
-      throw new Error('Enrollment blocked: No active fee structure found for this course/section in the Fee Matrix. Please contact administration.');
+    let feeId = null;
+    if (amount > 0) {
+      // 5. Create Fee record only if there's a fee
+      const feeInsertSql = `
+        INSERT INTO fees (student_id, semester, fee_type, amount, status, due_date, notes, section_id)
+        VALUES ($1, 'Current', 'Course Registration', $2, 'pending', NOW(), $3, $4)
+        RETURNING fee_id
+      `;
+      const feeRes2 = await client.query(feeInsertSql, [studentId, amount, `Enrollment for ${checkRes.rows[0].course_code} | SectionID: ${sectionId}`, sectionId]);
+      feeId = feeRes2.rows[0].fee_id;
     }
 
-    // 5. Create Fee record
-    const feeInsertSql = `
-      INSERT INTO fees (student_id, semester, fee_type, amount, status, due_date, notes, section_id)
-      VALUES ($1, 'Current', 'Course Registration', $2, 'pending', NOW(), $3, $4)
-      RETURNING fee_id
-    `;
-    const feeRes2 = await client.query(feeInsertSql, [studentId, amount, `Enrollment for ${checkRes.rows[0].course_code} | SectionID: ${sectionId}`, sectionId]);
-    const feeId = feeRes2.rows[0].fee_id;
-
-    // 6. Create Payment record
-    const paymentInsertSql = `
-      INSERT INTO payments (student_id, fee_id, amount_paid, payment_method, receipt_url, status, transaction_id)
-      VALUES ($1, $2, $3, $4, $5, 'pending', $6)
-      RETURNING *
-    `;
-    await client.query(paymentInsertSql, [studentId, feeId, amount, paymentMethod, receiptUrl, transactionId]);
+    if (feeId) {
+      // 6. Create Payment record
+      const paymentInsertSql = `
+        INSERT INTO payments (student_id, fee_id, amount_paid, payment_method, receipt_url, status, transaction_id)
+        VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+        RETURNING *
+      `;
+      await client.query(paymentInsertSql, [studentId, feeId, amount, paymentMethod, receiptUrl, transactionId]);
+    }
 
     await client.query('COMMIT');
     return enrollment;
@@ -151,7 +153,11 @@ export const dropStudent = async (studentId, sectionId) => {
     // Seat count is handled dynamically by subqueries in the dashboard/available courses list.
     // No physical current_seats column exists in the database.
 
-    return rows[0];
+    const enrollment = rows[0];
+    if (enrollment) {
+      await recalculateStudentGrades(studentId);
+    }
+    return enrollment;
   } catch (err) {
     console.error('Drop error:', err);
     throw err;
@@ -204,6 +210,7 @@ export const swapStudent = async (studentId, oldSectionId, newSectionId) => {
     `, [studentId, newSectionId]);
 
     await client.query('COMMIT');
+    await recalculateStudentGrades(studentId);
     return { success: true };
   } catch (err) {
     await client.query('ROLLBACK');

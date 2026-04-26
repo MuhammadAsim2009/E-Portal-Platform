@@ -34,6 +34,7 @@ const DashboardLayout = () => {
 
     { name: 'Academic', path: '/student/academic', icon: <Award size={20} /> },
     { name: 'Finance', path: '/student/finance', icon: <DollarSign size={20} /> },
+    { name: 'Feedback', path: '/student/feedback', icon: <Megaphone size={20} /> },
     { name: 'Settings', path: '/student/settings', icon: <Settings size={20} /> },
   ];
 

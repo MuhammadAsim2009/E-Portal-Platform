@@ -35,6 +35,8 @@ import StudentAssignments from './StudentAssignments';
 import StudentAcademic from './StudentAcademic';
 import StudentFinance from './StudentFinance';
 import StudentSettings from './StudentSettings';
+import StudentFeedback from './StudentFeedback';
+import StudentAnnouncements from './StudentAnnouncements';
 
 // --- Main Component ---
 const StudentDashboard = () => {
@@ -44,7 +46,7 @@ const StudentDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   useEffect(() => {
     const path = location.pathname.split('/').pop();
-    if (['explore', 'courses', 'assignments', 'academic', 'finance', 'settings'].includes(path)) {
+    if (['explore', 'courses', 'assignments', 'academic', 'finance', 'settings', 'announcements', 'feedback'].includes(path)) {
       setActiveTab(path);
     } else {
       setActiveTab('overview');
@@ -285,13 +287,15 @@ const StudentDashboard = () => {
     doc.line(20, 82, 190, 82);
     doc.setFontSize(10);
     doc.text(`NAME: ${student?.full_name}`, 20, 92);
-    doc.text(`PROGRAM: ${student?.program || 'N/A'}`, 20, 99);
-    doc.text(`SEMESTER: ${fee.semester || 'N/A'}`, 20, 106);
+    doc.text(`COURSE: ${student?.program || 'N/A'}`, 20, 99);
+    doc.text(`SECTION: ${fee.semester || 'N/A'}`, 20, 106);
+    doc.text(`REG NO: ${student?.registration_number || 'N/A'}`, 120, 92);
+    doc.text(`STATUS: ${fee.status?.toUpperCase() || 'PAID'}`, 120, 99);
     autoTable(doc, {
       startY: 120,
       head: [['DESCRIPTION', 'TYPE', 'BASE AMOUNT', 'DISCOUNT', 'NET TOTAL']],
       body: [[
-        fee.semester || 'Academic Fee',
+        fee.semester || 'Section Fee',
         fee.fee_type || 'General',
         `PKR ${fee.amount}`,
         `-PKR ${fee.discount_amount || 0}`,
@@ -336,17 +340,26 @@ const StudentDashboard = () => {
     doc.setFont(undefined, 'normal');
     doc.text(`Full Name: ${student?.full_name}`, 24, 92);
     doc.text(`Student ID: ${student?.student_id}`, 24, 99);
-    doc.text(`Program: ${student?.program}`, 120, 92);
-    doc.text(`Semester: ${student?.semester}`, 120, 99);
-    doc.text(`Current GPA: ${student?.gpa}`, 24, 106);
+    doc.text(`Course: ${student?.program || 'N/A'}`, 24, 106);
+    doc.text(`Section: ${student?.semester || 'N/A'}`, 120, 92);
+    doc.text(`Reg No: ${student?.registration_number}`, 120, 99);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 120, 106);
+    doc.text(`Current GPA: ${student?.gpa}`, 24, 113);
     // Enrollment Table
     autoTable(doc, {
-      startY: 120,
-      head: [['COURSE CODE', 'TITLE', 'CREDITS', 'INSTRUCTOR']],
-      body: enrolled.map(c => [c.course_code, c.title, c.credit_hours, c.instructor_name || 'Staff']),
-      theme: 'grid',
+      startY: 125,
+      head: [['Course Code', 'Course Title', 'Section', 'Day', 'Time', 'Instructor']],
+      body: enrolled.map(c => [
+        c.course_code, 
+        c.title, 
+        c.section_name, 
+        c.day_of_week || 'N/A', 
+        `${c.start_time} - ${c.end_time}`,
+        c.instructor_name
+      ]),
       headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
-      styles: { fontSize: 9 }
+      alternateRowStyles: { fillColor: [249, 250, 251] },
+      styles: { fontSize: 9, cellPadding: 5 }
     });
     // Attendance Summary
     const finalY = (doc).lastAutoTable.finalY + 20;
@@ -393,28 +406,29 @@ const StudentDashboard = () => {
     doc.setFont(undefined, 'normal');
     doc.setFontSize(10);
     doc.text(`Name: ${student?.full_name || student?.name || 'N/A'}`, 14, 63);
-    doc.text(`Student ID: ${student?.student_id || 'N/A'}`, 14, 68);
-    doc.text(`Program: ${student?.program || 'N/A'}`, 14, 73);
-    doc.text(`Semester: ${student?.semester || 'N/A'}`, 14, 78);
-    doc.text(`Issued On: ${new Date().toLocaleDateString()}`, 140, 63);
-    doc.text(`Status: Active Enrollment`, 140, 68);
+    doc.text(`Course: ${student?.program || 'N/A'}`, 14, 70);
+    doc.text(`Section: ${student?.semester || 'N/A'}`, 14, 77);
+    doc.text(`Reg No: ${student?.registration_number || 'N/A'}`, 120, 63);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 120, 70);
+    doc.text(`Status: Active Enrollment`, 120, 77);
     // Sorting Logic for Schedule
     const daysOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const sortedEnrolled = [...enrolled].sort((a, b) => {
-      const dayA = daysOrder.findIndex(d => a.schedule_time?.includes(d));
-      const dayB = daysOrder.findIndex(d => b.schedule_time?.includes(d));
+      const dayA = daysOrder.findIndex(d => (a.day_of_week || '').includes(d));
+      const dayB = daysOrder.findIndex(d => (b.day_of_week || '').includes(d));
       if (dayA !== dayB) return dayA - dayB;
-      return (a.schedule_time || '').localeCompare(b.schedule_time || '');
+      return (a.start_time || '').localeCompare(b.start_time || '');
     });
     const tableData = sortedEnrolled.map(course => [
       course.course_code,
       course.title,
-      course.schedule_time || 'Not Scheduled',
+      course.day_of_week || 'TBD',
+      course.start_time && course.end_time ? `${course.start_time} - ${course.end_time}` : 'TBD',
       course.room || 'TBD',
       `${course.credit_hours}.0`
     ]);
     autoTable(doc, {
-      head: [['CODE', 'COURSE TITLE', 'SCHEDULE (DAY/TIME)', 'VENUE', 'CREDITS']],
+      head: [['CODE', 'COURSE TITLE', 'DAY', 'TIME', 'VENUE', 'CREDITS']],
       body: tableData,
       startY: 85,
       theme: 'grid',
@@ -517,7 +531,9 @@ const StudentDashboard = () => {
     courses: { title: "Academic", highlight: "Schedule", subtitle: "Manage your active enrollments and timetables." },
     assignments: { title: "Task", highlight: "Manager", subtitle: "Track submissions and academic assignments." },
     academic: { title: "Performance", highlight: "Insights", subtitle: "Review your grades and academic trajectory." },
-    finance: { title: "Financial", highlight: "Ledger", subtitle: "Manage your fees and financial transactions." }
+    finance: { title: "Financial", highlight: "Ledger", subtitle: "Manage your fees and financial transactions." },
+    announcements: { title: "Campus", highlight: "Broadcasts", subtitle: "Stay updated with latest institutional news." },
+    feedback: { title: "Quality", highlight: "Assurance", subtitle: "Share your feedback to help us improve." }
   };
 
   const currentTab = tabConfigs[activeTab] || tabConfigs.overview;
@@ -548,46 +564,22 @@ const StudentDashboard = () => {
             </button>
             <div className="relative">
               <button 
-                onClick={() => setShowNotifs(!showNotifs)}
+                onClick={() => navigate('/student/announcements')}
                 className="p-3.5 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 hover:border-indigo-200 transition-all relative group"
+                title="View Announcements"
               >
                 <Bell size={20} className="text-slate-600 group-hover:text-indigo-600 transition-colors" />
-                {notifications.length > 0 && (
-                  <span className="absolute top-2.5 right-2.5 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
-                    {notifications.length}
-                  </span>
+                {announcements.length > 0 && (
+                  <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white animate-pulse" />
                 )}
               </button>
-              {showNotifs && (
-                <div className="absolute right-0 mt-4 w-80 glass-card rounded-[2rem] z-50 overflow-hidden premium-shadow animate-in zoom-in-95 duration-300">
-                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white/50">
-                    <h4 className="font-bold text-slate-800">Notifications</h4>
-                    <button className="text-xs text-indigo-600 font-bold hover:underline">Mark all as read</button>
-                  </div>
-                  <div className="max-h-[350px] overflow-y-auto custom-scrollbar bg-white/50 backdrop-blur-xl">
-                    {notifications.map(n => (
-                      <div key={n.id} className="p-5 hover:bg-white/80 transition-colors border-b border-slate-100 last:border-0">
-                        <div className="flex gap-4">
-                           <div className={`mt-1.5 shrink-0 w-2.5 h-2.5 rounded-full ${n.type === 'warning' ? 'bg-amber-500' : n.type === 'success' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
-                           <div>
-                              <p className="text-sm text-slate-700 font-medium leading-relaxed">{n.text}</p>
-                              <span className="text-[10px] text-slate-400 mt-2 flex items-center gap-1.5 font-bold uppercase tracking-wider">
-                                <Clock size={12} /> {n.time}
-                              </span>
-                           </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
           <div className="hidden lg:flex flex-col items-end px-5 py-2.5 bg-white border border-slate-200 rounded-2xl">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Registration Status</span>
-            <span className="text-xs text-emerald-600 font-black flex items-center gap-1.5">
+            <span className="text-xs text-emerald-600 font-black flex items-center gap-1.5 uppercase">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              OPEN FOR {studentInfo.semester}
+              OPEN FOR SECTION {studentInfo.semester}
             </span>
           </div>
         </div>
@@ -601,7 +593,7 @@ const StudentDashboard = () => {
             </div>
             <div>
               <p className="text-rose-900 font-black text-xl leading-tight">Fee Balance Outstanding</p>
-              <p className="text-rose-700/80 text-sm font-bold mt-1">Your course registration for next semester will be blocked until dues are cleared.</p>
+              <p className="text-rose-700/80 text-sm font-bold mt-1">Your course registration for next section will be blocked until dues are cleared.</p>
             </div>
           </div>
           <button 
@@ -624,6 +616,7 @@ const StudentDashboard = () => {
             trendData={trendData}
             announcements={announcements}
             setActiveTab={setActiveTab}
+            switchTab={switchTab}
             setShowSubmissionModal={setShowSubmissionModal}
             navigate={navigate}
           />
@@ -631,6 +624,7 @@ const StudentDashboard = () => {
         {activeTab === 'explore' && (
           <StudentExplore 
             availableCourses={availableCourses}
+            studentInfo={studentInfo}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             swappingFrom={swappingFrom}
@@ -639,6 +633,8 @@ const StudentDashboard = () => {
             conflictError={conflictError}
             setConflictError={setConflictError}
             enrolled={enrolled}
+            fetchData={fetchData}
+            switchTab={switchTab}
           />
         )}
         {activeTab === 'courses' && (
@@ -648,6 +644,7 @@ const StudentDashboard = () => {
             handleDrop={handleDrop}
             setSwappingFrom={setSwappingFrom}
             setActiveTab={setActiveTab}
+            switchTab={switchTab}
             handleExportICS={handleExportICS}
           />
         )}
@@ -656,6 +653,7 @@ const StudentDashboard = () => {
             assignments={assignments}
             setShowSubmissionModal={setShowSubmissionModal}
             handleFileAction={handleFileAction}
+            switchTab={switchTab}
           />
         )}
         {activeTab === 'academic' && (
@@ -667,6 +665,7 @@ const StudentDashboard = () => {
             gradePredictions={gradePredictions}
             setGradePredictions={setGradePredictions}
             handleDownloadAcademicReport={handleDownloadAcademicReport}
+            switchTab={switchTab}
           />
         )}
         {activeTab === 'finance' && (
@@ -676,11 +675,25 @@ const StudentDashboard = () => {
             setShowPaymentModal={setShowPaymentModal}
             handleDownloadReceipt={handleDownloadReceipt}
             siteSettings={siteSettings}
+            switchTab={switchTab}
           />
         )}
         {activeTab === 'settings' && (
           <StudentSettings 
             studentInfo={dashboardData?.studentInfo}
+            fetchData={fetchData}
+            switchTab={switchTab}
+          />
+        )}
+        {activeTab === 'announcements' && (
+          <StudentAnnouncements 
+            announcements={announcements}
+            switchTab={switchTab}
+          />
+        )}
+        {activeTab === 'feedback' && (
+          <StudentFeedback 
+            switchTab={switchTab}
           />
         )}
       </div>

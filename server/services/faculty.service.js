@@ -1,5 +1,6 @@
 import * as db from '../config/db.js';
 import { notify } from './notification.service.js';
+import { recalculateStudentGrades } from './student.service.js';
 
 // Helper to normalize day strings (e.g., "Mon-Fri" or "Mon, Wed") into an array of day abbreviations
 const normalizeDays = (dayStr) => {
@@ -297,84 +298,6 @@ export const updateStudentMarks = async (enrollmentId, componentId, marksObtaine
   return res.rows[0];
 };
 
-/**
- * Recalculates all grades and final GPA for a student
- */
-export const recalculateStudentGrades = async (studentId) => {
-  try {
-    // 1. Get all active enrollments for the student
-    const enrollments = await db.query(
-      `SELECT e.enrollment_id, e.section_id, c.credit_hours 
-       FROM enrollments e
-       JOIN course_sections cs ON e.section_id = cs.section_id
-       JOIN courses c ON cs.course_id = c.course_id
-       WHERE e.student_id = $1 AND e.status = 'enrolled'`,
-      [studentId]
-    );
-
-    for (const enrollment of enrollments.rows) {
-      const { enrollment_id, section_id } = enrollment;
-
-      // 2. Calculate total weighted score for this enrollment
-      const marksRes = await db.query(
-        `SELECT sm.marks_obtained, ac.max_marks, ac.weightage
-         FROM student_marks sm
-         JOIN assessment_components ac ON sm.component_id = ac.component_id
-         WHERE sm.enrollment_id = $1 AND ac.section_id = $2`,
-        [enrollment_id, section_id]
-      );
-
-      let totalScore = 0;
-      let totalWeightage = 0;
-
-      marksRes.rows.forEach(m => {
-        const contribution = (parseFloat(m.marks_obtained) / m.max_marks) * m.weightage;
-        totalScore += contribution;
-        totalWeightage += m.weightage;
-      });
-
-      // Normalize if weightage doesn't sum to 100 yet (optional, but safer)
-      // Usually it should sum to 100.
-      
-      // 3. Find letter grade and points from scale
-      const scaleRes = await db.query(
-        `SELECT letter_grade, grade_points 
-         FROM grade_scale 
-         WHERE $1 >= min_score AND $1 <= max_score 
-         ORDER BY min_score DESC LIMIT 1`,
-        [Math.round(totalScore)]
-      );
-
-      if (scaleRes.rows.length > 0) {
-        const { letter_grade, grade_points } = scaleRes.rows[0];
-        await db.query(
-          `UPDATE enrollments SET grade = $1, grade_points = $2 WHERE enrollment_id = $3`,
-          [letter_grade, grade_points, enrollment_id]
-        );
-      }
-    }
-
-    // 4. Calculate Final GPA
-    // GPA = Sum(points * credits) / Sum(credits)
-    const gpaRes = await db.query(
-      `SELECT 
-         SUM(e.grade_points * c.credit_hours) / NULLIF(SUM(c.credit_hours), 0) as gpa
-       FROM enrollments e
-       JOIN course_sections cs ON e.section_id = cs.section_id
-       JOIN courses c ON cs.course_id = c.course_id
-       WHERE e.student_id = $1 AND e.grade IS NOT NULL AND e.status = 'enrolled'`,
-      [studentId]
-    );
-
-    if (gpaRes.rows.length > 0 && gpaRes.rows[0].gpa !== null) {
-      const newGPA = parseFloat(gpaRes.rows[0].gpa).toFixed(2);
-      await db.query(`UPDATE students SET gpa = $1 WHERE student_id = $2`, [newGPA, studentId]);
-    }
-
-  } catch (err) {
-    console.error('GPA Recalculation Error:', err);
-  }
-};
 
 
 

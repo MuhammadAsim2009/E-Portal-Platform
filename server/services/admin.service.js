@@ -1048,7 +1048,7 @@ export const generateBulkFees = async (data) => {
   if (course_id && section_id) {
     // 1. Get structures for this course/section
     const structuresRes = await db.query(
-      'SELECT * FROM fee_structures WHERE course_id = $1 AND section_id = $2 AND is_active = true',
+      'SELECT * FROM fee_structures WHERE course_id = $1 AND (section_id = $2 OR section_id IS NULL) AND is_active = true',
       [course_id, section_id]
     );
     structures = structuresRes.rows;

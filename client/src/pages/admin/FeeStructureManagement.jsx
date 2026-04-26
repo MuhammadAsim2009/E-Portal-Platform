@@ -7,8 +7,8 @@ import {
   Layers, Info, AlertCircle, CheckCircle2, MoreVertical, X, Edit2
 } from 'lucide-react';
 
-const categories = ['Semester Fee', 'Tuition Fee', 'Admission Fee', 'Library Fee', 'Lab Fee', 'Examination Fee', 'Sports Fee', 'Security Deposit'];
-const programs = ['BSCS', 'BSIT', 'BBA', 'MCS', 'MBA', 'PhD CS'];
+const categories = ['Section Fee', 'Tuition Fee', 'Admission Fee', 'Library Fee', 'Lab Fee', 'Examination Fee', 'Sports Fee', 'Security Deposit', 'Semester Fee'];
+const courses_list = ['BSCS', 'BSIT', 'BBA', 'MCS', 'MBA', 'PhD CS'];
 
 const FeeStructureManagement = () => {
   usePageTitle('Fee Matrix & Pricing');
@@ -19,8 +19,6 @@ const FeeStructureManagement = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filterCourse, setFilterCourse] = useState('all');
   const [courses, setCourses] = useState([]);
-  const [sections, setSections] = useState([]);
-  const [filterSection, setFilterSection] = useState('all');
   const [editModal, setEditModal] = useState({ show: false, data: null });
   
   const [toast, setToast] = useState({ show: false, type: '', msg: '' });
@@ -48,12 +46,8 @@ const FeeStructureManagement = () => {
     fetchStructures();
     const fetchData = async () => {
       try {
-        const [cRes, sRes] = await Promise.all([
-          api.get('/admin/courses'),
-          api.get('/admin/sections')
-        ]);
+        const cRes = await api.get('/admin/courses');
         setCourses(cRes.data || []);
-        setSections(sRes.data || []);
       } catch (err) { console.error('Error fetching dropdown data:', err); }
     };
     fetchData();
@@ -106,11 +100,9 @@ const FeeStructureManagement = () => {
   const filtered = structures.filter(s => {
     const matchesSearch = (s.program?.toLowerCase() || '').includes(search.toLowerCase()) || 
                           (s.category?.toLowerCase() || '').includes(search.toLowerCase()) ||
-                          (s.course_title?.toLowerCase() || '').includes(search.toLowerCase()) ||
-                          (s.section_name?.toLowerCase() || '').includes(search.toLowerCase());
-    const matchesSection = filterSection === 'all' || String(s.section_id) === String(filterSection);
+                          (s.course_title?.toLowerCase() || '').includes(search.toLowerCase());
     const matchesCourse = filterCourse === 'all' || String(s.course_id) === String(filterCourse);
-    return matchesSearch && matchesSection && matchesCourse;
+    return matchesSearch && matchesCourse;
   });
 
   if (loading) return (
@@ -146,7 +138,7 @@ const FeeStructureManagement = () => {
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
           <input 
             type="text" 
-            placeholder="Search programs or categories..."
+            placeholder="Search courses or categories..."
             className="w-full pl-12 pr-4 py-3 bg-slate-50 border-transparent border focus:border-indigo-500 rounded-2xl text-sm transition-all focus:bg-white focus:outline-none font-medium"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -166,23 +158,6 @@ const FeeStructureManagement = () => {
             <option value="all">Global Course View</option>
             {courses.map(c => (
               <option key={c.course_id} value={c.course_id}>{c.title}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 p-1.5 rounded-2xl w-full md:w-auto">
-          <div className="flex items-center gap-2 px-3 text-slate-400">
-            <Layers size={16} />
-            <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Section</span>
-          </div>
-          <select 
-            value={filterSection}
-            onChange={(e) => setFilterSection(e.target.value)}
-            className="bg-transparent border-none focus:ring-0 text-[11px] font-black uppercase tracking-widest text-slate-600 outline-none pr-8 cursor-pointer"
-          >
-            <option value="all">Every Section</option>
-            {sections.map(s => (
-              <option key={s.section_id} value={s.section_id}>{s.section_name}</option>
             ))}
           </select>
         </div>
@@ -225,7 +200,7 @@ const FeeStructureManagement = () => {
                       {item.course_title || 'General Curriculum'}
                     </h3>
                     <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">
-                      {item.section_name || 'All Cohorts'}
+                      Universal Course Fee
                     </p>
                   </div>
 
@@ -332,7 +307,7 @@ const FeeStructureManagement = () => {
                   </div>
                   <div>
                     <h2 className="text-2xl font-black text-slate-900 tracking-tight">Modify Pricing</h2>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recalibrating Financial Units</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recalibrating Sectional Units</p>
                   </div>
                   <button onClick={() => setEditModal({ show: false, data: null })} className="ml-auto w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:text-slate-900 transition-colors">
                     <X size={20} />

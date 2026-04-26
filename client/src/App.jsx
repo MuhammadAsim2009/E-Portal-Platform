@@ -15,8 +15,6 @@ import MFAVerify from './pages/MFAVerify';
 
 // Student pages
 import StudentDashboard from './pages/student/StudentDashboard';
-import CourseEnrollment from './pages/student/CourseEnrollment';
-import StudentAnnouncements from './pages/student/StudentAnnouncements';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -73,12 +71,12 @@ function App() {
           <Route path="dashboard" element={<StudentDashboard />} />
           <Route path="explore" element={<StudentDashboard />} />
           <Route path="courses" element={<StudentDashboard />} />
-
-          <Route path="announcements" element={<StudentAnnouncements />} />
+          <Route path="announcements" element={<StudentDashboard />} />
           <Route path="assignments" element={<StudentDashboard />} />
           <Route path="academic" element={<StudentDashboard />} />
           <Route path="finance" element={<StudentDashboard />} />
           <Route path="settings" element={<StudentDashboard />} />
+          <Route path="feedback" element={<StudentDashboard />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 

@@ -355,3 +355,47 @@ export const getSubmissionSignedUrl = async (req, res) => {
   }
 };
 
+/**
+ * Fetch evaluation forms for the student
+ */
+export const getEvaluations = async (req, res) => {
+  try {
+    const data = await studentService.getStudentEvaluations(req.user.id);
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Student Evaluations error:', error);
+    res.status(500).json({ message: 'Error fetching evaluation forms' });
+  }
+};
+
+/**
+ * Submit evaluation response
+ */
+export const submitEvaluation = async (req, res) => {
+  try {
+    const { formId } = req.params;
+    const { answers } = req.body;
+
+    if (!formId || !answers) {
+      return res.status(400).json({ message: 'Form ID and answers are required' });
+    }
+
+    const result = await studentService.submitEvaluationResponse(req.user.id, formId, answers);
+
+    await logAction({
+      userId: req.user.id,
+      action: 'EVALUATION_SUBMIT',
+      target: formId,
+      details: `Submitted evaluation response for form ID: ${formId}`,
+      ipAddress: req.ip
+    });
+
+    res.status(200).json({ 
+      message: 'Evaluation submitted successfully! Thank you for your feedback.', 
+      response: result 
+    });
+  } catch (error) {
+    console.error('Evaluation submission error:', error);
+    res.status(400).json({ message: error.message || 'Submission failed' });
+  }
+};

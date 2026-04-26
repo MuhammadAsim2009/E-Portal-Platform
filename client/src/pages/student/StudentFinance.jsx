@@ -59,7 +59,7 @@ const StudentFinance = ({
                 {fees && fees.length > 0 ? fees.map((f) => (
                   <tr key={f.fee_id} className="group hover:bg-slate-50/50 transition-all">
                     <td className="py-6 pr-4">
-                      <p className="font-bold text-slate-900 text-sm tracking-tight">{f.semester || 'Academic Fee'}</p>
+                      <p className="font-bold text-slate-900 text-sm tracking-tight">{f.semester || 'Section Fee'}</p>
                       <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Ref: {f.fee_type || 'General'}</p>
                     </td>
                     <td className="py-6">
