@@ -4,7 +4,7 @@ import api from '../../services/api';
 import { 
   Bell, Info, AlertTriangle, ShieldCheck, 
   Activity, Clock, Search, Filter, Trash2, 
-  ChevronRight, ArrowUpRight, History, Settings,
+  ChevronRight, ArrowUpRight, Settings, RefreshCw,
   User, Database, CreditCard, BookOpen, AlertCircle, CheckCircle2, X
 } from 'lucide-react';
 const AdminNotifications = () => {
@@ -52,6 +52,20 @@ const AdminNotifications = () => {
       showToast('error', 'Failed to update status');
     }
   };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await api.patch('/admin/notifications/read-all');
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      if (activeTab === 'unread') {
+        setNotifications([]);
+      }
+      showToast('success', 'All notifications marked as read');
+    } catch (err) {
+      console.error(err);
+      showToast('error', 'Failed to update notifications');
+    }
+  };
   const getPriorityStyles = (priority) => {
     switch (priority) {
       case 'high': 
@@ -92,10 +106,17 @@ const AdminNotifications = () => {
         </div>
         <div className="flex items-center gap-3">
             <button 
-              onClick={fetchNotifications}
-              className="px-6 py-3 bg-indigo-600 text-white rounded-2xl text-[13px] font-black uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-indigo-600/20 flex items-center gap-2 active:scale-95"
+              onClick={handleMarkAllAsRead}
+              className="px-6 py-3 bg-emerald-600 text-white rounded-2xl text-[13px] font-black uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-emerald-600/20 flex items-center gap-2 active:scale-95"
             >
-              <History size={16} /> Refresh Feed
+              <CheckCircle2 size={16} /> Mark all as read
+            </button>
+            <button 
+              onClick={fetchNotifications}
+              className="p-3 bg-white border border-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-all flex items-center justify-center active:scale-95"
+              title="Refresh Feed"
+            >
+              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
             </button>
         </div>
       </div>

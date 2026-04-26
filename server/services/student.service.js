@@ -68,13 +68,14 @@ export const getStudentDashboard = async (userId) => {
 
     // 4. Fee Details & Unpaid Amount
     const feeSql = `
-      SELECT *, (amount - discount_amount) as net_amount
-      FROM fees WHERE student_id = $1
-      ORDER BY due_date DESC
+      SELECT f.*, (f.amount - f.discount_amount) as net_amount,
+             (SELECT p.status FROM payments p WHERE p.fee_id = f.fee_id ORDER BY p.payment_date DESC LIMIT 1) as last_payment_status
+      FROM fees f WHERE f.student_id = $1
+      ORDER BY f.due_date DESC
     `;
     const feeRes = await query(feeSql, [studentId]);
     const unpaidFees = feeRes.rows
-      .filter(f => f.status === 'pending')
+      .filter(f => f.status === 'pending' && f.last_payment_status !== 'pending')
       .reduce((sum, f) => sum + parseFloat(f.net_amount), 0);
 
     // 5. Dynamic GPA Trend

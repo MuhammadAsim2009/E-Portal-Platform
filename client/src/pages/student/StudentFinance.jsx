@@ -1,15 +1,8 @@
 import React from 'react';
 import { 
-  CheckCircle, 
-  AlertCircle, 
-  Download, 
-  CreditCard, 
-  ChevronRight,
-  Building,
-  Smartphone,
-  Wallet,
-  Mail,
-  Phone
+  CheckCircle, AlertCircle, Download, CreditCard, 
+  ChevronRight, Building, Smartphone, Wallet, 
+  Mail, Phone, Clock 
 } from 'lucide-react';
 
 const StudentFinance = ({ 
@@ -80,6 +73,10 @@ const StudentFinance = ({
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[9px] font-bold border border-indigo-100 uppercase tracking-wider">
                           Waived
                         </span>
+                      ) : f.last_payment_status === 'pending' ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-lg text-[9px] font-bold border border-amber-100 uppercase tracking-wider">
+                          <Clock size={10} /> Verifying
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-600 rounded-lg text-[9px] font-bold border border-rose-100 uppercase tracking-wider">
                           <AlertCircle size={10} /> Unpaid
@@ -95,7 +92,7 @@ const StudentFinance = ({
                         >
                           <Download size={16} />
                         </button>
-                      ) : f.status === 'pending' && (
+                      ) : (f.status === 'pending' && f.last_payment_status !== 'pending') && (
                         <button 
                           onClick={() => setShowPaymentModal(f)}
                           className="py-2 px-4 bg-slate-900 text-white rounded-xl text-[9px] font-bold tracking-widest hover:bg-indigo-600 transition-all shadow-md shadow-slate-100 uppercase"

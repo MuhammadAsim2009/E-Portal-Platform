@@ -790,6 +790,19 @@ export const markNotificationAsRead = async (req, res) => {
   }
 };
 
+export const markAllNotificationsRead = async (req, res) => {
+  try {
+    await adminService.markAllNotificationsRead();
+    res.json({ success: true });
+  } catch (err) {
+    console.error(`[AdminController] ${req.route.path} Error:`, err);
+    res.status(500).json({ 
+      message: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
+  }
+};
+
 export const getUnreadCount = async (req, res) => {
   try {
     const count = await adminService.getUnreadNotificationCount();

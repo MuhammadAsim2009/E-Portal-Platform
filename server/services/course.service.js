@@ -106,14 +106,29 @@ export const enrollStudent = async (studentId, sectionId, paymentMethod, receipt
 
     let feeId = null;
     if (amount > 0) {
-      // 5. Create Fee record only if there's a fee
-      const feeInsertSql = `
-        INSERT INTO fees (student_id, semester, fee_type, amount, status, due_date, notes, section_id)
-        VALUES ($1, 'Current', 'Course Registration', $2, 'pending', NOW(), $3, $4)
-        RETURNING fee_id
-      `;
-      const feeRes2 = await client.query(feeInsertSql, [studentId, amount, `Enrollment for ${checkRes.rows[0].course_code} | SectionID: ${sectionId}`, sectionId]);
-      feeId = feeRes2.rows[0].fee_id;
+      // 5. Check if a fee already exists for this enrollment (especially if it was rejected)
+      const existingFeeRes = await client.query(
+        `SELECT fee_id FROM fees WHERE student_id = $1 AND section_id = $2 AND fee_type = 'Course Registration' LIMIT 1`,
+        [studentId, sectionId]
+      );
+
+      if (existingFeeRes.rows.length > 0) {
+        feeId = existingFeeRes.rows[0].fee_id;
+        // Reset existing fee to pending
+        await client.query(
+          `UPDATE fees SET status = 'pending', amount = $1, due_date = NOW() WHERE fee_id = $2`,
+          [amount, feeId]
+        );
+      } else {
+        // Create new fee
+        const feeInsertSql = `
+          INSERT INTO fees (student_id, semester, fee_type, amount, status, due_date, notes, section_id)
+          VALUES ($1, 'Current', 'Course Registration', $2, 'pending', NOW(), $3, $4)
+          RETURNING fee_id
+        `;
+        const feeRes2 = await client.query(feeInsertSql, [studentId, amount, `Enrollment for ${checkRes.rows[0].course_code} | SectionID: ${sectionId}`, sectionId]);
+        feeId = feeRes2.rows[0].fee_id;
+      }
     }
 
     if (feeId) {
@@ -138,9 +153,9 @@ export const enrollStudent = async (studentId, sectionId, paymentMethod, receipt
 
 export const dropStudent = async (studentId, sectionId) => {
   try {
-    const checkSql = 'SELECT enrollment_id FROM enrollments WHERE student_id = $1 AND section_id = $2 AND status = \'enrolled\'';
+    const checkSql = 'SELECT enrollment_id FROM enrollments WHERE student_id = $1 AND section_id = $2 AND status IN (\'enrolled\', \'pending\')';
     const checkRes = await query(checkSql, [studentId, sectionId]);
-    if (checkRes.rows.length === 0) throw new Error('Enrollment record not found');
+    if (checkRes.rows.length === 0) throw new Error('Enrollment record not found or already processed');
 
     const updateSql = `
       UPDATE enrollments 

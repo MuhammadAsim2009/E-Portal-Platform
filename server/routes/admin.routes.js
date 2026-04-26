@@ -33,6 +33,7 @@ import {
   getNotifications,
   getUnreadCount,
   markNotificationAsRead,
+  markAllNotificationsRead,
   getPayments,
   updatePaymentStatus,
   updateSettings,
@@ -86,6 +87,7 @@ router.get('/analytics', getFinancialAnalytics);
 router.get('/audit-logs', getAuditLogs);
 router.get('/notifications', getNotifications);
 router.get('/notifications/unread-count', getUnreadCount);
+router.patch('/notifications/read-all', markAllNotificationsRead);
 router.patch('/notifications/:id/read', markNotificationAsRead);
 router.get('/payments', getPayments);
 router.patch('/payments/:id/status', updatePaymentStatus);

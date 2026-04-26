@@ -188,6 +188,11 @@ export const markNotificationRead = async (id) => {
   return { success: true };
 };
 
+export const markAllNotificationsRead = async () => {
+  await db.query(`UPDATE notifications SET is_read = true WHERE is_read = false`);
+  return { success: true };
+};
+
 export const getUnreadNotificationCount = async () => {
   try {
     const res = await db.query(`SELECT COUNT(*) as count FROM notifications WHERE is_read = false`);
@@ -636,7 +641,14 @@ export const createSection = async (data) => {
 export const getFinancialStats = async () => {
   try {
     const [totalRevenue, collectionRate, pendingFees] = await Promise.all([
-      db.query(`SELECT SUM(amount_paid) FROM payments`),
+      db.query(`
+        SELECT SUM(p.amount_paid) 
+        FROM payments p
+        LEFT JOIN fees f ON p.fee_id = f.fee_id
+        LEFT JOIN enrollments e ON f.student_id = e.student_id AND f.section_id = e.section_id
+        WHERE p.status = 'accepted'
+        AND (e.status IS NULL OR e.status != 'dropped')
+      `),
       db.query(`
         SELECT 
           (SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) / NULLIF(SUM(amount), 0)) * 100 as rate 
@@ -647,12 +659,16 @@ export const getFinancialStats = async () => {
 
     const trend = await db.query(`
       SELECT 
-        TO_CHAR(payment_date, 'Mon') as name, 
-        SUM(amount_paid) as revenue 
-      FROM payments 
-      WHERE payment_date >= NOW() - INTERVAL '6 months'
-      GROUP BY name, date_trunc('month', payment_date)
-      ORDER BY date_trunc('month', payment_date)
+        TO_CHAR(p.payment_date, 'Mon') as name, 
+        SUM(p.amount_paid) as revenue 
+      FROM payments p
+      LEFT JOIN fees f ON p.fee_id = f.fee_id
+      LEFT JOIN enrollments e ON f.student_id = e.student_id AND f.section_id = e.section_id
+      WHERE p.payment_date >= NOW() - INTERVAL '6 months'
+      AND p.status = 'accepted'
+      AND (e.status IS NULL OR e.status != 'dropped')
+      GROUP BY name, date_trunc('month', p.payment_date)
+      ORDER BY date_trunc('month', p.payment_date)
     `);
 
     return {
@@ -673,13 +689,13 @@ export const getIncomePerCourse = async () => {
       SELECT 
         c.course_code, 
         c.title, 
-        COUNT(DISTINCT e.student_id) as enrolled_students,
-        COALESCE(SUM(p.amount_paid), 0) as total_income
+        COUNT(DISTINCT e.student_id) FILTER (WHERE e.status = 'enrolled') as enrolled_students,
+        COALESCE(SUM(p.amount_paid) FILTER (WHERE p.status = 'accepted' AND e.status = 'enrolled'), 0) as total_income
       FROM courses c
       LEFT JOIN course_sections cs ON c.course_id = cs.course_id
       LEFT JOIN enrollments e ON cs.section_id = e.section_id
-      LEFT JOIN students s ON e.student_id = s.student_id
-      LEFT JOIN payments p ON s.student_id = p.student_id
+      LEFT JOIN fees f ON e.student_id = f.student_id AND e.section_id = f.section_id
+      LEFT JOIN payments p ON f.fee_id = p.fee_id
       GROUP BY c.course_id, c.course_code, c.title
       ORDER BY total_income DESC
     `);
@@ -884,36 +900,39 @@ export const removeStudentFromSection = async (sectionId, studentId) => {
 
 export const getAllPayments = async () => {
   const res = await db.query(`
-    SELECT DISTINCT ON (p.payment_id)
-      p.*,
-      u.name as student_name,
-      u.email as student_email,
-      s.student_id as admission_id,
-      s.date_of_birth,
-      s.contact_number as student_phone,
-      f.fee_type,
-      f.semester,
-      e.enrollment_id,
-      e.status as enrollment_status,
-      e.enrollment_date,
-      c.title as course_title,
-      c.course_code,
-      cs.section_name,
-      cs.day_of_week,
-      cs.room,
-      TO_CHAR(cs.start_time, 'HH12:MI AM') as start_time,
-      TO_CHAR(cs.end_time, 'HH12:MI AM') as end_time,
-      fu.name as faculty_name
-    FROM payments p
-    JOIN students s ON p.student_id = s.student_id
-    JOIN users u ON s.user_id = u.user_id
-    LEFT JOIN fees f ON p.fee_id = f.fee_id
-    LEFT JOIN enrollments e ON e.student_id = p.student_id
-    LEFT JOIN course_sections cs ON e.section_id = cs.section_id
-    LEFT JOIN courses c ON cs.course_id = c.course_id
-    LEFT JOIN faculty fa ON cs.faculty_id = fa.faculty_id
-    LEFT JOIN users fu ON fa.user_id = fu.user_id
-    ORDER BY p.payment_id, e.enrollment_date DESC
+    SELECT * FROM (
+      SELECT DISTINCT ON (p.payment_id)
+        p.*,
+        u.name as student_name,
+        u.email as student_email,
+        s.student_id as admission_id,
+        s.date_of_birth,
+        s.contact_number as student_phone,
+        f.fee_type,
+        f.semester,
+        e.enrollment_id,
+        e.status as enrollment_status,
+        e.enrollment_date,
+        c.title as course_title,
+        c.course_code,
+        cs.section_name,
+        cs.day_of_week,
+        cs.room,
+        TO_CHAR(cs.start_time, 'HH12:MI AM') as start_time,
+        TO_CHAR(cs.end_time, 'HH12:MI AM') as end_time,
+        fu.name as faculty_name
+      FROM payments p
+      JOIN students s ON p.student_id = s.student_id
+      JOIN users u ON s.user_id = u.user_id
+      LEFT JOIN fees f ON p.fee_id = f.fee_id
+      LEFT JOIN enrollments e ON (f.student_id = e.student_id AND f.section_id = e.section_id)
+      LEFT JOIN course_sections cs ON e.section_id = cs.section_id
+      LEFT JOIN courses c ON cs.course_id = c.course_id
+      LEFT JOIN faculty fa ON cs.faculty_id = fa.faculty_id
+      LEFT JOIN users fu ON fa.user_id = fu.user_id
+      ORDER BY p.payment_id, e.enrollment_date DESC
+    ) sub
+    ORDER BY payment_date DESC
   `);
   return res.rows;
 };
@@ -959,7 +978,7 @@ export const updatePaymentStatus = async (paymentId, status, waiver_justificatio
         );
 
         // 2a. If it's a course registration fee, update enrollment status
-        if (fee && fee.fee_type === 'Course Registration' && status === 'accepted') {
+        if (fee && fee.fee_type === 'Course Registration') {
           let sectionId = fee.section_id;
           
           // Fallback to parsing notes if section_id is not in the column
@@ -971,10 +990,16 @@ export const updatePaymentStatus = async (paymentId, status, waiver_justificatio
           }
 
           if (sectionId) {
-            await client.query(
-              `UPDATE enrollments SET status = 'enrolled' WHERE student_id = $1 AND section_id = $2 AND status = 'pending'`,
-              [payment.student_id, sectionId]
-            );
+            let enrollmentStatus = null;
+            if (status === 'accepted') enrollmentStatus = 'enrolled';
+            else if (status === 'rejected') enrollmentStatus = 'rejected';
+
+            if (enrollmentStatus) {
+              await client.query(
+                `UPDATE enrollments SET status = $1 WHERE student_id = $2 AND section_id = $3`,
+                [enrollmentStatus, payment.student_id, sectionId]
+              );
+            }
           }
         }
       }

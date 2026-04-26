@@ -263,7 +263,7 @@ const PaymentManagement = () => {
         {[
           { label: 'Pending Verification', value: payments.filter(p => p.status === 'pending').length, icon: Clock, color: 'indigo' },
           { label: 'Accepted Today', value: payments.filter(p => p.status === 'accepted' && new Date(p.payment_date).toDateString() === new Date().toDateString()).length, icon: CheckCircle2, color: 'emerald' },
-          { label: 'Gross Revenue', value: `PKR ${payments.reduce((acc, curr) => acc + parseFloat(curr.amount_paid), 0).toLocaleString()}`, icon: CreditCard, color: 'violet' }
+          { label: 'Gross Revenue', value: `PKR ${payments.filter(p => p.status === 'accepted' && p.enrollment_status !== 'dropped').reduce((acc, curr) => acc + parseFloat(curr.amount_paid), 0).toLocaleString()}`, icon: CreditCard, color: 'violet' }
         ].map((stat, idx) => (
           <div key={idx} className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm hover:shadow-md transition-shadow group">
             <div className="flex items-center justify-between mb-2">

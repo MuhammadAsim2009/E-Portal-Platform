@@ -120,7 +120,11 @@ const StudentDashboard = () => {
   }, []);
   const handleEnroll = async (course) => {
     // Proactive check for overdue fees to improve UX
-    const hasOverdue = (dashboardData?.fees || []).some(f => f.status === 'pending' && new Date(f.due_date) < new Date());
+    const hasOverdue = (dashboardData?.fees || []).some(f => 
+      f.status === 'pending' && 
+      f.last_payment_status !== 'pending' && 
+      new Date(f.due_date) < new Date()
+    );
     if (hasOverdue) {
       toast.error('Registration Blocked: Please settle outstanding dues before enrolling.');
       return;
@@ -137,8 +141,7 @@ const StudentDashboard = () => {
     setEnrollForm({
       sectionId: course.section_id, // Default to the one clicked
       paymentMethod: '',
-      receipt: null,
-      transactionId: ''
+      receipt: null
     });
   };
 
@@ -150,11 +153,12 @@ const StudentDashboard = () => {
 
     setIsSubmittingEnroll(true);
     try {
+      const transactionId = `TXN-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
       const formData = new FormData();
       formData.append('sectionId', enrollForm.sectionId);
       formData.append('paymentMethod', enrollForm.paymentMethod);
       formData.append('receipt', enrollForm.receipt);
-      formData.append('transactionId', enrollForm.transactionId);
+      formData.append('transactionId', transactionId);
 
       const res = await api.post('/student/enroll', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -1053,16 +1057,7 @@ const StudentDashboard = () => {
                         </label>
                      </div>
 
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Transaction ID (Optional)</label>
-                         <input 
-                            type="text"
-                            placeholder="Enter payment reference or TXID"
-                            className="w-full px-5 py-3.5 bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all"
-                            value={enrollForm.transactionId}
-                            onChange={(e) => setEnrollForm({ ...enrollForm, transactionId: e.target.value })}
-                         />
-                      </div>
+
 
                      <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 flex gap-3">
                         <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
