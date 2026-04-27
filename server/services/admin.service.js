@@ -289,17 +289,14 @@ export const createBulkUsers = async (usersData, adminId) => {
 export const getAllUsers = async ({ role, page = 1, limit = 15 }) => {
   try {
     const offset = (page - 1) * limit;
-    let mainWhereClause = "WHERE registration_status != 'pending'";
-    let countWhereClause = "WHERE registration_status != 'pending'";
+
+    // Build WHERE clause with fully-qualified column names to prevent ambiguity
+    let whereClause = "WHERE u.registration_status != 'pending'";
     const params = [limit, offset];
-    const countParams = [];
 
     if (role && role !== 'all') {
-      mainWhereClause += ' AND role = $3';
+      whereClause += ` AND u.role = $${params.length + 1}`;
       params.push(role);
-      
-      countWhereClause += ' AND role = $1';
-      countParams.push(role);
     }
 
     const res = await db.query(
@@ -315,14 +312,22 @@ export const getAllUsers = async ({ role, page = 1, limit = 15 }) => {
        FROM users u
        LEFT JOIN students s ON u.user_id = s.user_id
        LEFT JOIN faculty f ON u.user_id = f.user_id
-       ${mainWhereClause.replace(/\brole\b/g, 'u.role')}
+       ${whereClause}
        ORDER BY u.created_at DESC
        LIMIT $1 OFFSET $2`,
       params
     );
 
+    // Separate count query — no joins needed so no ambiguity risk
+    let countClause = "WHERE registration_status != 'pending'";
+    const countParams = [];
+    if (role && role !== 'all') {
+      countClause += ` AND role = $${countParams.length + 1}`;
+      countParams.push(role);
+    }
+
     const countRes = await db.query(
-      `SELECT COUNT(*) FROM users ${countWhereClause}`,
+      `SELECT COUNT(*) FROM users ${countClause}`,
       countParams
     );
 
