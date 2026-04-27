@@ -48,7 +48,8 @@ import {
   getApprovalRequests,
   updateApprovalRequest,
   getApprovalRequestById,
-  getCourseById
+  getCourseById,
+  getStudentFullDetails
 } from '../controllers/admin.controller.js';
 
 
@@ -70,6 +71,7 @@ router.delete('/users/:id', deleteUser);
 router.patch('/users/:id/toggle-status', toggleUserStatus);
 router.patch('/users/:id/approve', approveUser);
 router.patch('/users/:id/reject', rejectUser);
+router.get('/students/:id/details', getStudentFullDetails);
 
 // Timetable & Sections
 router.get('/sections', getSections);

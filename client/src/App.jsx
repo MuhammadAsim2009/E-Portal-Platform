@@ -7,6 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 import AdminLayout from './components/AdminLayout';
 import FacultyLayout from './components/FacultyLayout';
+import PublicLayout from './components/PublicLayout';
 
 // Auth pages
 import Login from './pages/Login';
@@ -44,6 +45,12 @@ import AnnouncementsPage from './pages/faculty/AnnouncementsPage';
 import EvaluationManagement from './pages/faculty/EvaluationManagement';
 import NotificationsPage from './pages/faculty/NotificationsPage';
 
+// Public pages
+import HomePage from './pages/publicpages/HomePage';
+import AboutPage from './pages/publicpages/AboutPage';
+import ContactPage from './pages/publicpages/ContactPage';
+import ServicesPage from './pages/publicpages/ServicesPage';
+
 function App() {
   const initAuth = useAuthStore((state) => state.initAuth);
 
@@ -55,6 +62,13 @@ function App() {
     <BrowserRouter>
       <Routes>
         {/* ── Public ── */}
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/services" element={<ServicesPage />} />
+        </Route>
+        
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/mfa/verify" element={<MFAVerify />} />
@@ -129,8 +143,7 @@ function App() {
         </Route>
 
         {/* ── Default redirects ── */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

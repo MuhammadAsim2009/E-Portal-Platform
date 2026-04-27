@@ -973,6 +973,7 @@ export const getApprovalRequestById = async (req, res) => {
   }
 };
 
+
 export const getCourseById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -983,3 +984,15 @@ export const getCourseById = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const getStudentFullDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const details = await adminService.getStudentFullDetails(id);
+    res.json(details);
+  } catch (err) {
+    console.error('getStudentFullDetails controller error:', err);
+    res.status(err.message.includes('not found') ? 404 : 500).json({ message: err.message });
+  }
+};
+

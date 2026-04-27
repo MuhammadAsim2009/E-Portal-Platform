@@ -305,6 +305,7 @@ export const getAllUsers = async ({ role, page = 1, limit = 15 }) => {
     const res = await db.query(
       `SELECT 
         u.user_id, u.name, u.email, u.role, u.is_active, u.created_at, u.registration_status,
+        s.student_id, f.faculty_id,
         s.date_of_birth, s.gender,
         f.department, f.designation, f.qualifications,
         COALESCE(s.contact_number, f.contact_number) as contact_number,
@@ -1446,6 +1447,7 @@ export const updateApprovalRequest = async (requestId, { status, adminComment, a
     });
 
     await client.query('COMMIT');
+
     return { success: true };
   } catch (err) {
     await client.query('ROLLBACK');
@@ -1454,4 +1456,100 @@ export const updateApprovalRequest = async (requestId, { status, adminComment, a
     client.release();
   }
 };
+
+export const getStudentFullDetails = async (studentId) => {
+  try {
+    // 1. Basic Student Info
+    const userSql = `
+      SELECT s.student_id, s.gpa, s.program, s.semester, s.contact_number, s.gender, s.date_of_birth, s.cnic, u.name as full_name, u.email, s.status as account_status, u.user_id
+      FROM students s
+      JOIN users u ON s.user_id = u.user_id
+      WHERE s.student_id = $1
+    `;
+    const userRes = await db.query(userSql, [studentId]);
+    const student = userRes.rows[0];
+
+    if (!student) throw new Error('Student profile not found');
+
+    // 2. Enrolled Courses
+    const enrolledSql = `
+      SELECT 
+        e.enrollment_id, e.status, e.grade, e.grade_points,
+        c.title, c.course_code, c.credit_hours,
+        cs.section_id, cs.section_name, cs.day_of_week, 
+        TO_CHAR(cs.start_time, 'HH12:MI AM') as start_time, 
+        TO_CHAR(cs.end_time, 'HH12:MI AM') as end_time, 
+        cs.room,
+        u.name as instructor_name
+      FROM enrollments e
+      JOIN course_sections cs ON e.section_id = cs.section_id
+      JOIN courses c ON cs.course_id = c.course_id
+      LEFT JOIN faculty f ON cs.faculty_id = f.faculty_id
+      LEFT JOIN users u ON f.user_id = u.user_id
+      WHERE e.student_id = $1
+      ORDER BY e.status, c.course_code
+    `;
+    const enrolledRes = await db.query(enrolledSql, [studentId]);
+
+    // 3. Attendance Summary
+    const attendanceSql = `
+      SELECT 
+        cs.section_id, c.course_code, c.title as course_title,
+        COUNT(CASE WHEN att.status = 'present' THEN 1 END) as present_count,
+        COUNT(CASE WHEN att.status = 'absent' THEN 1 END) as absent_count,
+        COUNT(CASE WHEN att.status = 'late' THEN 1 END) as late_count,
+        COUNT(att.attendance_id) as total_days
+      FROM enrollments e
+      JOIN course_sections cs ON e.section_id = cs.section_id
+      JOIN courses c ON cs.course_id = c.course_id
+      LEFT JOIN attendance att ON att.section_id = cs.section_id AND att.student_id = $1
+      WHERE e.student_id = $1 AND e.status = 'enrolled'
+      GROUP BY cs.section_id, c.course_code, c.title
+    `;
+    const attendanceRes = await db.query(attendanceSql, [studentId]);
+
+    // 4. Assignments & Submissions
+    const assignSql = `
+      SELECT 
+        a.assignment_id, a.title, a.deadline, a.max_marks,
+        c.course_code,
+        sub.submission_id, sub.submitted_at, sub.marks_obtained, sub.feedback, sub.file_url,
+        CASE WHEN sub.submission_id IS NOT NULL THEN 'Submitted' ELSE 'Pending' END as status
+      FROM assignments a
+      JOIN course_sections cs ON a.section_id = cs.section_id
+      JOIN enrollments e ON e.section_id = cs.section_id
+      JOIN courses c ON cs.course_id = c.course_id
+      LEFT JOIN submissions sub ON sub.assignment_id = a.assignment_id AND sub.student_id = $1
+      WHERE e.student_id = $1
+      ORDER BY a.deadline DESC
+    `;
+    const assignRes = await db.query(assignSql, [studentId]);
+
+    // 5. Fee History
+    const feeSql = `
+      SELECT f.*, (f.amount - f.discount_amount) as net_amount,
+             p.payment_id, p.payment_date, p.payment_method, p.status as payment_status
+      FROM fees f 
+      LEFT JOIN payments p ON p.fee_id = f.fee_id
+      WHERE f.student_id = $1
+      ORDER BY f.due_date DESC
+    `;
+    const feeRes = await db.query(feeSql, [studentId]);
+
+    return {
+      studentInfo: student,
+      enrolled: enrolledRes.rows,
+      attendance: attendanceRes.rows.map(a => ({
+        ...a,
+        percentage: a.total_days > 0 ? Math.round((a.present_count / a.total_days) * 100) : 0
+      })),
+      assignments: assignRes.rows,
+      fees: feeRes.rows
+    };
+  } catch (err) {
+    console.error('getStudentFullDetails error:', err);
+    throw err;
+  }
+};
+
 

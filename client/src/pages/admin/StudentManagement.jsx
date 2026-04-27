@@ -8,6 +8,8 @@ import {
   Users, UserCheck2, UserMinus, Upload, Download,
   FileSpreadsheet, CheckCircle2, AlertCircle
 } from 'lucide-react';
+import StudentDetailsModal from '../../components/admin/StudentDetailsModal';
+
 const statusStyles = {
   active:   'bg-emerald-50 text-emerald-700 ring-emerald-200',
   inactive: 'bg-rose-50 text-rose-700 ring-rose-200',
@@ -53,6 +55,8 @@ const StudentManagement = () => {
   const [selectedStudent, setSelectedStudent]   = useState(null);
   const [updateLoading, setUpdateLoading]       = useState(false);
   const [studentToDelete, setStudentToDelete]   = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [viewStudentId, setViewStudentId]       = useState(null);
   const [toast, setToast] = useState({ show: false, type: '', msg: '' });
   const [toastTimer, setToastTimer] = useState(null);
   const showToast = (type, msg) => {
@@ -294,6 +298,10 @@ const StudentManagement = () => {
                           className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${s.is_active ? 'text-amber-600 bg-amber-50 hover:bg-amber-100' : 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100'}`}
                           title={s.is_active ? 'Suspend' : 'Activate'}>
                           {togglingId === s.user_id ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : s.is_active ? <UserX size={16} /> : <UserCheck size={16} />}
+                        </button>
+                        <button onClick={() => { setViewStudentId(s.student_id); setShowDetailsModal(true); }}
+                          className="w-9 h-9 rounded-xl flex items-center justify-center text-emerald-500 bg-emerald-50 hover:bg-emerald-100 transition-all" title="View Full Data">
+                          <Eye size={16} />
                         </button>
                         <button onClick={() => { setSelectedStudent(s); setShowEditModal(true); }}
                           className="w-9 h-9 rounded-xl flex items-center justify-center text-indigo-500 bg-indigo-50 hover:bg-indigo-100 transition-all" title="Edit">
@@ -611,6 +619,13 @@ const StudentManagement = () => {
           </div>
           <div className="absolute bottom-0 left-0 h-1 rounded-full bg-white/30 animate-progress origin-left" style={{ animationDuration: '5000ms' }}></div>
         </div>
+      )}
+      {/* Full Details Modal */}
+      {showDetailsModal && viewStudentId && (
+        <StudentDetailsModal 
+          studentId={viewStudentId} 
+          onClose={() => { setShowDetailsModal(false); setViewStudentId(null); }} 
+        />
       )}
     </>
   );
