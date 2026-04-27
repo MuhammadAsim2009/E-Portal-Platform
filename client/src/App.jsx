@@ -8,6 +8,7 @@ import DashboardLayout from './components/DashboardLayout';
 import AdminLayout from './components/AdminLayout';
 import FacultyLayout from './components/FacultyLayout';
 import PublicLayout from './components/PublicLayout';
+import ScrollToTop from './components/ScrollToTop';
 
 // Auth pages
 import Login from './pages/Login';
@@ -60,6 +61,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         {/* ── Public ── */}
         <Route element={<PublicLayout />}>
