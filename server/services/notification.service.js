@@ -29,11 +29,17 @@ export const notify = async ({
 
     // 1. Handle In-App Notification
     if (channels.includes('in-app')) {
-      if (userId === 'admin') {
-        // Find all admins and notify them
-        const admins = await db.query("SELECT user_id FROM users WHERE role = 'admin' AND is_active = true");
-        for (const admin of admins.rows) {
-          await createNotification({ userId: admin.user_id, title, message, type, priority, relatedId });
+      if (userId === 'all' || userId === 'student' || userId === 'faculty' || userId === 'admin') {
+        let sql = "SELECT user_id FROM users WHERE is_active = true";
+        let params = [];
+        if (userId !== 'all') {
+          sql += " AND LOWER(role) = LOWER($1)";
+          params.push(userId);
+        }
+        
+        const targetUsers = await db.query(sql, params);
+        for (const user of targetUsers.rows) {
+          await createNotification({ userId: user.user_id, title, message, type, priority, relatedId });
         }
       } else {
         results.inApp = await createNotification({ userId, title, message, type, priority, relatedId });
@@ -43,9 +49,15 @@ export const notify = async ({
     // 2. Handle Email Notification
     if (channels.includes('email')) {
       let recipients = [];
-      if (userId === 'admin') {
-        const admins = await db.query("SELECT email FROM users WHERE role = 'admin' AND is_active = true");
-        recipients = admins.rows.map(a => a.email);
+      if (userId === 'all' || userId === 'student' || userId === 'faculty' || userId === 'admin') {
+        let sql = "SELECT email FROM users WHERE is_active = true";
+        let params = [];
+        if (userId !== 'all') {
+          sql += " AND LOWER(role) = LOWER($1)";
+          params.push(userId);
+        }
+        const targetUsers = await db.query(sql, params);
+        recipients = targetUsers.rows.map(a => a.email);
       } else {
         const user = await db.query("SELECT email FROM users WHERE user_id = $1", [userId]);
         if (user.rows[0]) recipients.push(user.rows[0].email);

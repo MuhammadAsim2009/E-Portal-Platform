@@ -93,3 +93,17 @@ export const verifyMFACode = async (userId, code) => {
   }
   return false;
 };
+
+/**
+ * Changes a user's password after verifying the old one
+ */
+export const changePassword = async (userId, oldPassword, newPassword) => {
+  const { rows } = await pool.query('SELECT password_hash FROM users WHERE user_id = $1', [userId]);
+  if (rows.length === 0) throw new Error('User not found');
+
+  const isValid = await comparePassword(oldPassword, rows[0].password_hash);
+  if (!isValid) throw new Error('The current password you entered is incorrect.');
+
+  const hashedPassword = await hashPassword(newPassword);
+  await pool.query('UPDATE users SET password_hash = $1 WHERE user_id = $2', [hashedPassword, userId]);
+};

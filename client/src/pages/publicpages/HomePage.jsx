@@ -62,7 +62,10 @@ const colorMap = {
   indigo: { bg: 'bg-indigo-50 dark:bg-indigo-500/10', text: 'text-indigo-600 dark:text-indigo-400', ring: 'ring-indigo-200 dark:ring-indigo-500/20' },
 };
 
+import usePageTitle from '../../hooks/usePageTitle';
+
 export default function HomePage() {
+  usePageTitle('Home');
   return (
     <div className="bg-white dark:bg-[#0a0a0a]">
 

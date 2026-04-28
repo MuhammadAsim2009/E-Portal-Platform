@@ -38,7 +38,10 @@ const STATS = [
   { value: '99.99%', label: 'Uptime' },
 ];
 
+import usePageTitle from '../../hooks/usePageTitle';
+
 export default function AboutPage() {
+  usePageTitle('About Us');
   return (
     <div className="bg-white dark:bg-[#0a0a0a]">
 

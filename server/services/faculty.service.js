@@ -657,7 +657,7 @@ export const getAnnouncements = async (userId) => {
   const res = await db.query(`
     SELECT a.*, u.name as author_name 
     FROM announcements a
-    JOIN users u ON a.created_by = u.user_id
+    LEFT JOIN users u ON a.created_by = u.user_id
     WHERE a.target_role IN ('all', 'faculty')
        OR a.target_user_id = $1
        OR a.created_by = $1

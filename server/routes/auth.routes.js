@@ -15,5 +15,6 @@ router.get('/me', authController.getMe); // Check session silently
 // Protected routes
 router.use(authenticateJWT);
 router.post('/contact-admin', authController.contactAdmin);
+router.post('/change-password', authController.changePassword);
 
 export default router;

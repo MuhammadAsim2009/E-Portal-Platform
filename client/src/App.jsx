@@ -17,6 +17,7 @@ import MFAVerify from './pages/MFAVerify';
 
 // Student pages
 import StudentDashboard from './pages/student/StudentDashboard';
+import StudentAttendance from './pages/student/StudentAttendance';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -45,6 +46,7 @@ import AssignmentSubmissions from './pages/faculty/AssignmentSubmissions';
 import AnnouncementsPage from './pages/faculty/AnnouncementsPage';
 import EvaluationManagement from './pages/faculty/EvaluationManagement';
 import NotificationsPage from './pages/faculty/NotificationsPage';
+import FacultySettings from './pages/faculty/FacultySettings';
 
 // Public pages
 import HomePage from './pages/publicpages/HomePage';
@@ -93,6 +95,7 @@ function App() {
           <Route path="finance" element={<StudentDashboard />} />
           <Route path="settings" element={<StudentDashboard />} />
           <Route path="feedback" element={<StudentDashboard />} />
+          <Route path="attendance" element={<StudentDashboard />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 
@@ -141,6 +144,7 @@ function App() {
           <Route path="announcements" element={<AnnouncementsPage />} />
           <Route path="evaluations" element={<EvaluationManagement />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="settings" element={<FacultySettings />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
 

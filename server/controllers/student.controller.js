@@ -119,7 +119,25 @@ export const enrollModule = async (req, res) => {
 
     // Call service with extended parameters
     const result = await courseService.enrollStudent(studentId, sectionId, paymentMethod, receiptUrl, transactionId);
-    
+    // Fetch course details for notification
+    const sectionInfoRes = await db.query(`
+      SELECT c.title, c.course_code 
+      FROM course_sections cs 
+      JOIN courses c ON cs.course_id = c.course_id 
+      WHERE cs.section_id = $1
+    `, [sectionId]);
+    const courseInfo = sectionInfoRes.rows[0];
+
+    // Notify Admin
+    await notify({
+      userId: 'admin',
+      title: 'New Course Enrollment Request',
+      message: `Student ${req.user.name} has requested registration for ${courseInfo?.course_code || 'Course'} - ${courseInfo?.title || ''}. Please verify the payment receipt.`,
+      type: 'registration',
+      priority: 'high',
+      channels: ['in-app', 'email'],
+      relatedId: sectionId
+    });
     await logAction({
       userId: req.user.id,
       action: 'COURSE_ENROLL_REQUEST',
@@ -399,3 +417,17 @@ export const submitEvaluation = async (req, res) => {
     res.status(400).json({ message: error.message || 'Submission failed' });
   }
 };
+
+/**
+ * Fetch the student's own attendance records across all enrolled sections
+ */
+export const getAttendance = async (req, res) => {
+  try {
+    const data = await studentService.getStudentAttendance(req.user.id);
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Student Attendance error:', error);
+    res.status(500).json({ message: 'Error fetching attendance data' });
+  }
+};
+

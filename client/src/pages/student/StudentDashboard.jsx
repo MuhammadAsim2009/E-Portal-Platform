@@ -37,16 +37,36 @@ import StudentFinance from './StudentFinance';
 import StudentSettings from './StudentSettings';
 import StudentFeedback from './StudentFeedback';
 import StudentAnnouncements from './StudentAnnouncements';
+import StudentAttendance from './StudentAttendance';
 
 // --- Main Component ---
 const StudentDashboard = () => {
-  usePageTitle('Student Dashboard');
+  const [activeTab, setActiveTab] = useState('overview');
   const location = useLocation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState(null);
+  
+  const studentInfo = dashboardData?.studentInfo;
+
+  const tabConfigs = {
+    overview: { title: "Welcome back,", highlight: studentInfo?.full_name || studentInfo?.name || 'Student', subtitle: "Here is what's happening with your studies today.", pageTitle: "Dashboard" },
+    explore: { title: "Course", highlight: "Discovery", subtitle: "Explore and register for new academic modules.", pageTitle: "Explore Courses" },
+    courses: { title: "Academic", highlight: "Schedule", subtitle: "Manage your active enrollments and timetables.", pageTitle: "My Courses" },
+    assignments: { title: "Task", highlight: "Manager", subtitle: "Track submissions and academic assignments.", pageTitle: "Assignments" },
+    academic: { title: "Performance", highlight: "Insights", subtitle: "Review your grades and academic trajectory.", pageTitle: "Academic Records" },
+    finance: { title: "Financial", highlight: "Ledger", subtitle: "Manage your fees and financial transactions.", pageTitle: "Finance" },
+    announcements: { title: "Campus", highlight: "Broadcasts", subtitle: "Stay updated with latest institutional news.", pageTitle: "Announcements" },
+    feedback: { title: "Quality", highlight: "Assurance", subtitle: "Share your feedback to help us improve.", pageTitle: "Feedback" },
+    attendance: { title: "Presence", highlight: "Tracking", subtitle: "Monitor your presence across all enrolled courses.", pageTitle: "Attendance" },
+    settings: { title: "Account", highlight: "Settings", subtitle: "Manage your profile and account security.", pageTitle: "Settings" }
+  };
+
+  const currentTab = tabConfigs[activeTab] || tabConfigs.overview;
+  usePageTitle(currentTab.pageTitle);
   useEffect(() => {
     const path = location.pathname.split('/').pop();
-    if (['explore', 'courses', 'assignments', 'academic', 'finance', 'settings', 'announcements', 'feedback'].includes(path)) {
+    if (['explore', 'courses', 'assignments', 'academic', 'finance', 'settings', 'announcements', 'feedback', 'attendance'].includes(path)) {
       setActiveTab(path);
     } else {
       setActiveTab('overview');
@@ -60,8 +80,6 @@ const StudentDashboard = () => {
       navigate(`/student/${tab}`);
     }
   };
-  const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState(null);
   const [swappingFrom, setSwappingFrom] = useState(null); // { section_id, course_code }
   const [activeAnnouncement, setActiveAnnouncement] = useState(null);
   const [availableCourses, setAvailableCourses] = useState([]);
@@ -527,20 +545,8 @@ const StudentDashboard = () => {
       </div>
     );
   }
-  const { studentInfo, enrolled, assignments, attendance, fees, unpaidFees, trendData } = dashboardData;
+  const { enrolled, assignments, attendance, fees, unpaidFees, trendData } = dashboardData;
 
-  const tabConfigs = {
-    overview: { title: "Welcome back,", highlight: studentInfo.full_name || studentInfo.name, subtitle: "Here is what's happening with your studies today." },
-    explore: { title: "Course", highlight: "Discovery", subtitle: "Explore and register for new academic modules." },
-    courses: { title: "Academic", highlight: "Schedule", subtitle: "Manage your active enrollments and timetables." },
-    assignments: { title: "Task", highlight: "Manager", subtitle: "Track submissions and academic assignments." },
-    academic: { title: "Performance", highlight: "Insights", subtitle: "Review your grades and academic trajectory." },
-    finance: { title: "Financial", highlight: "Ledger", subtitle: "Manage your fees and financial transactions." },
-    announcements: { title: "Campus", highlight: "Broadcasts", subtitle: "Stay updated with latest institutional news." },
-    feedback: { title: "Quality", highlight: "Assurance", subtitle: "Share your feedback to help us improve." }
-  };
-
-  const currentTab = tabConfigs[activeTab] || tabConfigs.overview;
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-8 pb-10 relative">
@@ -697,6 +703,11 @@ const StudentDashboard = () => {
         )}
         {activeTab === 'feedback' && (
           <StudentFeedback 
+            switchTab={switchTab}
+          />
+        )}
+        {activeTab === 'attendance' && (
+          <StudentAttendance 
             switchTab={switchTab}
           />
         )}

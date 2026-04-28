@@ -288,8 +288,13 @@ export const submitEvaluationResponse = async (userId, formId, answers) => {
   const studentId = studentRes.rows[0].student_id;
 
   // Check if already responded
-  const existing = await query('SELECT 1 FROM evaluation_responses WHERE form_id = $1 AND student_id = $2', [formId, studentId]);
-  if (existing.rows.length > 0) throw new Error('You have already submitted feedback for this form');
+  const existingRes = await query(
+    'SELECT response_id FROM evaluation_responses WHERE form_id = $1 AND student_id = $2',
+    [formId, studentId]
+  );
+  if (existingRes.rows.length > 0) {
+    throw new Error('You have already submitted a response for this evaluation.');
+  }
 
   const res = await query(`
     INSERT INTO evaluation_responses (form_id, student_id, answers, submitted_at)
@@ -298,4 +303,61 @@ export const submitEvaluationResponse = async (userId, formId, answers) => {
   `, [formId, studentId, JSON.stringify(answers)]);
 
   return res.rows[0];
+};
+
+/**
+ * Fetch detailed attendance per section for the student
+ */
+export const getStudentAttendance = async (userId) => {
+  const studentRes = await query('SELECT student_id FROM students WHERE user_id = $1', [userId]);
+  if (studentRes.rows.length === 0) throw new Error('Student profile not found');
+  const studentId = studentRes.rows[0].student_id;
+
+  // Summary per course section
+  const summaryRes = await query(`
+    SELECT
+      cs.section_id,
+      cs.section_name,
+      c.course_code,
+      c.title as course_title,
+      u.name as instructor_name,
+      cs.day_of_week,
+      TO_CHAR(cs.start_time::TIME, 'HH12:MI AM') as start_time,
+      TO_CHAR(cs.end_time::TIME, 'HH12:MI AM') as end_time,
+      COUNT(a.attendance_id) as total_classes,
+      COUNT(CASE WHEN a.status = 'present' THEN 1 END) as present,
+      COUNT(CASE WHEN a.status = 'absent' THEN 1 END) as absent,
+      COUNT(CASE WHEN a.status = 'late' THEN 1 END) as late
+    FROM enrollments e
+    JOIN course_sections cs ON e.section_id = cs.section_id
+    JOIN courses c ON cs.course_id = c.course_id
+    LEFT JOIN faculty f ON cs.faculty_id = f.faculty_id
+    LEFT JOIN users u ON f.user_id = u.user_id
+    LEFT JOIN attendance a ON a.section_id = cs.section_id AND a.student_id = $1
+    WHERE e.student_id = $1 AND e.status = 'enrolled'
+    GROUP BY cs.section_id, cs.section_name, c.course_code, c.title,
+             u.name, cs.day_of_week, cs.start_time, cs.end_time
+    ORDER BY c.course_code
+  `, [studentId]);
+
+  // Detailed daily records per section
+  const recordsRes = await query(`
+    SELECT
+      a.attendance_id,
+      a.section_id,
+      a.date,
+      a.status,
+      c.course_code
+    FROM attendance a
+    JOIN course_sections cs ON a.section_id = cs.section_id
+    JOIN courses c ON cs.course_id = c.course_id
+    JOIN enrollments e ON e.section_id = cs.section_id AND e.student_id = $1
+    WHERE a.student_id = $1
+    ORDER BY a.date DESC
+  `, [studentId]);
+
+  return {
+    summary: summaryRes.rows,
+    records: recordsRes.rows,
+  };
 };

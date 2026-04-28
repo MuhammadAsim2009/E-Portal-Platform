@@ -1,5 +1,5 @@
 import usePageTitle from '../../hooks/usePageTitle';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import api from '../../services/api';
 import { 
   Megaphone, Plus, X, Pin, AlertCircle, CheckCircle2, 
@@ -34,6 +34,7 @@ const Announcements = () => {
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [toast, setToast] = useState({ show: false, type: '', msg: '' });
+  const toastTimer = useRef(null);
   const [form, setForm] = useState({
     title: '', body: '', category: 'Academic',
     target_role: 'all', target_user_id: '', expiry_date: '', 
@@ -42,7 +43,8 @@ const Announcements = () => {
   const [users, setUsers] = useState([]);
   const showToast = (type, msg) => {
     setToast({ show: true, type, msg });
-    setTimeout(() => setToast({ show: false, type: '', msg: '' }), 5000);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast({ show: false, type: '', msg: '' }), 5000);
   };
   const fetchAnnouncements = async () => {
     setLoading(true);
@@ -140,33 +142,6 @@ const Announcements = () => {
   });
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700 relative">
-      {/* Toast Notification */}
-      {toast.show && (
-        <div className="fixed top-8 right-8 z-[200] animate-in fade-in slide-in-from-right-8 duration-500">
-          <div className={`flex items-center gap-4 pl-4 pr-3 py-3 rounded-2xl shadow-2xl border backdrop-blur-md min-w-[320px] ${
-            toast.type === 'success' 
-              ? 'bg-emerald-500/95 border-emerald-400/50 text-white' 
-              : 'bg-rose-500/95 border-rose-400/50 text-white'
-          }`}>
-            <div className="flex-shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-              {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
-            </div>
-            <div className="flex-1">
-              <p className="text-[13px] font-medium opacity-80 uppercase tracking-wider mb-0.5">
-                {toast.type === 'success' ? 'Success' : 'Attention Needed'}
-              </p>
-              <p className="text-sm font-semibold leading-tight">{toast.msg}</p>
-            </div>
-            <button 
-              onClick={() => setToast({ ...toast, show: false })} 
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors group"
-            >
-              <X size={16} className="opacity-60 group-hover:opacity-100" />
-            </button>
-          </div>
-          <div className="absolute bottom-0 left-0 h-1 rounded-full bg-white/30 animate-progress origin-left" style={{ animationDuration: '5000ms' }}></div>
-        </div>
-      )}
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
         <div>
@@ -608,7 +583,7 @@ const Announcements = () => {
               <X size={16} />
             </button>
             <div className="absolute bottom-0 left-0 h-1 bg-white/20 rounded-full overflow-hidden w-full">
-              <div className="h-full bg-white animate-progress" />
+              <div className="h-full bg-white animate-progress origin-left" style={{ animationDuration: '5000ms' }} />
             </div>
           </div>
         </div>

@@ -5,7 +5,7 @@ import useAuthStore from '../store/authStore.js';
  * Sets the browser tab title for the current page.
  * @param {string} title - The page-specific title (e.g. "Dashboard")
  */
-const usePageTitle = (title) => {
+export default function usePageTitle(title) {
   const { siteSettings } = useAuthStore();
   const appName = siteSettings?.siteName || 'E-Portal';
 
@@ -15,6 +15,4 @@ const usePageTitle = (title) => {
       document.title = appName;
     };
   }, [title, appName]);
-};
-
-export default usePageTitle;
+}

@@ -163,16 +163,17 @@ export const createNotification = async ({ userId, title, message, type, priorit
   }
 };
 
-export const getNotifications = async ({ isRead = null, limit = 50 } = {}) => {
+export const getNotifications = async ({ userId, isRead = null, limit = 50 } = {}) => {
   let query = `
     SELECT n.*, u.name as user_name, u.role as user_role
     FROM notifications n
     LEFT JOIN users u ON n.user_id = u.user_id
+    WHERE n.user_id = $1
   `;
-  const params = [];
+  const params = [userId];
 
   if (isRead !== null) {
-    query += ` WHERE n.is_read = $1`;
+    query += ` AND n.is_read = $${params.length + 1}`;
     params.push(isRead);
   }
 
@@ -183,19 +184,19 @@ export const getNotifications = async ({ isRead = null, limit = 50 } = {}) => {
   return res.rows;
 };
 
-export const markNotificationRead = async (id) => {
-  await db.query(`UPDATE notifications SET is_read = true WHERE notification_id = $1`, [id]);
+export const markNotificationRead = async (id, userId) => {
+  await db.query(`UPDATE notifications SET is_read = true WHERE notification_id = $1 AND user_id = $2`, [id, userId]);
   return { success: true };
 };
 
-export const markAllNotificationsRead = async () => {
-  await db.query(`UPDATE notifications SET is_read = true WHERE is_read = false`);
+export const markAllNotificationsRead = async (userId) => {
+  await db.query(`UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false`, [userId]);
   return { success: true };
 };
 
-export const getUnreadNotificationCount = async () => {
+export const getUnreadNotificationCount = async (userId) => {
   try {
-    const res = await db.query(`SELECT COUNT(*) as count FROM notifications WHERE is_read = false`);
+    const res = await db.query(`SELECT COUNT(*) as count FROM notifications WHERE user_id = $1 AND is_read = false`, [userId]);
     return parseInt(res.rows[0].count);
   } catch (err) {
     console.error('Failed to fetch unread notification count:', err.message);
@@ -726,7 +727,7 @@ export const getAnnouncements = async () => {
   }
 };
 
-export const createAnnouncement = async ({ title, body, category, target_role, target_user_id, expiry_date, is_pinned, adminId, send_email }) => {
+export const createAnnouncement = async ({ title, body, category, target_role, target_user_id, expiry_date, is_pinned, adminId }) => {
   try {
     const res = await db.query(
       `INSERT INTO announcements (title, body, category, target_role, target_user_id, expiry_date, is_pinned, created_by)
@@ -734,67 +735,10 @@ export const createAnnouncement = async ({ title, body, category, target_role, t
       [title, body, category, target_role, target_user_id || null, expiry_date || null, is_pinned, adminId]
     );
     const announcement = res.rows[0];
-
-    // Handle Email Broadcasting
-    if (send_email) {
-      let recipients = [];
-      if (target_role === 'individual' && target_user_id) {
-        const userRes = await db.query('SELECT email FROM users WHERE user_id = $1', [target_user_id]);
-        if (userRes.rows.length > 0) recipients = [userRes.rows[0].email];
-      } else if (target_role === 'all') {
-        const usersRes = await db.query('SELECT email FROM users WHERE is_active = true');
-        recipients = usersRes.rows.map(u => u.email);
-      } else {
-        const usersRes = await db.query('SELECT email FROM users WHERE role = $1 AND is_active = true', [target_role]);
-        recipients = usersRes.rows.map(u => u.email);
-      }
-
-      if (recipients.length > 0) {
-        // Send email in background
-        sendEmail({
-          to: recipients,
-          subject: title,
-          text: body,
-          html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-              <div style="background-color: #4f46e5; padding: 24px; color: white;">
-                <h2 style="margin: 0; font-size: 20px;">Institutional Announcement</h2>
-                <p style="margin: 4px 0 0 0; opacity: 0.8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">${category} Bulletin</p>
-              </div>
-              <div style="padding: 32px; color: #1e293b;">
-                <h1 style="margin: 0 0 16px 0; font-size: 24px; color: #0f172a;">${title}</h1>
-                <p style="margin: 0; line-height: 1.6; color: #475569; white-space: pre-wrap;">${body}</p>
-                <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8;">
-                  Target Audience: ${target_role}<br>
-                  Date Posted: ${new Date().toLocaleDateString()}<br>
-                  This is an automated institutional message.
-                </div>
-              </div>
-            </div>
-          `
-        }).catch(err => console.error('E-Broadcast Failure:', err));
-      }
-    }
-
-    // --- IN-APP NOTIFICATION BROADCAST ---
-    if (target_role === 'individual' && target_user_id) {
-       await createNotification({ userId: target_user_id, title, message: body, type: 'system', priority: 'medium', relatedId: announcement.announcement_id });
-    } else if (target_role === 'all') {
-       const uRes = await db.query("SELECT user_id FROM users WHERE is_active = true");
-       for (const u of uRes.rows) {
-         await createNotification({ userId: u.user_id, title, message: body, type: 'system', priority: 'medium', relatedId: announcement.announcement_id });
-       }
-    } else {
-       const uRes = await db.query("SELECT user_id FROM users WHERE role = $1 AND is_active = true", [target_role]);
-       for (const u of uRes.rows) {
-         await createNotification({ userId: u.user_id, title, message: body, type: 'system', priority: 'medium', relatedId: announcement.announcement_id });
-       }
-    }
-    // -------------------------------------
-
     return announcement;
   } catch (err) {
-    throw new Error(err.message);
+    console.error('createAnnouncement Error:', err);
+    throw err;
   }
 };
 export const updateAnnouncement = async (id, { title, body, category, target_role, expiry_date, is_pinned }) => {
@@ -916,9 +860,7 @@ export const getAllPayments = async () => {
         s.contact_number as student_phone,
         f.fee_type,
         f.semester,
-        e.enrollment_id,
-        e.status as enrollment_status,
-        e.enrollment_date,
+        f.section_id as fee_section_id,
         c.title as course_title,
         c.course_code,
         cs.section_name,
@@ -928,15 +870,14 @@ export const getAllPayments = async () => {
         TO_CHAR(cs.end_time, 'HH12:MI AM') as end_time,
         fu.name as faculty_name
       FROM payments p
-      JOIN students s ON p.student_id = s.student_id
-      JOIN users u ON s.user_id = u.user_id
+      LEFT JOIN students s ON p.student_id = s.student_id
+      LEFT JOIN users u ON s.user_id = u.user_id
       LEFT JOIN fees f ON p.fee_id = f.fee_id
-      LEFT JOIN enrollments e ON (f.student_id = e.student_id AND f.section_id = e.section_id)
-      LEFT JOIN course_sections cs ON e.section_id = cs.section_id
+      LEFT JOIN course_sections cs ON COALESCE(f.section_id, (SELECT section_id FROM enrollments WHERE student_id = p.student_id ORDER BY enrollment_date DESC LIMIT 1)) = cs.section_id
       LEFT JOIN courses c ON cs.course_id = c.course_id
       LEFT JOIN faculty fa ON cs.faculty_id = fa.faculty_id
       LEFT JOIN users fu ON fa.user_id = fu.user_id
-      ORDER BY p.payment_id, e.enrollment_date DESC
+      ORDER BY p.payment_id, p.payment_date DESC
     ) sub
     ORDER BY payment_date DESC
   `);

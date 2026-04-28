@@ -12,8 +12,20 @@ const StudentSettings = ({ studentInfo }) => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Password change state
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handlePasswordChange = (e) => {
+    setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
@@ -29,8 +41,33 @@ const StudentSettings = ({ studentInfo }) => {
     }
   };
 
+  const handleSubmitPassword = async (e) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      return toast.error('New passwords do not match');
+    }
+    if (passwordData.newPassword.length < 6) {
+      return toast.error('Password must be at least 6 characters');
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await api.post('/auth/change-password', {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+      toast.success('Password updated successfully');
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in zoom-in-95 duration-500">
+      {/* Profile Section */}
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
         <div className="flex items-center gap-4 mb-8 pb-8 border-b border-slate-100">
           <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
@@ -139,6 +176,81 @@ const StudentSettings = ({ studentInfo }) => {
             >
               {isSubmitting ? <span className="animate-spin text-xl">⟳</span> : <Save size={16} />}
               {isSubmitting ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Password Section */}
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+        <div className="flex items-center gap-4 mb-8 pb-8 border-b border-slate-100">
+          <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center">
+            <Shield size={32} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Security</h2>
+            <p className="text-slate-500 font-medium">Manage your account password</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmitPassword} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">
+                Current Password
+              </label>
+              <input 
+                type="password" 
+                name="currentPassword"
+                value={passwordData.currentPassword}
+                onChange={handlePasswordChange}
+                required
+                className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-3 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all"
+                placeholder="••••••••"
+              />
+            </div>
+
+            <div className="hidden md:block" />
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">
+                New Password
+              </label>
+              <input 
+                type="password" 
+                name="newPassword"
+                value={passwordData.newPassword}
+                onChange={handlePasswordChange}
+                required
+                className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-3 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all"
+                placeholder="At least 6 characters"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">
+                Confirm New Password
+              </label>
+              <input 
+                type="password" 
+                name="confirmPassword"
+                value={passwordData.confirmPassword}
+                onChange={handlePasswordChange}
+                required
+                className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl px-4 py-3 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all"
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+
+          <div className="pt-8 mt-8 border-t border-slate-100 flex justify-end">
+            <button 
+              type="submit"
+              disabled={isChangingPassword}
+              className="flex items-center gap-2 px-6 py-3 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-200 uppercase tracking-widest text-xs"
+            >
+              {isChangingPassword ? <span className="animate-spin text-xl">⟳</span> : <Shield size={16} />}
+              {isChangingPassword ? 'Updating...' : 'Update Password'}
             </button>
           </div>
         </form>

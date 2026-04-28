@@ -1,7 +1,10 @@
 import { Mail, Phone, MapPin, Send, MessageSquare, Clock } from 'lucide-react';
 import { useState } from 'react';
 
+import usePageTitle from '../../hooks/usePageTitle';
+
 export default function ContactPage() {
+  usePageTitle('Contact');
   const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = (e) => {

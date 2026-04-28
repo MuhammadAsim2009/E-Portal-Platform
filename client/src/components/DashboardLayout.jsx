@@ -11,7 +11,8 @@ import {
   FileText,
   Award,
   DollarSign,
-  Settings
+  Settings,
+  CalendarCheck
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
@@ -26,16 +27,17 @@ const DashboardLayout = () => {
   };
 
   const navLinks = [
-    { name: 'Dashboard', path: '/student/dashboard', icon: <LayoutDashboard size={20} /> },
-    { name: 'Announcements', path: '/student/announcements', icon: <Megaphone size={20} /> },
-    { name: 'Explore', path: '/student/explore', icon: <BookOpen size={20} /> },
-    { name: 'My Courses', path: '/student/courses', icon: <Award size={20} /> },
-    { name: 'Assignments', path: '/student/assignments', icon: <FileText size={20} /> },
+    { name: 'Dashboard',     path: '/student/dashboard',   icon: <LayoutDashboard size={20} /> },
+    { name: 'Announcements', path: '/student/announcements',icon: <Megaphone size={20} /> },
+    { name: 'Explore',       path: '/student/explore',      icon: <BookOpen size={20} /> },
+    { name: 'My Courses',    path: '/student/courses',      icon: <Award size={20} /> },
+    { name: 'Assignments',   path: '/student/assignments',  icon: <FileText size={20} /> },
+    { name: 'Attendance',    path: '/student/attendance',   icon: <CalendarCheck size={20} /> },
 
-    { name: 'Academic', path: '/student/academic', icon: <Award size={20} /> },
-    { name: 'Finance', path: '/student/finance', icon: <DollarSign size={20} /> },
-    { name: 'Feedback', path: '/student/feedback', icon: <Megaphone size={20} /> },
-    { name: 'Settings', path: '/student/settings', icon: <Settings size={20} /> },
+    { name: 'Academic',      path: '/student/academic',     icon: <Award size={20} /> },
+    { name: 'Finance',       path: '/student/finance',      icon: <DollarSign size={20} /> },
+    { name: 'Feedback',      path: '/student/feedback',     icon: <Megaphone size={20} /> },
+    { name: 'Settings',      path: '/student/settings',     icon: <Settings size={20} /> },
   ];
 
   return (
@@ -82,7 +84,7 @@ const DashboardLayout = () => {
               <div className="h-[1px] flex-1 ml-4 bg-gradient-to-r from-slate-100 to-transparent" />
             </div>
             <div className="space-y-1.5">
-              {navLinks.slice(0, 5).map((link) => (
+              {navLinks.slice(0, 6).map((link) => (
                 <NavLink
                   key={link.name}
                   to={link.path}
@@ -121,7 +123,7 @@ const DashboardLayout = () => {
               <div className="h-[1px] flex-1 ml-4 bg-gradient-to-r from-slate-100 to-transparent" />
             </div>
             <div className="space-y-1.5">
-              {navLinks.slice(5).map((link) => (
+              {navLinks.slice(6).map((link) => (
                 <NavLink
                   key={link.name}
                   to={link.path}

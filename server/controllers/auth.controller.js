@@ -41,8 +41,17 @@ export const register = async (req, res) => {
 
     await createNotification({
       userId: newUser.user_id,
-      title: 'New Registration',
-      message: `${name} (${role}) has registered and is waiting for approval.`,
+      title: 'Welcome to E-Portal',
+      message: `Your registration as ${role} is successful and pending admin approval.`,
+      type: 'registration',
+      priority: 'medium'
+    });
+
+    // Notify Admin about new registration
+    await notify({
+      userId: 'admin',
+      title: 'New Registration Alert',
+      message: `${name} has registered as a ${role}. Approval required.`,
       type: 'registration',
       priority: 'high',
       relatedId: newUser.user_id
@@ -375,5 +384,37 @@ export const contactAdmin = async (req, res) => {
   } catch (error) {
     console.error('Contact Admin error:', error);
     res.status(500).json({ message: 'Error sending message to Admin.' });
+  }
+};
+
+/**
+ * Change user password
+ */
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current and new passwords are required.' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters long.' });
+    }
+
+    await authService.changePassword(userId, currentPassword, newPassword);
+
+    await logAction({
+      userId,
+      action: 'PASSWORD_CHANGE',
+      details: 'User updated their password',
+      ipAddress: req.ip
+    });
+
+    res.status(200).json({ message: 'Password updated successfully!' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(400).json({ message: error.message || 'Error updating password.' });
   }
 };

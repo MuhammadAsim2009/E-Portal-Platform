@@ -25,5 +25,6 @@ router.get('/grades', studentCtrl.getGrades);
 router.get('/submissions/:submissionId/signed-url', studentCtrl.getSubmissionSignedUrl);
 router.get('/evaluations', studentCtrl.getEvaluations);
 router.post('/evaluations/:formId/respond', studentCtrl.submitEvaluation);
+router.get('/attendance', studentCtrl.getAttendance);
 
 export default router;

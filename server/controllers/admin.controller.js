@@ -1,7 +1,9 @@
 import * as adminService from '../services/admin.service.js';
 import { sendEmail } from '../services/email.service.js';
 import { getSignedFileUrl } from '../services/s3Service.js';
+import { notify } from '../services/notification.service.js';
 import db from '../config/db.js';
+
 
 const isValidUUID = (uuid) => {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -514,7 +516,22 @@ export const createAnnouncement = async (req, res) => {
       details: `New announcement: ${announcement.title}`,
       ipAddress: req.ip
     });
+    // Trigger Notifications based on target audience
+    const target = req.body.target_role || 'all';
+    const targetUserId = req.body.target_user_id;
+
+    await notify({
+      userId: target === 'individual' ? targetUserId : target,
+      title: `Announcement: ${announcement.title}`,
+      message: announcement.body,
+      type: 'system',
+      priority: announcement.priority || 'medium',
+      relatedId: announcement.announcement_id,
+      channels: req.body.send_email ? ['in-app', 'email'] : ['in-app']
+    });
+
     res.status(201).json(announcement);
+
   } catch (err) {
     console.error(`[AdminController] ${req.route.path} Error:`, err);
     res.status(500).json({ 
@@ -763,6 +780,7 @@ export const getNotifications = async (req, res) => {
   try {
     const { isRead, limit = 50 } = req.query;
     const notifications = await adminService.getNotifications({ 
+      userId: req.user.id,
       isRead: isRead === undefined ? null : isRead === 'true',
       limit: parseInt(limit)
     });
@@ -779,7 +797,7 @@ export const getNotifications = async (req, res) => {
 export const markNotificationAsRead = async (req, res) => {
   try {
     const { id } = req.params;
-    await adminService.markNotificationRead(id);
+    await adminService.markNotificationRead(id, req.user.id);
     res.json({ success: true });
   } catch (err) {
     console.error(`[AdminController] ${req.route.path} Error:`, err);
@@ -792,7 +810,7 @@ export const markNotificationAsRead = async (req, res) => {
 
 export const markAllNotificationsRead = async (req, res) => {
   try {
-    await adminService.markAllNotificationsRead();
+    await adminService.markAllNotificationsRead(req.user.id);
     res.json({ success: true });
   } catch (err) {
     console.error(`[AdminController] ${req.route.path} Error:`, err);
@@ -805,7 +823,7 @@ export const markAllNotificationsRead = async (req, res) => {
 
 export const getUnreadCount = async (req, res) => {
   try {
-    const count = await adminService.getUnreadNotificationCount();
+    const count = await adminService.getUnreadNotificationCount(req.user.id);
     res.json({ count });
   } catch (err) {
     console.error(`[AdminController] ${req.route.path} Error:`, err);

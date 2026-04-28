@@ -13,7 +13,7 @@ const TABS = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'email', label: 'Email SMTP', icon: Mail },
   { id: 'payments', label: 'Payment Accounts', icon: Coins },
-  { id: 'security', label: 'Security', icon: Shield },
+  { id: 'security', label: 'Security & Profile', icon: Shield },
 ];
 const SiteSettings = () => {
   usePageTitle('Site Settings');
@@ -24,6 +24,43 @@ const SiteSettings = () => {
   const [toast, setToast] = useState({ show: false, type: '', msg: '' });
   const [testEmail, setTestEmail] = useState('');
   const [testingEmail, setTestingEmail] = useState(false);
+  
+  // Personal Password Change state
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const handlePasswordChange = (e) => {
+    setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
+  };
+
+  const updatePersonalPassword = async (e) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      return showToast('error', 'New passwords do not match.');
+    }
+    if (passwordData.newPassword.length < 6) {
+      return showToast('error', 'Password must be at least 6 characters.');
+    }
+
+    setChangingPassword(true);
+    try {
+      await api.post('/auth/change-password', {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+      showToast('success', 'Personal account security updated successfully.');
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      showToast('error', err.response?.data?.message || 'Failed to update administrative credentials.');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -520,7 +557,7 @@ const SiteSettings = () => {
                          </label>
                       </div>
                    </div>
-                   <div className="p-8 bg-emerald-50 border border-emerald-100 rounded-[32px] space-y-4">
+                    <div className="p-8 bg-emerald-50 border border-emerald-100 rounded-[32px] space-y-4">
                       <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-200">
                          <UserCheck size={24} />
                       </div>
@@ -542,6 +579,68 @@ const SiteSettings = () => {
                          </label>
                       </div>
                    </div>
+                </div>
+
+                {/* Personal Password Change */}
+                <div className="p-10 bg-slate-900 rounded-[40px] text-white relative overflow-hidden">
+                  <div className="relative z-10">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-10 pb-8 border-b border-white/10">
+                      <div>
+                        <h3 className="text-2xl font-black tracking-tight">Administrative Credentials</h3>
+                        <p className="text-slate-400 text-sm font-medium mt-1">Update your personal login credentials for the portal.</p>
+                      </div>
+                      <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/20">
+                        <Lock size={28} className="text-indigo-400" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Current Password</label>
+                        <input 
+                          type="password"
+                          name="currentPassword"
+                          value={passwordData.currentPassword}
+                          onChange={handlePasswordChange}
+                          className="w-full px-5 py-4 bg-white/5 border border-white/10 focus:border-indigo-500/50 rounded-2xl text-[13px] font-bold text-white placeholder:text-slate-600 outline-none transition-all"
+                          placeholder="••••••••"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">New Credential</label>
+                        <input 
+                          type="password"
+                          name="newPassword"
+                          value={passwordData.newPassword}
+                          onChange={handlePasswordChange}
+                          className="w-full px-5 py-4 bg-white/5 border border-white/10 focus:border-indigo-500/50 rounded-2xl text-[13px] font-bold text-white placeholder:text-slate-600 outline-none transition-all"
+                          placeholder="Min. 6 chars"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Confirm New Credential</label>
+                        <div className="flex gap-3">
+                          <input 
+                            type="password"
+                            name="confirmPassword"
+                            value={passwordData.confirmPassword}
+                            onChange={handlePasswordChange}
+                            className="flex-1 px-5 py-4 bg-white/5 border border-white/10 focus:border-indigo-500/50 rounded-2xl text-[13px] font-bold text-white placeholder:text-slate-600 outline-none transition-all"
+                            placeholder="••••••••"
+                          />
+                          <button 
+                            type="button"
+                            onClick={updatePersonalPassword}
+                            disabled={changingPassword}
+                            className="px-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl transition-all shadow-xl shadow-indigo-900/40 disabled:opacity-50"
+                          >
+                            {changingPassword ? <RotateCcw size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <Shield size={200} className="absolute -bottom-20 -right-20 text-white/5 rotate-12" />
                 </div>
               </div>
             )}

@@ -1,5 +1,6 @@
 import { Check, BarChart3, Users, Zap, Globe, Cpu, Database, Shield, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const SERVICES = [
   {
@@ -46,12 +47,15 @@ const colorMap = {
 };
 
 export default function ServicesPage() {
+  usePageTitle('Features & Services');
   return (
     <div className="bg-white dark:bg-[#0a0a0a]">
 
       {/* ── Hero ── */}
       <section className="relative pt-36 pb-24 overflow-hidden">
+        {/* Grid background */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:60px_60px] [mask-image:radial-gradient(ellipse_80%_60%_at_50%_0%,#000_40%,transparent_100%)]" />
+        {/* Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[400px] bg-blue-600/8 dark:bg-blue-500/8 blur-[120px] -z-10" />
 
         <div className="relative max-w-6xl mx-auto px-6 text-center">

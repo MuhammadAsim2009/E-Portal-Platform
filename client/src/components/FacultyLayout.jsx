@@ -16,6 +16,7 @@ const navLinks = [
   { to: '/faculty/announcements', icon: Megaphone, label: 'Announcements' },
   { to: '/faculty/evaluations', icon: MessageSquare, label: 'Feedback & Reports' },
   { to: '/faculty/notifications', icon: Bell, label: 'Notifications' },
+  { to: '/faculty/settings', icon: Settings, label: 'Settings' },
 ];
 
 const FacultyLayout = () => {
@@ -148,7 +149,10 @@ const FacultyLayout = () => {
               <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 border-2 border-white dark:border-slate-950 rounded-full"></span>
             </button>
             
-            <button className="p-2.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all">
+            <button 
+              onClick={() => navigate('/faculty/settings')}
+              className="p-2.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all"
+            >
               <Settings size={20} />
             </button>
             
