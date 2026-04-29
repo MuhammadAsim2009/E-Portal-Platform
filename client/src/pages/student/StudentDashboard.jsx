@@ -411,7 +411,7 @@ const StudentDashboard = () => {
   const handleDownloadTimetable = () => {
     const doc = new jsPDF();
     const student = dashboardData?.studentInfo;
-    const enrolled = (dashboardData?.enrolled || []).filter(e => e.status === 'enrolled');
+    const enrolled = (dashboardData?.enrolled || []).filter(e => e.status === 'enrolled' || e.status === 'pending');
     // Header Styling
     doc.setFillColor(99, 102, 241); // Indigo 500
     doc.rect(0, 0, 210, 40, 'F');
@@ -447,10 +447,10 @@ const StudentDashboard = () => {
       course.day_of_week || 'TBD',
       course.start_time && course.end_time ? `${course.start_time} - ${course.end_time}` : 'TBD',
       course.room || 'TBD',
-      `${course.credit_hours}.0`
+      course.status.toUpperCase()
     ]);
     autoTable(doc, {
-      head: [['CODE', 'COURSE TITLE', 'DAY', 'TIME', 'VENUE', 'CREDITS']],
+      head: [['CODE', 'COURSE TITLE', 'DAY', 'TIME', 'VENUE', 'STATUS']],
       body: tableData,
       startY: 85,
       theme: 'grid',

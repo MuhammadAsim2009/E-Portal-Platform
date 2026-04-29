@@ -5,6 +5,8 @@ import api from '../../services/api';
 import { CalendarCheck, CheckCircle2, Save, Upload, Info, GraduationCap, User, Download, X, ChevronRight, Loader2, FileText } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const STATUS_OPTIONS = ['present', 'absent', 'late', 'excused'];
 const STATUS_STYLE = {
@@ -128,6 +130,92 @@ const AttendancePage = () => {
     };
     reader.readAsText(file);
   };
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    const currentCourse = courses.find(c => c.section_id == selectedSection);
+    
+    // Header
+    doc.setFillColor(15, 23, 42); // slate-900
+    doc.rect(0, 0, 210, 40, 'F');
+    doc.setFontSize(22);
+    doc.setTextColor(255, 255, 255);
+    doc.text('ATTENDANCE REPORT', 14, 25);
+    
+    doc.setFontSize(10);
+    doc.text('FACULTY PORTAL - E-LEARNING PLATFORM', 14, 33);
+    
+    // Info Section
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text('SESSION DETAILS', 14, 55);
+    
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(10);
+    doc.text(`Course: ${currentCourse?.course_code || 'N/A'} - ${currentCourse?.title || 'N/A'}`, 14, 65);
+    doc.text(`Section: ${currentCourse?.section_name || 'N/A'}`, 14, 72);
+    doc.text(`Instructor: ${instructor?.instructor_name || currentUser?.name || 'N/A'}`, 14, 79);
+    
+    doc.text(`Date: ${new Date(date).toLocaleDateString()}`, 130, 65);
+    doc.text(`Total Students: ${students.length}`, 130, 72);
+    doc.text(`Status: ${isDateSubmitted ? 'Submitted' : 'Draft'}`, 130, 79);
+    
+    // Statistics
+    const stats = STATUS_OPTIONS.map(s => `${s.toUpperCase()}: ${counts[s] || 0}`).join('  |  ');
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text(stats, 14, 90);
+
+    // Table
+    const tableData = students.map((s, idx) => [
+      idx + 1,
+      s.name,
+      s.email,
+      (statuses[s.student_id] || 'present').toUpperCase(),
+      s.overall_percentage !== null ? `${Math.round(s.overall_percentage * 100)}%` : 'N/A'
+    ]);
+
+    autoTable(doc, {
+      head: [['#', 'STUDENT NAME', 'EMAIL ADDRESS', 'STATUS', 'OVERALL %']],
+      body: tableData,
+      startY: 100,
+      theme: 'grid',
+      headStyles: { 
+        fillColor: [15, 23, 42], 
+        textColor: 255,
+        fontSize: 10,
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 10 },
+        3: { halign: 'center', cellWidth: 30 },
+        4: { halign: 'center', cellWidth: 25 }
+      },
+      styles: {
+        fontSize: 9,
+        cellPadding: 4
+      }
+    });
+
+    // Footer
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(
+        `Generated on ${new Date().toLocaleString()} | Page ${i} of ${pageCount}`,
+        105,
+        285,
+        { align: 'center' }
+      );
+    }
+
+    doc.save(`Attendance_${currentCourse?.course_code}_${date}.pdf`);
+    toast.success("Attendance report exported as PDF");
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
     const records = Object.entries(statuses).map(([studentId, status]) => ({ studentId, status }));
@@ -174,8 +262,9 @@ const AttendancePage = () => {
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-3">
             <button 
-              onClick={() => window.print()}
-              className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl hover:bg-slate-50 transition-all font-bold shadow-sm"
+              onClick={handleExportPDF}
+              disabled={students.length === 0}
+              className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl hover:bg-slate-50 transition-all font-bold shadow-sm disabled:opacity-50"
             >
               <FileText size={20} className="text-indigo-600" />
               <span>Export Report</span>

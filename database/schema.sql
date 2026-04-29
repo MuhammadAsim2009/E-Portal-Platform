@@ -34,7 +34,9 @@ CREATE TABLE faculty (
   department VARCHAR(100),
   designation VARCHAR(100),
   contact_number VARCHAR(20),
-  qualifications TEXT
+  qualifications TEXT,
+  biography TEXT,
+  address TEXT
 );
 
 CREATE TABLE courses (

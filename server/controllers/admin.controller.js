@@ -516,18 +516,20 @@ export const createAnnouncement = async (req, res) => {
       details: `New announcement: ${announcement.title}`,
       ipAddress: req.ip
     });
-    // Trigger Notifications based on target audience
+    // Trigger Notifications based on target audience, but never notify the admin who created it
     const target = req.body.target_role || 'all';
     const targetUserId = req.body.target_user_id;
+    const creatorId = req.user.id;
 
     await notify({
       userId: target === 'individual' ? targetUserId : target,
       title: `Announcement: ${announcement.title}`,
       message: announcement.body,
       type: 'system',
-      priority: announcement.priority || 'medium',
+      priority: announcement.is_pinned ? 'high' : 'medium',
       relatedId: announcement.announcement_id,
-      channels: req.body.send_email ? ['in-app', 'email'] : ['in-app']
+      channels: req.body.send_email ? ['in-app', 'email'] : ['in-app'],
+      excludeUserId: creatorId
     });
 
     res.status(201).json(announcement);

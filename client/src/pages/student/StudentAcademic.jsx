@@ -118,7 +118,12 @@ const StudentAcademic = ({
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
              {enrolled.map(course => (
                <div key={course.section_id} className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm group">
-                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">{course.course_code}</p>
+                 <div className="flex items-center justify-between mb-1">
+                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{course.course_code}</p>
+                   <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded ${course.status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
+                     {course.status === 'pending' ? 'Pending' : 'Active'}
+                   </span>
+                 </div>
                  <h4 className="text-sm font-bold text-slate-800 mb-4 line-clamp-1 group-hover:text-indigo-600 transition-colors">{course.title}</h4>
                  <div className="flex items-center justify-between gap-2">
                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Target Grade:</span>

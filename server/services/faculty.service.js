@@ -658,7 +658,7 @@ export const getAnnouncements = async (userId) => {
     SELECT a.*, u.name as author_name 
     FROM announcements a
     LEFT JOIN users u ON a.created_by = u.user_id
-    WHERE a.target_role IN ('all', 'faculty')
+    WHERE LOWER(a.target_role) IN ('all', 'faculty')
        OR a.target_user_id = $1
        OR a.created_by = $1
     ORDER BY a.is_pinned DESC, a.created_at DESC
@@ -680,14 +680,14 @@ export const createAnnouncement = async (data, userId) => {
     
     const announcement = res.rows[0];
 
-    // Handle Notifications/Emails if requested or if individual
-    if (send_email || target_role === 'individual') {
+    // Always send in-app notifications; only send email if send_email is true
+    {
       let recipients = [];
-      
+
       if (target_role === 'individual' && target_user_id) {
         recipients.push(target_user_id);
-      } else if (target_role === 'student' || target_role === 'all') {
-        // Find all students enrolled in this faculty's sections
+      } else if (target_role === 'student') {
+        // Students enrolled in this faculty's sections
         const studentsRes = await db.query(`
           SELECT DISTINCT s.user_id
           FROM enrollments e
@@ -697,11 +697,40 @@ export const createAnnouncement = async (data, userId) => {
           WHERE f.user_id = $1 AND e.status = 'enrolled'
         `, [userId]);
         recipients = studentsRes.rows.map(r => r.user_id);
+      } else if (target_role === 'faculty') {
+        const facultyRes = await db.query(
+          `SELECT user_id FROM users WHERE is_active = true AND LOWER(role) = 'faculty' AND user_id != $1`,
+          [userId]
+        );
+        recipients = facultyRes.rows.map(r => r.user_id);
+      } else if (target_role === 'admin') {
+        const adminRes = await db.query(
+          `SELECT user_id FROM users WHERE is_active = true AND LOWER(role) = 'admin'`
+        );
+        recipients = adminRes.rows.map(r => r.user_id);
+      } else if (target_role === 'all') {
+        // Students in faculty's sections + all faculty/admin
+        const studentsRes = await db.query(`
+          SELECT DISTINCT s.user_id
+          FROM enrollments e
+          JOIN course_sections cs ON e.section_id = cs.section_id
+          JOIN students s ON e.student_id = s.student_id
+          JOIN faculty f ON cs.faculty_id = f.faculty_id
+          WHERE f.user_id = $1 AND e.status = 'enrolled'
+        `, [userId]);
+        const othersRes = await db.query(
+          `SELECT user_id FROM users WHERE is_active = true AND LOWER(role) IN ('faculty','admin') AND user_id != $1`,
+          [userId]
+        );
+        const allIds = new Set([
+          ...studentsRes.rows.map(r => r.user_id),
+          ...othersRes.rows.map(r => r.user_id)
+        ]);
+        recipients = [...allIds];
       }
 
       console.log(`Sending notifications to ${recipients.length} recipients`);
 
-      // Trigger notifications for each recipient
       for (const targetUid of recipients) {
         try {
           await notify({
@@ -711,7 +740,8 @@ export const createAnnouncement = async (data, userId) => {
             type: 'system',
             priority: is_pinned ? 'high' : 'medium',
             relatedId: announcement.announcement_id,
-            channels: send_email ? ['in-app', 'email'] : ['in-app']
+            channels: send_email ? ['in-app', 'email'] : ['in-app'],
+            excludeUserId: userId
           });
         } catch (notifErr) {
           console.error(`Failed to notify user ${targetUid}:`, notifErr.message);
@@ -766,6 +796,33 @@ export const getNotifications = async (userId, { isRead, limit = 50 }) => {
 
   const res = await db.query(query, params);
   return res.rows;
+};
+
+// ─────────────────────── PROFILE ───────────────────────
+export const getFacultyProfile = async (userId) => {
+  const res = await db.query(`
+    SELECT u.user_id, u.name as full_name, u.email, 
+           f.designation, f.department as department_name, f.contact_number as phone, 
+           f.qualifications, f.biography as bio, f.address
+    FROM users u
+    LEFT JOIN faculty f ON u.user_id = f.user_id
+    WHERE u.user_id = $1
+  `, [userId]);
+  return res.rows[0];
+};
+
+export const updateFacultyProfile = async (userId, data) => {
+  const { phone, address, bio } = data;
+  
+  const res = await db.query(`
+    UPDATE faculty 
+    SET contact_number = $1, address = $2, biography = $3
+    WHERE user_id = $4
+    RETURNING *
+  `, [phone, address, bio, userId]);
+
+  if (res.rowCount === 0) throw new Error('Faculty record not found');
+  return res.rows[0];
 };
 
 export const markNotificationRead = async (id, userId) => {

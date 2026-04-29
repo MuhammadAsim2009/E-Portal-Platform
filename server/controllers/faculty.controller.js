@@ -278,3 +278,22 @@ export const getSubmissionSignedUrl = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const getFacultyProfile = async (req, res) => {
+  try {
+    const profile = await facultyService.getFacultyProfile(req.user.id);
+    res.json(profile);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const updateFacultyProfile = async (req, res) => {
+  try {
+    const profile = await facultyService.updateFacultyProfile(req.user.id, req.body);
+    res.json(profile);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+

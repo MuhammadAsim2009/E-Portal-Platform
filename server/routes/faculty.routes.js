@@ -33,7 +33,9 @@ import {
   deleteAnnouncement,
   getNotifications,
   markNotificationAsRead,
-  getSubmissionSignedUrl
+  getSubmissionSignedUrl,
+  getFacultyProfile,
+  updateFacultyProfile
 } from '../controllers/faculty.controller.js';
 
 
@@ -44,6 +46,8 @@ router.use(authenticateJWT, authorizeRoles(['faculty']));
 
 router.get('/dashboard', getFacultyDashboard);
 router.get('/courses', getMyCourses);
+router.get('/profile', getFacultyProfile);
+router.put('/profile', updateFacultyProfile);
 
 // Grade Book
 router.get('/sections/:sectionId/students', getSectionStudents);

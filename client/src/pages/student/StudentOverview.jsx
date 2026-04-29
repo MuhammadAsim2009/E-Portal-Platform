@@ -85,11 +85,11 @@ const StudentOverview = ({
           subtitle={`Section ${studentInfo.semester}`} 
         />
         <DashboardCard 
-          title="Active Courses" 
-          value={enrolled.filter(e => e.status === 'enrolled').length} 
+          title="Course Load" 
+          value={enrolled.length} 
           icon={<BookOpen />} 
           color="emerald" 
-          subtitle={`${enrolled.filter(e => e.status === 'enrolled').reduce((sum, c) => sum + (c.credit_hours || 0), 0)} Hrs`} 
+          subtitle={`${enrolled.filter(e => e.status === 'enrolled').length} Active | ${enrolled.filter(e => e.status === 'pending').length} Pending`} 
         />
         <DashboardCard 
           title="Pending" 

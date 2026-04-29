@@ -23,8 +23,8 @@ const StudentCourses = ({
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Active Academic Modules</h2>
-            <p className="text-xs text-slate-500 mt-1">Manage your active enrollments and academic schedule.</p>
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Registered Modules</h2>
+            <p className="text-xs text-slate-500 mt-1">Manage your active and pending course registrations.</p>
           </div>
           <button 
             onClick={handleDownloadTimetable}
@@ -40,9 +40,20 @@ const StudentCourses = ({
                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-indigo-600 shadow-sm border border-slate-100 group-hover:scale-110 transition-transform">
                     <Book size={20} />
                  </div>
-                 <span className="px-2 py-0.5 bg-white border border-slate-100 text-[8px] font-bold text-slate-400 rounded uppercase tracking-widest">
-                    {course.credit_hours} Credits
-                 </span>
+                 <div className="flex flex-col items-end gap-1">
+                   <span className="px-2 py-0.5 bg-white border border-slate-100 text-[8px] font-bold text-slate-400 rounded uppercase tracking-widest">
+                      {course.credit_hours} Credits
+                   </span>
+                   {course.status === 'pending' ? (
+                     <span className="px-2 py-0.5 bg-amber-50 text-amber-600 border border-amber-100 text-[7px] font-black rounded uppercase tracking-tighter animate-pulse">
+                       Verification Pending
+                     </span>
+                   ) : (
+                     <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 text-[7px] font-black rounded uppercase tracking-tighter">
+                       Enrolled
+                     </span>
+                   )}
+                 </div>
                </div>
                <h3 className="text-base font-bold text-slate-900 mb-1 leading-tight">{course.title}</h3>
                <p className="text-[10px] font-bold text-indigo-600 mb-6 tracking-widest uppercase">{course.course_code}</p>

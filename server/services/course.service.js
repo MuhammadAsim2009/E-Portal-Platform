@@ -104,9 +104,12 @@ export const enrollStudent = async (studentId, sectionId, paymentMethod, receipt
 
     const amount = parseFloat(feeStructureRes.rows[0].total_amount || 0);
 
-    let feeId = null;
-    if (amount > 0) {
-      // 5. Check if a fee already exists for this enrollment (especially if it was rejected)
+    // Always create a fee + payment record to capture the receipt
+    // (even if amount is 0 / no fee structure configured)
+    {
+      let feeId;
+
+      // Check if a fee already exists for this enrollment
       const existingFeeRes = await client.query(
         `SELECT fee_id FROM fees WHERE student_id = $1 AND section_id = $2 AND fee_type = 'Course Registration' LIMIT 1`,
         [studentId, sectionId]
@@ -114,31 +117,43 @@ export const enrollStudent = async (studentId, sectionId, paymentMethod, receipt
 
       if (existingFeeRes.rows.length > 0) {
         feeId = existingFeeRes.rows[0].fee_id;
-        // Reset existing fee to pending
         await client.query(
           `UPDATE fees SET status = 'pending', amount = $1, due_date = NOW() WHERE fee_id = $2`,
           [amount, feeId]
         );
       } else {
-        // Create new fee
         const feeInsertSql = `
           INSERT INTO fees (student_id, semester, fee_type, amount, status, due_date, notes, section_id)
           VALUES ($1, 'Current', 'Course Registration', $2, 'pending', NOW(), $3, $4)
           RETURNING fee_id
         `;
-        const feeRes2 = await client.query(feeInsertSql, [studentId, amount, `Enrollment for ${checkRes.rows[0].course_code} | SectionID: ${sectionId}`, sectionId]);
+        const feeRes2 = await client.query(feeInsertSql, [
+          studentId, amount,
+          `Enrollment for ${checkRes.rows[0].course_code} | SectionID: ${sectionId}`,
+          sectionId
+        ]);
         feeId = feeRes2.rows[0].fee_id;
       }
-    }
 
-    if (feeId) {
-      // 6. Create Payment record
-      const paymentInsertSql = `
-        INSERT INTO payments (student_id, fee_id, amount_paid, payment_method, receipt_url, status, transaction_id)
-        VALUES ($1, $2, $3, $4, $5, 'pending', $6)
-        RETURNING *
-      `;
-      await client.query(paymentInsertSql, [studentId, feeId, amount, paymentMethod, receiptUrl, transactionId]);
+      // 3. Ensure a payment record exists for this fee to hold the receipt
+      const existingPaymentRes = await client.query(
+        `SELECT payment_id FROM payments WHERE fee_id = $1 AND student_id = $2 LIMIT 1`,
+        [feeId, studentId]
+      );
+
+      if (existingPaymentRes.rows.length > 0) {
+        await client.query(
+          `UPDATE payments 
+           SET amount_paid = $1, transaction_id = $2, payment_method = $3, receipt_url = $4, status = 'pending', payment_date = NOW()
+           WHERE payment_id = $5`,
+          [amount, transactionId || null, paymentMethod || 'Other', receiptUrl || null, existingPaymentRes.rows[0].payment_id]
+        );
+      } else {
+        await client.query(`
+          INSERT INTO payments (student_id, fee_id, amount_paid, payment_method, receipt_url, status, transaction_id)
+          VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+        `, [studentId, feeId, amount, paymentMethod, receiptUrl, transactionId]);
+      }
     }
 
     await client.query('COMMIT');

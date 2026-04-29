@@ -231,13 +231,31 @@ export const submitPayment = async (req, res) => {
     const studentRes = await db.query('SELECT student_id FROM students WHERE user_id = $1', [req.user.id]);
     const studentId = studentRes.rows[0].student_id;
 
-    const paymentRes = await db.query(`
-      INSERT INTO payments (student_id, fee_id, amount_paid, transaction_id, payment_method, receipt_url, status)
-      VALUES ($1, $2, $3, $4, $5, $6, 'pending')
-      RETURNING *
-    `, [studentId, fee_id, amount, transaction_id, payment_method, receipt_url]);
+    // Check if a placeholder payment already exists for this fee
+    const existingPayment = await db.query(
+      `SELECT payment_id FROM payments 
+       WHERE fee_id = $1 AND student_id = $2 AND status = 'pending' AND receipt_url IS NULL
+       LIMIT 1`,
+      [fee_id, studentId]
+    );
 
-    const payment = paymentRes.rows[0];
+    let payment;
+    if (existingPayment.rows.length > 0) {
+      const updateRes = await db.query(`
+        UPDATE payments 
+        SET amount_paid = $1, transaction_id = $2, payment_method = $3, receipt_url = $4, payment_date = NOW()
+        WHERE payment_id = $5
+        RETURNING *
+      `, [amount, transaction_id, payment_method, receipt_url, existingPayment.rows[0].payment_id]);
+      payment = updateRes.rows[0];
+    } else {
+      const insertRes = await db.query(`
+        INSERT INTO payments (student_id, fee_id, amount_paid, transaction_id, payment_method, receipt_url, status)
+        VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+        RETURNING *
+      `, [studentId, fee_id, amount, transaction_id, payment_method, receipt_url]);
+      payment = insertRes.rows[0];
+    }
 
     await logAction({
       userId: req.user.id,

@@ -22,7 +22,8 @@ export const notify = async ({
   priority = 'medium', 
   relatedId = null,
   channels = ['in-app', 'email'],
-  emailData = {} // Custom HTML/Text for email if different from in-app
+  emailData = {}, // Custom HTML/Text for email if different from in-app
+  excludeUserId = null // Optional: User ID to exclude from broadcast
 }) => {
   try {
     const results = {};
@@ -37,12 +38,19 @@ export const notify = async ({
           params.push(userId);
         }
         
+        if (excludeUserId) {
+          sql += ` AND user_id != $${params.length + 1}`;
+          params.push(excludeUserId);
+        }
+        
         const targetUsers = await db.query(sql, params);
         for (const user of targetUsers.rows) {
           await createNotification({ userId: user.user_id, title, message, type, priority, relatedId });
         }
       } else {
-        results.inApp = await createNotification({ userId, title, message, type, priority, relatedId });
+        if (userId !== excludeUserId) {
+          results.inApp = await createNotification({ userId, title, message, type, priority, relatedId });
+        }
       }
     }
 
@@ -56,11 +64,19 @@ export const notify = async ({
           sql += " AND LOWER(role) = LOWER($1)";
           params.push(userId);
         }
+
+        if (excludeUserId) {
+          sql += ` AND user_id != $${params.length + 1}`;
+          params.push(excludeUserId);
+        }
+
         const targetUsers = await db.query(sql, params);
         recipients = targetUsers.rows.map(a => a.email);
       } else {
-        const user = await db.query("SELECT email FROM users WHERE user_id = $1", [userId]);
-        if (user.rows[0]) recipients.push(user.rows[0].email);
+        if (userId !== excludeUserId) {
+          const user = await db.query("SELECT email FROM users WHERE user_id = $1", [userId]);
+          if (user.rows[0]) recipients.push(user.rows[0].email);
+        }
       }
 
       if (recipients.length > 0) {

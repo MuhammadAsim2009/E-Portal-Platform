@@ -241,13 +241,7 @@ const PaymentManagement = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setShowBulkModal(true)}
-            className="flex items-center gap-2.5 px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold text-[13px] hover:bg-slate-50 active:scale-[0.98] transition-all shadow-sm"
-          >
-            <Layers size={16} className="text-indigo-500" />
-            Bulk Invoicing
-          </button>
+
           <button 
             onClick={handleExportPDF}
             disabled={isExporting}
