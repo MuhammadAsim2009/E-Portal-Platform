@@ -78,24 +78,33 @@ export const getStudentDashboard = async (userId) => {
       .filter(f => f.status === 'pending' && f.last_payment_status !== 'pending')
       .reduce((sum, f) => sum + parseFloat(f.net_amount), 0);
 
-    // 5. Dynamic GPA Trend
-    const currentGpa = parseFloat(student.gpa) || 0;
-    const trendData = [];
+    // 5. Dynamic Marks Trend (Graded Assignments Wise)
+    const submissionMarksSql = `
+      SELECT 
+        a.title as name,
+        s.marks_obtained,
+        a.max_marks
+      FROM submissions s
+      JOIN assignments a ON s.assignment_id = a.assignment_id
+      WHERE s.student_id = $1 AND s.marks_obtained IS NOT NULL
+      ORDER BY s.graded_at ASC, s.submitted_at ASC
+    `;
+    const submissionRes = await query(submissionMarksSql, [studentId]);
     
-    if (currentGpa > 0) {
-      // Use parseInt if semester is numeric, otherwise default to showing 4 data points for history
-      const semNum = Math.min(parseInt(student.semester) || 4, 8);
-      for (let i = 1; i <= semNum; i++) {
-        let semGpa;
-        if (i === semNum) {
-          semGpa = currentGpa;
-        } else {
-          // Deterministic "realistic" variation for history based on student ID
-          const charCode = (student.student_id || '').toString().charCodeAt(i % 5) || 65;
-          const variance = ((charCode % 11) - 5) * 0.05; // -0.25 to +0.25
-          semGpa = Math.min(4.0, Math.max(2.0, currentGpa + variance)).toFixed(2);
-        }
-        trendData.push({ name: `Sem ${i}`, gpa: parseFloat(semGpa) });
+    const trendData = submissionRes.rows.map(row => ({
+      name: row.name,
+      marks: Math.round((parseFloat(row.marks_obtained) / row.max_marks) * 100)
+    }));
+
+    // Fallback if no assessments marked yet
+    if (trendData.length === 0) {
+      const currentGpa = parseFloat(student.gpa) || 0;
+      const basePercentage = (currentGpa / 4.0) * 100;
+      if (basePercentage > 0) {
+        trendData.push(
+          { name: 'Initial', marks: Math.round(basePercentage - 5) },
+          { name: 'Current', marks: Math.round(basePercentage) }
+        );
       }
     }
 
@@ -105,7 +114,7 @@ export const getStudentDashboard = async (userId) => {
       assignments: assignRes.rows,
       attendance: attendanceRes.rows.map(a => ({
         course: a.course_code,
-        percentage: a.total_days > 0 ? Math.round((a.present_count / a.total_days) * 100) : 100, // Default to 100 if no records
+        percentage: a.total_days > 0 ? Math.round((a.present_count / a.total_days) * 100) : 100,
         total_days: a.total_days,
         present_count: a.present_count
       })),

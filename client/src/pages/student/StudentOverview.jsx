@@ -113,7 +113,7 @@ const StudentOverview = ({
           <div className="flex items-center justify-between mb-10">
             <div>
               <h2 className="text-lg font-bold text-slate-900 tracking-tight">Academic Performance</h2>
-              <p className="text-xs text-slate-500 mt-1">Historical GPA trajectory across sections.</p>
+              <p className="text-xs text-slate-500 mt-1">Performance breakdown of graded assignment submissions.</p>
             </div>
             <span className="flex items-center gap-2 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-lg uppercase tracking-widest">
               <TrendingUp size={14} /> Merit Standing
@@ -124,26 +124,27 @@ const StudentOverview = ({
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trendData}>
                   <defs>
-                    <linearGradient id="colorGpa" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="colorMarks" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/>
                       <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} dy={15} />
-                  <YAxis domain={[0, 4.0]} axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} dx={-10} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} dy={15} minTickGap={30} />
+                  <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} dx={-10} tickFormatter={(value) => `${value}%`} />
                   <Tooltip 
                     contentStyle={{ borderRadius: '12px', border: '1px solid #f1f5f9', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
                   />
                   <Area 
                     type="monotone" 
-                    dataKey="gpa" 
+                    dataKey="marks" 
                     stroke="#6366f1" 
                     strokeWidth={3}
                     fillOpacity={1}
-                    fill="url(#colorGpa)"
+                    fill="url(#colorMarks)"
                     dot={{ r: 5, fill: '#6366f1', strokeWidth: 3, stroke: '#fff' }}
                     activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 3 }} 
+                    name="Marks %"
                   />
                 </AreaChart>
               </ResponsiveContainer>
