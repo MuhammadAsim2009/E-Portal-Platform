@@ -1,15 +1,34 @@
-import { Mail, Phone, MapPin, Send, MessageSquare, Clock } from 'lucide-react';
+import { Mail, Phone, MapPin, Send, MessageSquare, Clock, Loader2 } from 'lucide-react';
 import { useState } from 'react';
-
+import api from '../../services/api';
 import usePageTitle from '../../hooks/usePageTitle';
 
 export default function ContactPage() {
   usePageTitle('Contact');
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    institution: '',
+    subject: '',
+    message: ''
+  });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitted(true);
+    setLoading(true);
+    setError('');
+    try {
+      await api.post('/public/contact', formData);
+      setSubmitted(true);
+      setFormData({ name: '', email: '', institution: '', subject: '', message: '' });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to send message. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -54,16 +73,45 @@ export default function ContactPage() {
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-6">
+                    {error && (
+                      <div className="p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-sm">
+                        {error}
+                      </div>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      <Field label="Full Name" type="text" placeholder="Your full name" required />
-                      <Field label="Email Address" type="email" placeholder="you@institution.edu" required />
+                      <Field 
+                        label="Full Name" 
+                        type="text" 
+                        placeholder="Your full name" 
+                        required 
+                        value={formData.name}
+                        onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      />
+                      <Field 
+                        label="Email Address" 
+                        type="email" 
+                        placeholder="you@institution.edu" 
+                        required 
+                        value={formData.email}
+                        onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      />
                     </div>
-                    <Field label="Institution Name" type="text" placeholder="Your institution or organization" />
+                    <Field 
+                      label="Institution Name" 
+                      type="text" 
+                      placeholder="Your institution or organization" 
+                      value={formData.institution}
+                      onChange={(e) => setFormData({...formData, institution: e.target.value})}
+                    />
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                         Subject <span className="text-slate-400 font-normal">(optional)</span>
                       </label>
-                      <select className="w-full h-11 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                      <select 
+                        value={formData.subject}
+                        onChange={(e) => setFormData({...formData, subject: e.target.value})}
+                        className="w-full h-11 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                      >
                         <option value="">Select a topic</option>
                         <option>General inquiry</option>
                         <option>Demo request</option>
@@ -77,12 +125,18 @@ export default function ContactPage() {
                       <textarea
                         rows={5}
                         required
+                        value={formData.message}
+                        onChange={(e) => setFormData({...formData, message: e.target.value})}
                         className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none placeholder:text-slate-400 dark:placeholder:text-slate-600"
                         placeholder="Tell us how we can help..."
                       />
                     </div>
-                    <button type="submit" className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20">
-                      Send message <Send size={15} />
+                    <button 
+                      type="submit" 
+                      disabled={loading}
+                      className="w-full h-11 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
+                    >
+                      {loading ? <Loader2 className="animate-spin" size={15} /> : 'Send message'} <Send size={15} />
                     </button>
                   </form>
                 )}
@@ -144,7 +198,7 @@ export default function ContactPage() {
   );
 }
 
-function Field({ label, type = 'text', placeholder, required }) {
+function Field({ label, type = 'text', placeholder, required, value, onChange }) {
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -153,6 +207,8 @@ function Field({ label, type = 'text', placeholder, required }) {
       <input
         type={type}
         required={required}
+        value={value}
+        onChange={onChange}
         placeholder={placeholder}
         className="w-full h-11 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 text-sm text-slate-700 dark:text-slate-300 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
       />

@@ -49,7 +49,10 @@ import {
   updateApprovalRequest,
   getApprovalRequestById,
   getCourseById,
-  getStudentFullDetails
+  getStudentFullDetails,
+  getContactMessages,
+  markContactMessageRead,
+  replyToContactMessage
 } from '../controllers/admin.controller.js';
 
 
@@ -125,5 +128,10 @@ router.post('/fee-structures', createFeeStructure);
 router.patch('/fee-structures/:id', updateFeeStructure);
 router.delete('/fee-structures/:id', deleteFeeStructure);
 router.post('/fees/bulk-generate', bulkGenerateFees);
+
+// Contact Messages
+router.get('/messages', getContactMessages);
+router.patch('/messages/:id/read', markContactMessageRead);
+router.post('/messages/:id/reply', replyToContactMessage);
 
 export default router;

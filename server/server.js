@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.routes.js';
 import studentRoutes from './routes/student.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import facultyRoutes from './routes/faculty.routes.js';
+import publicRoutes from './routes/public.routes.js';
 import pool from './config/db.js';
 
 import { initCronTasks } from './services/tasks.service.js';
@@ -30,6 +31,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/faculty', facultyRoutes);
+app.use('/api/public', publicRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'E-Portal API is running' });

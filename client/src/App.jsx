@@ -34,6 +34,7 @@ import SiteSettings from './pages/admin/SiteSettings';
 import FeeStructureManagement from './pages/admin/FeeStructureManagement';
 import AuditLogs from './pages/admin/AuditLogs';
 import CourseApprovals from './pages/admin/CourseApprovals';
+import Messages from './pages/admin/Messages';
 
 
 // Faculty pages
@@ -122,6 +123,7 @@ function App() {
           <Route path="fees-config" element={<FeeStructureManagement />} />
           <Route path="audit-logs" element={<AuditLogs />} />
           <Route path="course-approvals" element={<CourseApprovals />} />
+          <Route path="messages" element={<Messages />} />
           <Route index element={<Navigate to="dashboard" replace />} />
 
         </Route>

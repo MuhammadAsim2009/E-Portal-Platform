@@ -1016,3 +1016,81 @@ export const getStudentFullDetails = async (req, res) => {
   }
 };
 
+// ─────────────────────── CONTACT MESSAGES ───────────────────────
+
+export const getContactMessages = async (req, res) => {
+  try {
+    const messages = await adminService.getContactMessages();
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const markContactMessageRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const message = await adminService.markContactMessageRead(id);
+    res.json(message);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const replyToContactMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reply } = req.body;
+
+    if (!reply) {
+      return res.status(400).json({ message: 'Reply content is required' });
+    }
+
+    const message = await adminService.replyToContactMessage(id, reply);
+
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    // Send email to the user
+    try {
+      const settings = await adminService.getSiteSettings();
+      const siteName = settings.siteName || 'E-Portal';
+
+      await sendEmail({
+        to: message.email,
+        subject: `Reply to your message - ${siteName}`,
+        text: `Hello ${message.name},\n\nAdmin replied to your message: ${reply}`,
+        html: `
+          <div style="font-family: 'Inter', sans-serif; padding: 40px; background: #f8fafc;">
+            <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 40px; border: 1px solid #e2e8f0;">
+              <h2 style="color: #0f172a; margin-bottom: 16px;">Response to Your Inquiry</h2>
+              <p style="color: #475569; font-size: 16px; line-height: 1.6;">Hello ${message.name},</p>
+              <p style="color: #475569; font-size: 16px; line-height: 1.6;">Thank you for reaching out to ${siteName}. We have reviewed your message regarding "<strong>${message.subject || 'General Inquiry'}</strong>".</p>
+              
+              <div style="margin: 24px 0; padding: 24px; background: #f1f5f9; border-radius: 12px;">
+                 <p style="margin: 0; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase;">Your Message</p>
+                 <p style="margin: 8px 0 0 0; color: #475569; font-size: 14px; font-style: italic;">"${message.message}"</p>
+                 <hr style="margin: 16px 0; border: none; border-top: 1px solid #e2e8f0;" />
+                 <p style="margin: 0; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase;">Admin Response</p>
+                 <p style="margin: 8px 0 0 0; color: #0f172a; font-size: 15px; font-weight: 500;">${reply}</p>
+              </div>
+
+              <p style="color: #64748b; font-size: 14px;">If you have further questions, feel free to reply to this email or visit our portal.</p>
+              <p style="color: #94a3b8; font-size: 12px; margin-top: 32px; border-top: 1px solid #f1f5f9; pt-16px;">Best regards,<br/>The ${siteName} Team</p>
+            </div>
+          </div>
+        `
+      });
+    } catch (emailErr) {
+      console.error('Failed to send reply email:', emailErr);
+      // We still return success for the DB update
+    }
+
+    res.json({ message: 'Reply sent successfully', data: message });
+  } catch (err) {
+    console.error('replyToContactMessage error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+

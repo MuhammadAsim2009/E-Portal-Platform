@@ -3,7 +3,8 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, BookOpen, Megaphone, Calendar, BarChart3,
   LogOut, Menu, X, ChevronRight, Shield, Bell, Search, Settings,
-  GraduationCap, Briefcase, User as UserIcon, CreditCard, DollarSign, CheckCircle2
+  GraduationCap, Briefcase, User as UserIcon, CreditCard, DollarSign, CheckCircle2,
+  Mail
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import api from '../services/api';
@@ -33,6 +34,7 @@ const navGroups = [
   {
     title: 'Communication',
     links: [
+      { to: '/admin/messages', icon: Mail, label: 'Messages' },
       { to: '/admin/announcements', icon: Megaphone, label: 'Announcements' },
       { to: '/admin/notifications', icon: Bell, label: 'Notifications' },
     ]

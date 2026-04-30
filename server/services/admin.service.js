@@ -1498,4 +1498,29 @@ export const getStudentFullDetails = async (studentId) => {
   }
 };
 
+// ─────────────────────── CONTACT MESSAGES ───────────────────────
+
+export const getContactMessages = async () => {
+  const res = await db.query(
+    'SELECT * FROM contact_messages ORDER BY created_at DESC'
+  );
+  return res.rows;
+};
+
+export const markContactMessageRead = async (id) => {
+  const res = await db.query(
+    "UPDATE contact_messages SET status = 'read' WHERE message_id = $1 AND status = 'unread' RETURNING *",
+    [id]
+  );
+  return res.rows[0];
+};
+
+export const replyToContactMessage = async (id, adminReply) => {
+  const res = await db.query(
+    "UPDATE contact_messages SET reply_text = $1, status = 'replied', replied_at = NOW() WHERE message_id = $2 RETURNING *",
+    [adminReply, id]
+  );
+  return res.rows[0];
+};
+
 

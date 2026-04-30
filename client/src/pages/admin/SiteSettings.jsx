@@ -5,11 +5,12 @@ import {
   Settings, Globe, Palette, Mail, Shield, Save, 
   RotateCcw, Eye, Trash2, Camera, Type, Layout, Image,
   Smartphone, BellRing, UserCheck, Languages, Clock, 
-  Coins, MapPin, Phone, Mail as MailIcon, AlertTriangle, AlertCircle, X,
-  Lock, CheckCircle2, XCircle
+  Coins, MapPin, Phone, AlertTriangle, AlertCircle, X,
+  Lock, CheckCircle2, XCircle, FileText, Share2, Users
 } from 'lucide-react';
 const TABS = [
   { id: 'general', label: 'General', icon: Globe },
+  { id: 'public-pages', label: 'Public Pages', icon: Layout },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'email', label: 'Email SMTP', icon: Mail },
   { id: 'payments', label: 'Payment Accounts', icon: Coins },
@@ -391,18 +392,107 @@ const SiteSettings = () => {
                      </div>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Custom CSS Architecture</label>
-                  <textarea 
-                    rows={6}
-                    placeholder="/* Inject institutional override styles here... */"
-                    value={settings.customCSS || ''}
-                    onChange={e => setSettings({...settings, customCSS: e.target.value})}
-                    className="w-full px-5 py-4 bg-slate-900 border border-slate-800 rounded-2xl text-[12px] font-mono text-emerald-400 resize-none shadow-inner"
-                  />
+              </div>
+            )}
+
+            {/* Tab: Public Pages */}
+            {activeTab === 'public-pages' && (
+              <div className="space-y-10 animate-in slide-in-from-right-4 duration-500">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="p-8 bg-white border border-slate-200 rounded-[32px] shadow-sm">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+                        <FileText size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-black text-slate-900">Hero Section</h3>
+                        <p className="text-sm text-slate-500 font-medium">Main landing page headline and text.</p>
+                      </div>
+                    </div>
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Hero Title</label>
+                        <input 
+                          type="text" 
+                          value={settings.heroTitle || ''}
+                          onChange={e => setSettings({...settings, heroTitle: e.target.value})}
+                          className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold"
+                          placeholder="Welcome to our platform"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Hero Subtitle</label>
+                        <textarea 
+                          rows={3}
+                          value={settings.heroSubtitle || ''}
+                          onChange={e => setSettings({...settings, heroSubtitle: e.target.value})}
+                          className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold"
+                          placeholder="Describe your institution..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-8 bg-white border border-slate-200 rounded-[32px] shadow-sm">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="w-12 h-12 bg-violet-50 rounded-2xl flex items-center justify-center text-violet-600">
+                        <Share2 size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-black text-slate-900">Social Links</h3>
+                        <p className="text-sm text-slate-500 font-medium">Institutional social media presence.</p>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      {['facebook', 'twitter', 'linkedin', 'instagram'].map(platform => (
+                        <div key={platform} className="relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase text-slate-400">{platform}</span>
+                          <input 
+                            type="text" 
+                            value={settings[`social_${platform}`] || ''}
+                            onChange={e => setSettings({...settings, [`social_${platform}`]: e.target.value})}
+                            className="w-full pl-24 pr-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-[12px] font-bold"
+                            placeholder="URL"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-8 bg-slate-50 border border-slate-100 rounded-[32px]">
+                   <div className="flex items-center gap-4 mb-6">
+                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-600 shadow-sm">
+                        <Image size={20} />
+                      </div>
+                      <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-900">Homepage Media Assets</h4>
+                   </div>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Main Hero Image URL</label>
+                        <input 
+                          type="text" 
+                          value={settings.heroImage || ''}
+                          onChange={e => setSettings({...settings, heroImage: e.target.value})}
+                          className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-bold"
+                          placeholder="https://..."
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">About Section Image</label>
+                        <input 
+                          type="text" 
+                          value={settings.aboutImage || ''}
+                          onChange={e => setSettings({...settings, aboutImage: e.target.value})}
+                          className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-bold"
+                          placeholder="https://..."
+                        />
+                      </div>
+                   </div>
                 </div>
               </div>
             )}
+            
             {/* Tab: Email */}
             {activeTab === 'email' && (
               <div className="space-y-12 animate-in slide-in-from-right-4 duration-500">
