@@ -130,90 +130,117 @@ const AttendancePage = () => {
     };
     reader.readAsText(file);
   };
-  const handleExportPDF = () => {
-    const doc = new jsPDF();
-    const currentCourse = courses.find(c => c.section_id == selectedSection);
-    
-    // Header
-    doc.setFillColor(15, 23, 42); // slate-900
-    doc.rect(0, 0, 210, 40, 'F');
-    doc.setFontSize(22);
-    doc.setTextColor(255, 255, 255);
-    doc.text('ATTENDANCE REPORT', 14, 25);
-    
-    doc.setFontSize(10);
-    doc.text('FACULTY PORTAL - E-LEARNING PLATFORM', 14, 33);
-    
-    // Info Section
-    doc.setTextColor(30, 41, 59);
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
-    doc.text('SESSION DETAILS', 14, 55);
-    
-    doc.setFont(undefined, 'normal');
-    doc.setFontSize(10);
-    doc.text(`Course: ${currentCourse?.course_code || 'N/A'} - ${currentCourse?.title || 'N/A'}`, 14, 65);
-    doc.text(`Section: ${currentCourse?.section_name || 'N/A'}`, 14, 72);
-    doc.text(`Instructor: ${instructor?.instructor_name || currentUser?.name || 'N/A'}`, 14, 79);
-    
-    doc.text(`Date: ${new Date(date).toLocaleDateString()}`, 130, 65);
-    doc.text(`Total Students: ${students.length}`, 130, 72);
-    doc.text(`Status: ${isDateSubmitted ? 'Submitted' : 'Draft'}`, 130, 79);
-    
-    // Statistics
-    const stats = STATUS_OPTIONS.map(s => `${s.toUpperCase()}: ${counts[s] || 0}`).join('  |  ');
-    doc.setFontSize(9);
-    doc.setTextColor(100);
-    doc.text(stats, 14, 90);
-
-    // Table
-    const tableData = students.map((s, idx) => [
-      idx + 1,
-      s.name,
-      s.email,
-      (statuses[s.student_id] || 'present').toUpperCase(),
-      s.overall_percentage !== null ? `${Math.round(s.overall_percentage * 100)}%` : 'N/A'
-    ]);
-
-    autoTable(doc, {
-      head: [['#', 'STUDENT NAME', 'EMAIL ADDRESS', 'STATUS', 'OVERALL %']],
-      body: tableData,
-      startY: 100,
-      theme: 'grid',
-      headStyles: { 
-        fillColor: [15, 23, 42], 
-        textColor: 255,
-        fontSize: 10,
-        fontStyle: 'bold',
-        halign: 'center'
-      },
-      columnStyles: {
-        0: { halign: 'center', cellWidth: 10 },
-        3: { halign: 'center', cellWidth: 30 },
-        4: { halign: 'center', cellWidth: 25 }
-      },
-      styles: {
-        fontSize: 9,
-        cellPadding: 4
+  const handleExportPDF = async () => {
+    setLoading(true);
+    try {
+      const month = date.slice(0, 7); // YYYY-MM
+      const res = await api.get(`/faculty/sections/${selectedSection}/attendance/monthly?month=${month}`);
+      const { records, instructor } = res.data;
+      
+      if (!records || records.length === 0) {
+        toast.error("No attendance records found for this month");
+        return;
       }
-    });
 
-    // Footer
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
+      const currentCourse = courses.find(c => c.section_id == selectedSection);
+      
+      // Get all unique dates in the month that have attendance marked
+      const dates = [...new Set(records.filter(r => r.date).map(r => r.date.split('T')[0]))].sort();
+      
+      // Pivot data: student_id -> { date -> status }
+      const pivotData = {};
+      const studentMap = {}; // student_id -> { name, email, overall_percentage }
+      
+      records.forEach(r => {
+        if (!pivotData[r.student_id]) pivotData[r.student_id] = {};
+        if (r.date) pivotData[r.student_id][r.date.split('T')[0]] = r.status;
+        studentMap[r.student_id] = { 
+          name: r.name, 
+          email: r.email,
+          overall_percentage: r.overall_percentage 
+        };
+      });
+
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      
+      // Header
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, 297, 30, 'F');
+      doc.setFontSize(20);
+      doc.setTextColor(255, 255, 255);
+      const monthName = new Date(month + '-01').toLocaleString('default', { month: 'long', year: 'numeric' });
+      doc.text(`MONTHLY ATTENDANCE REPORT - ${monthName.toUpperCase()}`, 14, 18);
+      
+      doc.setFontSize(9);
+      doc.text('FACULTY PORTAL - E-LEARNING PLATFORM', 14, 25);
+      
+      // Info
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'bold');
+      doc.text('COURSE INFORMATION', 14, 40);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Course: ${currentCourse?.course_code || 'N/A'} - ${currentCourse?.title || 'N/A'}`, 14, 47);
+      doc.text(`Section: ${currentCourse?.section_name || 'N/A'}`, 14, 52);
+      doc.text(`Instructor: ${instructor?.instructor_name || currentUser?.name || 'N/A'}`, 14, 57);
+      
+      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 240, 47);
+      doc.text(`Days Marked: ${dates.length}`, 240, 52);
+      
+      // Legend
       doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.text(
-        `Generated on ${new Date().toLocaleString()} | Page ${i} of ${pageCount}`,
-        105,
-        285,
-        { align: 'center' }
-      );
-    }
+      doc.text('LEGEND: P=Present, A=Absent, L=Late, E=Excused, -=No Record | Month % (Current Month) | Overall % (Whole Semester)', 14, 62);
 
-    doc.save(`Attendance_${currentCourse?.course_code}_${date}.pdf`);
-    toast.success("Attendance report exported as PDF");
+      // Column Mapping
+      const dateColumns = dates.map(d => d.split('-')[2]); // Just the day number
+      const head = [['#', 'Student Name', ...dateColumns, 'Month %', 'Overall %']];
+      
+      const body = Object.keys(pivotData).sort((a, b) => studentMap[a].name.localeCompare(studentMap[b].name)).map((sid, idx) => {
+        const student = studentMap[sid];
+        const row = [idx + 1, student.name];
+        let presentCount = 0;
+        let totalCount = 0;
+        
+        dates.forEach(d => {
+          const status = pivotData[sid][d];
+          let symbol = '-';
+          if (status === 'present') { symbol = 'P'; presentCount++; totalCount++; }
+          else if (status === 'absent') { symbol = 'A'; totalCount++; }
+          else if (status === 'late') { symbol = 'L'; presentCount += 0.5; totalCount++; }
+          else if (status === 'excused') { symbol = 'E'; }
+          row.push(symbol);
+        });
+        
+        const monthlyPct = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
+        row.push(`${monthlyPct}%`);
+        row.push(student.overall_percentage !== null ? `${Math.round(student.overall_percentage * 100)}%` : 'N/A');
+        return row;
+      });
+
+      autoTable(doc, {
+        head: head,
+        body: body,
+        startY: 65,
+        theme: 'grid',
+        styles: { fontSize: 7, cellPadding: 1, halign: 'center', valign: 'middle' },
+        headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 8 },
+          1: { halign: 'left', cellWidth: 40 },
+          [head[0].length - 2]: { fontStyle: 'bold', cellWidth: 15 },
+          [head[0].length - 1]: { fontStyle: 'bold', cellWidth: 15, fillColor: [241, 245, 249] }
+        },
+        alternateRowStyles: { fillColor: [250, 250, 250] }
+      });
+
+      doc.save(`Attendance_Monthly_${currentCourse?.course_code}_${month}.pdf`);
+      toast.success("Monthly attendance report exported!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export monthly report");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -267,17 +294,9 @@ const AttendancePage = () => {
               className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl hover:bg-slate-50 transition-all font-bold shadow-sm disabled:opacity-50"
             >
               <FileText size={20} className="text-indigo-600" />
-              <span>Export Report</span>
+              <span>Export Monthly Report</span>
             </button>
             
-            <button 
-              onClick={handleSubmit}
-              disabled={submitting || students.length === 0}
-              className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 disabled:opacity-50 transition-all font-bold shadow-lg shadow-indigo-500/25"
-            >
-              {submitting ? <Loader2 size={20} className="animate-spin" /> : <CalendarCheck size={20} />}
-              <span>{isDateSubmitted ? 'Update Attendance' : 'Save Attendance'}</span>
-            </button>
           </div>
         </div>
       </div>
@@ -304,6 +323,7 @@ const AttendancePage = () => {
           <input
             type="date"
             value={date}
+            max={new Date().toISOString().split('T')[0]}
             onChange={e => setDate(e.target.value)}
             className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-bold bg-slate-50 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all"
           />

@@ -336,6 +336,42 @@ export const getAttendance = async (sectionId, date) => {
   }
 };
 
+export const getMonthlyAttendance = async (sectionId, month) => {
+  try {
+    // month is in YYYY-MM format
+    const res = await db.query(
+      `SELECT 
+         s.student_id, u.name, u.email,
+         a.status, a.date,
+         (SELECT COUNT(CASE WHEN status = 'present' THEN 1 END)::FLOAT / NULLIF(COUNT(*), 0) 
+          FROM attendance a2 WHERE a2.student_id = s.student_id AND a2.section_id = e.section_id) as overall_percentage
+       FROM enrollments e
+       JOIN students s ON e.student_id = s.student_id
+       JOIN users u ON s.user_id = u.user_id
+       LEFT JOIN attendance a ON a.student_id = s.student_id AND a.section_id = e.section_id 
+         AND TO_CHAR(a.date, 'YYYY-MM') = $2
+       WHERE e.section_id = $1 AND e.status = 'enrolled'
+       ORDER BY u.name, a.date`, [sectionId, month]
+    );
+
+    const instructorRes = await db.query(
+      `SELECT f.department as instructor_department, u.name as instructor_name
+       FROM course_sections cs
+       JOIN faculty f ON cs.faculty_id = f.faculty_id
+       JOIN users u ON f.user_id = u.user_id
+       WHERE cs.section_id = $1`, [sectionId]
+    );
+
+    return {
+      records: res.rows,
+      instructor: instructorRes.rows[0]
+    };
+  } catch (error) {
+    console.error("Get monthly attendance error:", error);
+    throw error;
+  }
+};
+
 
 export const submitAttendance = async (sectionId, date, records, userId) => {
   try {
@@ -356,30 +392,38 @@ export const submitAttendance = async (sectionId, date, records, userId) => {
 
     // --- ATTENDANCE THRESHOLD CHECK ---
     const THRESHOLD = 0.75;
-    for (const { studentId } of records) {
-       const statsRes = await db.query(`
-         SELECT 
-           COUNT(CASE WHEN a.status = 'present' THEN 1 END)::FLOAT / NULLIF(COUNT(*), 0) as ratio,
-           u.user_id, c.title
-         FROM attendance a
-         JOIN students s ON a.student_id = s.student_id
-         JOIN users u ON s.user_id = u.user_id
-         JOIN course_sections cs ON a.section_id = cs.section_id
-         JOIN courses c ON cs.course_id = c.course_id
-         WHERE a.student_id = $1 AND a.section_id = $2
-         GROUP BY u.user_id, c.title
-       `, [studentId, sectionId]);
+    
+    // Get all students in this section whose attendance dropped below threshold
+    const lowAttendanceStats = await db.query(`
+      SELECT 
+        s.student_id,
+        u.user_id, 
+        u.name,
+        c.title as course_title,
+        COUNT(CASE WHEN a.status = 'present' THEN 1 END)::FLOAT / NULLIF(COUNT(*), 0) as ratio
+      FROM attendance a
+      JOIN students s ON a.student_id = s.student_id
+      JOIN users u ON s.user_id = u.user_id
+      JOIN course_sections cs ON a.section_id = cs.section_id
+      JOIN courses c ON cs.course_id = c.course_id
+      WHERE a.section_id = $1
+      AND a.student_id IN (SELECT student_id FROM attendance WHERE section_id = $1 AND date = $2)
+      GROUP BY s.student_id, u.user_id, u.name, c.title
+      HAVING COUNT(CASE WHEN a.status = 'present' THEN 1 END)::FLOAT / NULLIF(COUNT(*), 0) < $3
+    `, [sectionId, date, THRESHOLD]);
 
-       if (statsRes.rowCount > 0 && statsRes.rows[0].ratio < THRESHOLD) {
-         notify({
-           userId: statsRes.rows[0].user_id,
-           title: 'Low Attendance Alert',
-           message: `Your attendance in ${statsRes.rows[0].title} has dropped below the 75% threshold (Current: ${Math.round(statsRes.rows[0].ratio * 100)}%). Please attend classes regularly to avoid penalties.`,
-           type: 'system',
-           priority: 'high',
-           channels: ['in-app', 'email']
-         });
-       }
+    if (lowAttendanceStats.rowCount > 0) {
+      console.log(`Found ${lowAttendanceStats.rowCount} students with low attendance. Sending alerts...`);
+      for (const stat of lowAttendanceStats.rows) {
+        await notify({
+          userId: stat.user_id,
+          title: 'Low Attendance Alert',
+          message: `Dear ${stat.name}, your attendance in ${stat.course_title} has dropped below the 75% threshold. Current attendance: ${Math.round(stat.ratio * 100)}%. Please ensure regular attendance to avoid academic penalties.`,
+          type: 'system',
+          priority: 'high',
+          channels: ['in-app', 'email']
+        });
+      }
     }
     // ------------------------------------
 

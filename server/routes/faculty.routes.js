@@ -13,8 +13,7 @@ import {
   updateStudentMarks,
   getGradeScale,
   getAttendance,
-
-
+  getMonthlyAttendance,
   submitAttendance,
   getSectionAssignments,
   createAssignment,
@@ -64,6 +63,7 @@ router.get('/grade-scale', getGradeScale);
 
 // Attendance
 router.get('/sections/:sectionId/attendance', getAttendance);
+router.get('/sections/:sectionId/attendance/monthly', getMonthlyAttendance);
 router.post('/sections/:sectionId/attendance', submitAttendance);
 
 // Assignments

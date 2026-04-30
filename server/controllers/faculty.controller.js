@@ -102,6 +102,15 @@ export const getAttendance = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+export const getMonthlyAttendance = async (req, res) => {
+  try {
+    const { sectionId } = req.params;
+    const { month } = req.query; // Expects YYYY-MM
+    const data = await facultyService.getMonthlyAttendance(sectionId, month || new Date().toISOString().slice(0, 7));
+    res.json(data);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
 export const submitAttendance = async (req, res) => {
   try {
     const { sectionId } = req.params;
