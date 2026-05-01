@@ -1002,11 +1002,56 @@ export const updateSiteSettings = async (settings) => {
       INSERT INTO site_settings (key, value, updated_at)
       VALUES ($1, $2, NOW())
       ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()
-    `, [key, JSON.stringify(value)]);
+    `, [key, JSON.stringify(value) === undefined ? null : JSON.stringify(value)]);
   });
   
   await Promise.all(queries);
   return getSiteSettings();
+};
+
+export const getPublicSettings = async () => {
+  const settings = await getSiteSettings();
+  
+  // Fetch real counts as defaults
+  const [studentsRes, facultyRes, coursesRes] = await Promise.all([
+    db.query(`SELECT COUNT(*) FROM users WHERE role = 'student' AND registration_status = 'approved' AND is_active = true`),
+    db.query(`SELECT COUNT(*) FROM users WHERE role = 'faculty' AND registration_status = 'approved' AND is_active = true`),
+    db.query(`SELECT COUNT(*) FROM courses WHERE is_active = true`)
+  ]);
+
+  const realStats = {
+    students: parseInt(studentsRes.rows[0].count || 0),
+    faculty: parseInt(facultyRes.rows[0].count || 0),
+    courses: parseInt(coursesRes.rows[0].count || 0)
+  };
+
+  // Return only safe public settings
+  const publicKeys = [
+    'siteName', 'siteLogo', 'favicon', 'siteTagline', 'siteDescription',
+    'contactEmail', 'contactPhone', 'contactAddress', 'supportHours',
+    'heroTitle', 'heroSubtitle', 'heroImage', 'aboutImage',
+    'social_facebook', 'social_twitter', 'social_linkedin', 'social_instagram',
+    'avgJobPlacement', 'manualStudentsCount', 'manualFacultyCount', 'manualCoursesCount'
+  ];
+
+  const publicSettings = {};
+  publicKeys.forEach(key => {
+    // If it's a string, we might need to parse it if it was stringified twice or something
+    // but typically db.query for JSONB handles it.
+    // However, SiteSettings.jsx sends an object, and updateSiteSettings stringifies it.
+    // If row.value is already an object (parsed by pg), then we are good.
+    if (settings[key] !== undefined) {
+      publicSettings[key] = settings[key];
+    }
+  });
+
+  // Merge with real stats (Auto-counted from database)
+  publicSettings.studentsCount = realStats.students;
+  publicSettings.facultyCount = realStats.faculty;
+  publicSettings.coursesCount = realStats.courses;
+  publicSettings.avgJobPlacement = settings.avgJobPlacement || '95%';
+
+  return publicSettings;
 };
 
 // ─────────────────────── FEE STRUCTURES ───────────────────────

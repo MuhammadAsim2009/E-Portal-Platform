@@ -39,9 +39,37 @@ const STATS = [
 ];
 
 import usePageTitle from '../../hooks/usePageTitle';
+import { useState, useEffect } from 'react';
+import api from '../../services/api';
 
 export default function AboutPage() {
   usePageTitle('About Us');
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await api.get('/public/settings');
+        setSettings(res.data);
+      } catch (err) {
+        console.error('Failed to fetch site settings:', err);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const dynamicStats = settings ? [
+    { value: `${settings.studentsCount}+`, label: 'Active Students' },
+    { value: `${settings.facultyCount}+`, label: 'Expert Faculty' },
+    { value: `${settings.coursesCount}+`, label: 'Active Courses' },
+    { value: settings.avgJobPlacement || '95%', label: 'Job Placement' },
+  ] : [
+    { value: '...', label: 'Active Students' },
+    { value: '...', label: 'Expert Faculty' },
+    { value: '...', label: 'Active Courses' },
+    { value: '...', label: 'Job Placement' },
+  ];
+
   return (
     <div className="bg-white dark:bg-[#0a0a0a]">
 
@@ -68,7 +96,7 @@ export default function AboutPage() {
       <section className="py-16 border-y border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0d0d0d]">
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {STATS.map(s => (
+            {dynamicStats.map(s => (
               <div key={s.label} className="text-center">
                 <p className="text-4xl font-bold text-slate-900 dark:text-white tracking-tight mb-1">{s.value}</p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">{s.label}</p>

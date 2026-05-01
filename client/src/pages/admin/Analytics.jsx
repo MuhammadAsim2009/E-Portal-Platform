@@ -254,7 +254,7 @@ const Analytics = () => {
           </div>
           <div className="h-[300px] w-full flex items-center justify-center">
             {revenueData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={revenueData}>
                   <defs>
                     <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
@@ -306,7 +306,7 @@ const Analytics = () => {
           </div>
           <div className="h-[340px] w-full flex items-center justify-center">
             {distributionData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <PieChart>
                   <Pie
                     data={distributionData}

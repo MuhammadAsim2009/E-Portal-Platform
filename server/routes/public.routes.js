@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import pool from '../config/db.js';
+import * as adminService from '../services/admin.service.js';
 
 const router = Router();
 
@@ -23,6 +24,17 @@ router.post('/contact', async (req, res) => {
     });
   } catch (err) {
     console.error('Error submitting contact message:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get public site settings
+router.get('/settings', async (req, res) => {
+  try {
+    const settings = await adminService.getPublicSettings();
+    res.json(settings);
+  } catch (err) {
+    console.error('Error fetching public settings:', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 });

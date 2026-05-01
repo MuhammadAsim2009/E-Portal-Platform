@@ -1,5 +1,5 @@
 import { Mail, Phone, MapPin, Send, MessageSquare, Clock, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import usePageTitle from '../../hooks/usePageTitle';
 
@@ -15,6 +15,19 @@ export default function ContactPage() {
     subject: '',
     message: ''
   });
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await api.get('/public/settings');
+        setSettings(res.data);
+      } catch (err) {
+        console.error('Failed to fetch site settings:', err);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -151,22 +164,22 @@ export default function ContactPage() {
                 icon={<Mail size={18} className="text-blue-600 dark:text-blue-400" />}
                 bg="bg-blue-50 dark:bg-blue-500/10"
                 title="Email"
-                value="support@e-portal.io"
+                value={settings?.contactEmail || "Loading..."}
                 sub="We reply within a few hours"
               />
               <InfoCard
                 icon={<Phone size={18} className="text-emerald-600 dark:text-emerald-400" />}
                 bg="bg-emerald-50 dark:bg-emerald-500/10"
                 title="Phone"
-                value="+1 (888) 000-0000"
+                value={settings?.contactPhone || "Loading..."}
                 sub="Mon–Fri, 9am to 6pm EST"
               />
               <InfoCard
                 icon={<MapPin size={18} className="text-violet-600 dark:text-violet-400" />}
                 bg="bg-violet-50 dark:bg-violet-500/10"
                 title="Office"
-                value="San Francisco, CA"
-                sub="United States"
+                value={settings?.contactAddress || "Loading..."}
+                sub={settings?.contactAddress ? "" : "United States"}
               />
 
               {/* Hours */}
@@ -176,14 +189,13 @@ export default function ContactPage() {
                   <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Support Hours</h4>
                 </div>
                 <div className="space-y-2.5 text-sm">
-                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                    <span>Mon – Fri</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">9:00am – 8:00pm EST</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                    <span>Sat – Sun</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">10:00am – 5:00pm EST</span>
-                  </div>
+                  {settings?.supportHours ? (
+                    <div className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                      {settings.supportHours}
+                    </div>
+                  ) : (
+                    <div className="text-slate-400">Loading hours...</div>
+                  )}
                 </div>
                 <div className="pt-3 border-t border-slate-200 dark:border-white/10 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />

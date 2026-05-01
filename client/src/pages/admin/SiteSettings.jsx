@@ -6,7 +6,7 @@ import {
   RotateCcw, Eye, Trash2, Camera, Type, Layout, Image,
   Smartphone, BellRing, UserCheck, Languages, Clock, 
   Coins, MapPin, Phone, AlertTriangle, AlertCircle, X,
-  Lock, CheckCircle2, XCircle, FileText, Share2, Users
+  Lock, CheckCircle2, XCircle, FileText, Share2, Users, Briefcase
 } from 'lucide-react';
 const TABS = [
   { id: 'general', label: 'General', icon: Globe },
@@ -271,12 +271,24 @@ const SiteSettings = () => {
                       <option value="EUR">EUR (€)</option>
                     </select>
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 flex items-center gap-2">
+                      <Briefcase size={12} /> Avg Job Placement
+                    </label>
+                    <input 
+                      type="text" 
+                      value={settings.avgJobPlacement || ''}
+                      onChange={e => setSettings({...settings, avgJobPlacement: e.target.value})}
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 focus:border-indigo-500/30 focus:ring-4 focus:ring-indigo-500/5 rounded-2xl text-[13px] font-bold text-slate-900"
+                      placeholder="e.g. 95%"
+                    />
+                  </div>
                 </div>
                 <div className="pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-8">
                    {/* Contact Section */}
                    <div className="space-y-6">
                       <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-900 flex items-center gap-2">
-                         <MailIcon size={14} className="text-indigo-500" /> Contact Coordinates
+                         <Mail size={14} className="text-indigo-500" /> Contact Coordinates
                       </h4>
                       <div className="space-y-4">
                         <input 
@@ -289,6 +301,18 @@ const SiteSettings = () => {
                           type="text" placeholder="Contact Phone"
                           value={settings.contactPhone || ''}
                           onChange={e => setSettings({...settings, contactPhone: e.target.value})}
+                          className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl text-[12px] font-bold"
+                        />
+                        <input 
+                          type="text" placeholder="Office Address"
+                          value={settings.contactAddress || ''}
+                          onChange={e => setSettings({...settings, contactAddress: e.target.value})}
+                          className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl text-[12px] font-bold"
+                        />
+                        <input 
+                          type="text" placeholder="Support Hours (e.g. Mon-Fri, 9AM-5PM)"
+                          value={settings.supportHours || ''}
+                          onChange={e => setSettings({...settings, supportHours: e.target.value})}
                           className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl text-[12px] font-bold"
                         />
                       </div>
@@ -460,36 +484,37 @@ const SiteSettings = () => {
                   </div>
                 </div>
 
-                <div className="p-8 bg-slate-50 border border-slate-100 rounded-[32px]">
-                   <div className="flex items-center gap-4 mb-6">
-                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-600 shadow-sm">
-                        <Image size={20} />
-                      </div>
-                      <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-900">Homepage Media Assets</h4>
-                   </div>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Main Hero Image URL</label>
-                        <input 
-                          type="text" 
-                          value={settings.heroImage || ''}
-                          onChange={e => setSettings({...settings, heroImage: e.target.value})}
-                          className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-bold"
-                          placeholder="https://..."
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">About Section Image</label>
-                        <input 
-                          type="text" 
-                          value={settings.aboutImage || ''}
-                          onChange={e => setSettings({...settings, aboutImage: e.target.value})}
-                          className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-bold"
-                          placeholder="https://..."
-                        />
-                      </div>
-                   </div>
-                </div>
+
+                 <div className="p-8 bg-slate-50 border border-slate-100 rounded-[32px]">
+                    <div className="flex items-center gap-4 mb-6">
+                       <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-600 shadow-sm">
+                         <Image size={20} />
+                       </div>
+                       <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-900">Homepage Media Assets</h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                       <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Main Hero Image URL</label>
+                         <input 
+                           type="text" 
+                           value={settings.heroImage || ''}
+                           onChange={e => setSettings({...settings, heroImage: e.target.value})}
+                           className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-bold"
+                           placeholder="https://..."
+                         />
+                       </div>
+                       <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">About Section Image</label>
+                         <input 
+                           type="text" 
+                           value={settings.aboutImage || ''}
+                           onChange={e => setSettings({...settings, aboutImage: e.target.value})}
+                           className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-bold"
+                           placeholder="https://..."
+                         />
+                       </div>
+                    </div>
+                 </div>
               </div>
             )}
             

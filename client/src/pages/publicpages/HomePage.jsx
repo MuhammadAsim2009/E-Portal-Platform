@@ -63,9 +63,40 @@ const colorMap = {
 };
 
 import usePageTitle from '../../hooks/usePageTitle';
+import { useState, useEffect } from 'react';
+import api from '../../services/api';
 
 export default function HomePage() {
   usePageTitle('Home');
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await api.get('/public/settings');
+        setSettings(res.data);
+      } catch (err) {
+        console.error('Failed to fetch site settings:', err);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const dynamicStats = settings ? [
+    { value: `${settings.studentsCount}+`, label: 'Active Students' },
+    { value: `${settings.facultyCount}+`, label: 'Expert Faculty' },
+    { value: `${settings.coursesCount}+`, label: 'Active Courses' },
+    { value: settings.avgJobPlacement || '95%', label: 'Avg Job Placement' },
+  ] : [
+    { value: '...', label: 'Active Students' },
+    { value: '...', label: 'Expert Faculty' },
+    { value: '...', label: 'Active Courses' },
+    { value: '...', label: 'Avg Job Placement' },
+  ];
+
+  const heroTitle = settings?.heroTitle || "The smarter way to run your campus.";
+  const heroSubtitle = settings?.heroSubtitle || "E-Portal is a complete institutional management platform — student records, courses, attendance, fees, and more. Built for clarity, built to scale.";
+
   return (
     <div className="bg-white dark:bg-[#0a0a0a]">
 
@@ -84,12 +115,16 @@ export default function HomePage() {
           </div>
 
           <h1 className="text-5xl md:text-7xl font-bold text-slate-900 dark:text-white tracking-tight leading-[1.05] mb-6">
-            The smarter way to<br className="hidden md:block" />
-            <span className="text-blue-600 dark:text-blue-400"> run your campus.</span>
+            {heroTitle.includes('your campus') ? (
+              <>
+                {heroTitle.split('your campus')[0]}
+                <span className="text-blue-600 dark:text-blue-400"> your campus.</span>
+              </>
+            ) : heroTitle}
           </h1>
 
           <p className="text-lg md:text-xl text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed mb-10">
-            E-Portal is a complete institutional management platform — student records, courses, attendance, fees, and more. Built for clarity, built to scale.
+            {heroSubtitle}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
@@ -103,7 +138,7 @@ export default function HomePage() {
 
           {/* Stats Bar */}
           <div className="inline-grid grid-cols-2 md:grid-cols-4 gap-px bg-slate-200 dark:bg-white/10 rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm">
-            {STATS.map(s => (
+            {dynamicStats.map(s => (
               <div key={s.label} className="bg-white dark:bg-[#111] px-8 py-5 text-center">
                 <p className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{s.value}</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{s.label}</p>
@@ -170,15 +205,35 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Social Proof ── */}
-      <section className="py-20 bg-slate-50 dark:bg-[#0d0d0d] border-y border-slate-200 dark:border-white/10">
-        <div className="max-w-6xl mx-auto px-6 text-center">
-          <p className="text-sm text-slate-400 dark:text-slate-500 mb-10 uppercase tracking-widest font-medium">Trusted by institutions worldwide</p>
-          <div className="flex flex-wrap justify-center gap-10 opacity-40 dark:opacity-20 grayscale">
-            {['STANFORD', 'MIT', 'OXFORD', 'CAMBRIDGE', 'TSINGHUA'].map(n => (
-              <span key={n} className="text-xl font-black text-slate-800 dark:text-white tracking-tighter">{n}</span>
+      {/* ── Project Ecosystem ── */}
+      <section className="py-28 bg-white dark:bg-[#0a0a0a] border-y border-slate-100 dark:border-white/5 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#3b82f605,transparent_50%)]" />
+        <div className="max-w-6xl mx-auto px-6 relative z-10 text-center">
+          <div className="inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 mb-12">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Academic Management System</span>
+            <div className="w-4 h-px bg-slate-200 dark:bg-white/10" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400">Integrated Ecosystem</span>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-12 items-center">
+            {[
+              'STUDENT PORTAL',
+              'FACULTY HUB',
+              'ADMIN CENTER',
+              'FINANCE DESK',
+              'ACADEMIC LOGS'
+            ].map(m => (
+              <div key={m} className="group cursor-default">
+                <span className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tighter transition-all duration-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:scale-105 block">
+                  {m}
+                </span>
+              </div>
             ))}
           </div>
+          
+          <p className="mt-16 text-sm font-medium text-slate-400 dark:text-slate-500 max-w-lg mx-auto">
+            A unified digital infrastructure developed specifically to streamline academic operations and enhance the institutional experience.
+          </p>
         </div>
       </section>
 
