@@ -34,8 +34,3 @@ dist-ssr
 dist
 dist-ssr
 build/
-
-# GSD
-.agent
-.planning/*
-.agent/*

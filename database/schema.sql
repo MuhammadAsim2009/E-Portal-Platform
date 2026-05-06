@@ -142,9 +142,35 @@ CREATE TABLE IF NOT EXISTS fee_structures (
   semester VARCHAR(20) NOT NULL,
   category VARCHAR(100) NOT NULL,
   amount DECIMAL(10,2) NOT NULL,
+  section_id UUID REFERENCES course_sections(section_id) ON DELETE SET NULL,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS approval_requests (
+  request_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  requester_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
+  admin_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
+  request_type VARCHAR(50) NOT NULL, -- 'COURSE_ADD', 'COURSE_EDIT', 'COURSE_DELETE'
+  target_id UUID, -- ID of the course being edited/deleted
+  request_data JSONB,
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  admin_comment TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS contact_messages (
+  message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(150) NOT NULL,
+  subject VARCHAR(200),
+  message TEXT NOT NULL,
+  status VARCHAR(20) DEFAULT 'unread' CHECK (status IN ('unread', 'read', 'replied')),
+  reply_text TEXT,
+  replied_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (
