@@ -48,6 +48,7 @@ CREATE TABLE courses (
   syllabus_url TEXT,
   department VARCHAR(100),
   semester_offered VARCHAR(20),
+  max_seats INT DEFAULT 60,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP DEFAULT NOW()
 );
@@ -113,6 +114,7 @@ CREATE TABLE attendance (
 CREATE TABLE fees (
   fee_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID REFERENCES students(student_id) ON DELETE CASCADE,
+  section_id UUID REFERENCES course_sections(section_id) ON DELETE SET NULL,
   semester VARCHAR(20) NOT NULL,
   fee_type VARCHAR(50),
   amount DECIMAL(10,2) NOT NULL,
@@ -143,6 +145,7 @@ CREATE TABLE IF NOT EXISTS fee_structures (
   category VARCHAR(100) NOT NULL,
   amount DECIMAL(10,2) NOT NULL,
   section_id UUID REFERENCES course_sections(section_id) ON DELETE SET NULL,
+  course_id UUID REFERENCES courses(course_id) ON DELETE SET NULL,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()

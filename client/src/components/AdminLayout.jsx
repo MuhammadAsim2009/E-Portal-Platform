@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import api from '../services/api';
+import logo from '../assets/logo.jpg';
 
 const navGroups = [
   {
@@ -90,8 +91,8 @@ const AdminLayout = () => {
       <aside className={`fixed lg:static inset-y-0 left-0 w-72 bg-slate-950 border-r border-slate-800 text-slate-300 flex flex-col z-30 transform transition-all duration-300 ease-out shadow-2xl ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         {/* Brand */}
         <div className="flex items-center gap-3 px-8 py-8 border-b border-slate-800/60">
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/20">
-            <Shield size={20} className="text-white drop-shadow-md" />
+          <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
+            <img src={siteSettings?.siteLogo || logo} alt="Logo" className="w-full h-full object-contain rounded-xl shadow-lg shadow-indigo-500/20" />
           </div>
           <div className="flex flex-col">
             <span className="font-bold text-lg tracking-tight text-white leading-none">{siteSettings?.siteName || 'E-Portal'}</span>

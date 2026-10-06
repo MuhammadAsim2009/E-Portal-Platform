@@ -15,6 +15,7 @@ import {
   CalendarCheck
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
+import logo from '../assets/logo.jpg';
 
 const DashboardLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -59,8 +60,8 @@ const DashboardLayout = () => {
         {/* Sidebar Header / Logo */}
         <div className="flex items-center justify-between h-24 px-8 border-b border-slate-50/50">
           <div className="flex items-center gap-4 group cursor-pointer">
-            <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-200 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
-               <BookOpen size={22} strokeWidth={2.5} />
+            <div className="w-10 h-10 flex items-center justify-center group-hover:scale-110 transition-all duration-300">
+               <img src={siteSettings?.siteLogo || logo} alt="Logo" className="w-full h-full object-contain rounded-xl shadow-md" />
             </div>
             <div className="flex flex-col">
               <span className="text-xl font-black tracking-tight text-slate-900 leading-none">{siteSettings?.siteName || 'E-Portal'}</span>

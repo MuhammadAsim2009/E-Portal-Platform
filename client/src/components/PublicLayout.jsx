@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { GraduationCap, Menu, X, Sun, Moon, ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import logo from '../assets/logo.jpg';
 
 export default function PublicLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -49,8 +50,8 @@ export default function PublicLayout() {
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/30 group-hover:scale-105 transition-transform">
-              <GraduationCap size={18} className="text-white" strokeWidth={2.5} />
+            <div className="w-8 h-8 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <img src={logo} alt="Logo" className="w-full h-full object-contain rounded-lg shadow-md" />
             </div>
             <span className="font-semibold text-slate-900 dark:text-white text-[15px] tracking-tight">E-Portal</span>
           </Link>
